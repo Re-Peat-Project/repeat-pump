@@ -49,6 +49,9 @@ QSS = f"""
 #crumb {{ color: {MUTED}; font-size: 9pt; }}
 #chip {{ background: #E7E2D4; border-radius: 10px; padding: 2px 10px; font-weight: 600; font-size: 8.5pt; }}
 #footerNote {{ color: {AMBER_TEXT}; font-weight: 600; }}
+#lang {{ background: transparent; color: {MUTED}; border: 1px solid #C9C3B3; padding: 3px 10px; font-weight: 700; font-size: 8.5pt; }}
+#lang:checked {{ background: {TEAL_DARK}; color: white; border: 1px solid {TEAL_DARK}; }}
+#lang:hover:!checked {{ background: rgba(0,0,0,0.05); }}
 QCheckBox#learn {{ spacing: 8px; font-weight: 600; }}
 QCheckBox#learn::indicator {{ width: 34px; height: 18px; border-radius: 9px; background: #B7B09D; }}
 QCheckBox#learn::indicator:checked {{ background: {TEAL_DARK}; }}

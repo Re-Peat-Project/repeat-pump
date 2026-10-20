@@ -6,6 +6,8 @@ Given a bare-earth DTM, canals and peat/burn data, this module prioritises canal
 
 Layout: the engine is a QGIS-free Python package (`repeat_pump/core`), run from a command line, and a thin QGIS plugin (`qgis_plugin/repeat_pump_qgis`) that starts that command in a separate Python environment.
 
+Installing the QGIS plugin step by step (English and Bahasa Indonesia, one page): [docs/install.html](docs/install.html).
+
 ## 1. Install the engine
 
 Requires Python 3.11 or newer.

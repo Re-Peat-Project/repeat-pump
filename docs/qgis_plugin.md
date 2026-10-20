@@ -17,7 +17,12 @@ If no suitable Python is found (Python 3.11+ with pip and SSL, e.g. from python.
 the setup again. Advanced: pick your own interpreter with *Plugins > RE-PEAT Pompanisasi > Set Python environment (advanced)*, or
 set `REPEAT_PUMP_PYTHON`. Precedence: `REPEAT_PUMP_PYTHON`, then the chosen interpreter, then the auto-managed environment.
 
+Installation step by step, in English and Bahasa Indonesia: [install.html](install.html).
+
 ## Guided wizard (recommended for training)
+The wizard speaks English and Bahasa Indonesia. Use the **EN** and **ID** buttons at the top right; it starts in Indonesian when
+QGIS is set to Indonesian. Messages written by the engine (warnings, the log) stay in English.
+
 Click the water-drop button in the toolbar, or *Plugins > RE-PEAT Pompanisasi > Guided wizard*. It opens a floating panel
 (dock it to the side if you like; the stage list then collapses to icons).
 

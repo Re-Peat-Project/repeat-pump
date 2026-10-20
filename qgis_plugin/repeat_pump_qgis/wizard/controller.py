@@ -14,6 +14,7 @@ from qgis.PyQt.QtCore import QObject, pyqtSignal
 from .. import runner
 from ..runconfig import set_dotted, write_run_config
 from . import viewmodel as vm
+from .i18n import tr
 
 
 def _flag(name: str):
@@ -70,7 +71,7 @@ class WizardController(QObject):
         self.check_json: Optional[dict] = None
         self.model: Optional[vm.WizardModel] = None
         self.engine_ready: Optional[bool] = None     # None = still checking
-        self.engine_message = "Checking the engine..."
+        self.engine_message = tr("Checking the engine...")
         self.running: Optional[int] = None
         self.busy = ""                               # description of a non-stage task ("Checking...", "Setting up...")
         self.log: list[str] = []
@@ -107,17 +108,20 @@ class WizardController(QObject):
     # ------------------------------------------------------------------ engine environment
     def start(self) -> None:
         """Check whether the engine environment works (async), then the open run if there is one."""
-        self.busy = "Checking the engine..."
+        self.busy = tr("Checking the engine...")
         self.changed.emit()
 
         def work(task):
             py = runner.get_python()
-            return py, runner.check_environment(py)
+            return py, runner.check_environment(py), runner.environment_outdated(py)
 
         def done(res, err):
             self.busy = ""
             if err or res is None:
-                self.engine_ready, self.engine_message = False, err or "Could not check the engine."
+                self.engine_ready, self.engine_message = False, err or tr("Could not check the engine.")
+            elif res[1][0] and res[2]:
+                self.engine_ready = False
+                self.engine_message = tr("The engine is older than the plugin. Click Set up engine to update it.")
             else:
                 self.engine_ready, self.engine_message = bool(res[1][0]), res[1][1]
             if self.engine_ready and self.config_path:
@@ -130,7 +134,7 @@ class WizardController(QObject):
         """Create or repair the private engine environment (needs internet once)."""
         if self.busy or self.running is not None:
             return
-        self.busy = "Setting up the engine environment (a few minutes, needs internet)..."
+        self.busy = tr("Setting up the engine environment (a few minutes, needs internet)...")
         self.log.clear()
         self.changed.emit()
         self._submit("RE-PEAT: set up engine", lambda task: runner.ensure_environment(self.log_line.emit), self._after_setup)
@@ -139,10 +143,10 @@ class WizardController(QObject):
         self.busy = ""
         if err:
             self.engine_ready, self.engine_message = False, err
-            self.notice.emit("error", f"Engine setup failed: {err}")
+            self.notice.emit("error", tr("Engine setup failed: {err}").format(err=err))
         else:
-            self.engine_ready, self.engine_message = True, "Engine ready"
-            self.notice.emit("success", "Engine environment is ready.")
+            self.engine_ready, self.engine_message = True, tr("Engine ready")
+            self.notice.emit("success", tr("Engine environment is ready."))
             if self.config_path:
                 self.refresh_check()
                 return
@@ -163,7 +167,7 @@ class WizardController(QObject):
 
         def done(res, err):
             if err:
-                self.notice.emit("error", f"The run config is not valid: {err}")
+                self.notice.emit("error", tr("The run config is not valid: {err}").format(err=err))
             else:
                 self.check_json = res
             self._rebuild()
@@ -207,16 +211,16 @@ class WizardController(QObject):
         def done(code, err):
             self.running = None
             if err:
-                self.notice.emit("error", f"Stage {stage} could not run: {err}")
+                self.notice.emit("error", tr("Stage {n} could not run: {err}").format(n=stage, err=err))
                 code = 1
             elif code == runner.CANCELLED:
-                self.notice.emit("warning", f"Stage {stage} was cancelled. Run it again when you are ready.")
+                self.notice.emit("warning", tr("Stage {n} was cancelled. Run it again when you are ready.").format(n=stage))
             elif code == 1:
-                self.notice.emit("error", f"Stage {stage} failed. See the message on the card.")
+                self.notice.emit("error", tr("Stage {n} failed. See the message on the card.").format(n=stage))
             elif code == 2:
-                self.notice.emit("warning", f"Stage {stage} is ready for your review.")
+                self.notice.emit("warning", tr("Stage {n} is ready for your review.").format(n=stage))
             elif code == 0:
-                self.notice.emit("success", f"Stage {stage} finished.")
+                self.notice.emit("success", tr("Stage {n} finished.").format(n=stage))
             self._rebuild()
             self.stage_finished.emit(stage, int(code if code is not None else 1))
         self._submit(f"RE-PEAT: stage {stage}", work, done)

@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
+from .i18n import tr
+
 # ----------------------------------------------------------------------------- static content
 # id -> (title, one-line purpose, what, why, reference)
 STAGE_TEXT: dict[int, tuple[str, str, str, str, str]] = {
@@ -141,13 +143,26 @@ FIELDS: dict[str, Field_] = {f.key: f for f in [
 ]}
 
 
+CRITERIA = {"burn_freq": "burn frequency", "peat_depth": "peat depth", "dryness": "dryness", "upstream_contrib": "upstream contribution"}
+
+
 def field_for(key: str) -> Field_:
     """Metadata for a parameter key; criterion weights and unknown keys get sensible generic entries."""
+    f = _field_en(key)
+    label = tr(f.label)
+    if key.startswith("prioritise.criteria.") and key.endswith(".weight"):
+        name = key.split(".")[2]
+        label = tr("Weight: {name}").format(name=tr(CRITERIA.get(name, name.replace("_", " "))))
+    return Field_(f.key, label, f.kind, tr(f.unit) if f.unit else "", tr(f.help) if f.help else "", f.options)
+
+
+def _field_en(key: str) -> Field_:
     if key in FIELDS:
         return FIELDS[key]
     if key.startswith("prioritise.criteria.") and key.endswith(".weight"):
         name = key.split(".")[2]
-        return Field_(key, f"Weight: {name.replace('_', ' ')}", "float", "", "Relative importance of this criterion. Decided with the team; weights are normalised.")
+        return Field_(key, f"Weight: {CRITERIA.get(name, name.replace('_', ' '))}", "float", "",
+                      "Relative importance of this criterion. Decided with the team; weights are normalised.")
     if key == "prioritise.ahp_matrix":
         return Field_(key, "AHP pairwise matrix", "matrix", "", "Edit this in the YAML file (a matrix cannot be typed here).")
     return Field_(key, key, "text")
@@ -275,15 +290,15 @@ class WizardModel:
         raw = st.get("status")
         if raw == "running":
             if self.running == sid:
-                return "running", "Running", ""
-            return "failed", "Interrupted", "The last run was interrupted. Run it again."
+                return "running", tr("Running"), ""
+            return "failed", tr("Interrupted"), tr("The last run was interrupted. Run it again.")
         if raw == "failed":
-            return "failed", "Failed", st.get("error", "")
+            return "failed", tr("Failed"), st.get("error", "")
         if raw == "awaiting_review":
-            return "needs_review", "Needs your review", ""
+            return "needs_review", tr("Needs your review"), ""
         if raw == "done":
-            return "done", "Done", ""
-        return ("ready", "Ready to run", "") if previous_ok else ("locked", "Locked", "")
+            return "done", tr("Done"), ""
+        return ("ready", tr("Ready to run"), "") if previous_ok else ("locked", tr("Locked"), "")
 
     def _build(self) -> list[StageView]:
         counts = self.state.get("report", {}).get("counts", {})
@@ -296,33 +311,33 @@ class WizardModel:
             if status in ("done", "needs_review"):
                 stored = self.state.get("stages", {}).get(str(sid), {}).get("fingerprint")
                 if first_stale is not None:
-                    status, sub, stale_reason = "stale", "Out of date", f"Stage {first_stale} changed, so this stage is out of date."
+                    status, sub, stale_reason = "stale", tr("Out of date"), tr("Stage {n} changed, so this stage is out of date.").format(n=first_stale)
                 elif stored is not None and s.get("fingerprint") is not None and stored != s["fingerprint"]:
                     first_stale = sid
-                    status, sub = "stale", "Out of date"
-                    stale_reason = "A setting changed after this stage ran. Re-run it to apply the change."
-            v = StageView(sid, title, purpose, what, why, ref, s["review"], status, sub, list(s["missing"]),
+                    status, sub = "stale", tr("Out of date")
+                    stale_reason = tr("A setting changed after this stage ran. Re-run it to apply the change.")
+            v = StageView(sid, tr(title), tr(purpose), tr(what), tr(why), ref, s["review"], status, sub, list(s["missing"]),
                           list(s.get("recommended_missing", [])), error=err, stale_reason=stale_reason)
             v.params = [Param(e["key"], e["value"]) for e in s.get("needs", [])] + \
                        [Param(e["key"], e["value"], True) for e in s.get("recommended", [])]
             if status == "locked" and s["review"]:
-                v.sub = "Locked, review stage"
+                v.sub = tr("Locked, review stage")
             tcfg = STAGE_TILES.get(sid, [])
             c = counts.get(str(sid), {})
             if status in ("done", "needs_review", "stale"):
-                v.tiles = [Tile(label, _fmt(c[k]), note, bool(warn and c[k]))
+                v.tiles = [Tile(tr(label), _fmt(c[k]), tr(note) if note else "", bool(warn and c[k]))
                            for k, label, note, warn in tcfg if k in c]
             if status in ("done", "needs_review", "failed", "stale"):
                 v.warnings = warnings_for(sid, self.warnings, len(self.check["stages"]))
-            v.review_hint = REVIEW_HINT.get(sid, "") if status == "needs_review" else ""
+            v.review_hint = tr(REVIEW_HINT.get(sid, "")) if status == "needs_review" else ""
             v.layers = STAGE_LAYERS.get(sid, [])
             busy = self.running is not None
             if not self.engine_ready:
-                v.blocking = "The engine environment is not set up yet."
+                v.blocking = tr("The engine environment is not set up yet.")
             elif status == "stale" and sid != first_stale:
-                v.blocking = f"Re-run stage {first_stale} first."
+                v.blocking = tr("Re-run stage {n} first.").format(n=first_stale)
             elif v.missing and status in ("ready", "failed", "done", "needs_review", "stale"):
-                v.blocking = f"{len(v.missing)} required value{'s are' if len(v.missing) != 1 else ' is'} empty"
+                v.blocking = tr("1 required value is empty") if len(v.missing) == 1 else tr("{n} required values are empty").format(n=len(v.missing))
             v.can_run = status in ("ready",) and not v.blocking and not busy
             v.can_accept = status == "needs_review" and not busy       # never for a stale stage: its results are out of date
             v.can_rerun = status in ("done", "failed", "needs_review", "stale") and not v.blocking and not busy

@@ -73,6 +73,21 @@ def test_ensure_environment_explains_missing_bundled_engine(tmp_path, monkeypatc
         runner.ensure_environment(lambda m: None)    # the source tree has no engine/ folder; only the installed copy does
 
 
+def test_environment_outdated_only_for_the_plugins_own_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("REPEAT_PUMP_ENV_DIR", str(tmp_path / "env"))
+    py = runner.venv_python(tmp_path / "env")
+    monkeypatch.setattr(runner, "bundled_version", lambda: "")
+    assert not runner.environment_outdated(str(py))                        # source checkout: nothing bundled to compare with
+    monkeypatch.setattr(runner, "bundled_version", lambda: "0.2.0")
+    assert runner.environment_outdated(str(py))                            # no version stamp yet
+    py.parent.mkdir(parents=True)
+    (tmp_path / "env" / "engine_version.txt").write_text("0.1.0")
+    assert runner.environment_outdated(str(py))                            # an older engine is installed
+    (tmp_path / "env" / "engine_version.txt").write_text("0.2.0")
+    assert not runner.environment_outdated(str(py))
+    assert not runner.environment_outdated(sys.executable)                 # a user-chosen interpreter is never "outdated"
+
+
 def test_get_python_prefers_explicit_then_auto_env(tmp_path, monkeypatch):
     monkeypatch.delenv("REPEAT_PUMP_PYTHON", raising=False)
     monkeypatch.setenv("REPEAT_PUMP_ENV_DIR", str(tmp_path / "env"))

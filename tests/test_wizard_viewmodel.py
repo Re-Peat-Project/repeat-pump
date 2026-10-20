@@ -1,5 +1,4 @@
 """Wizard view-model and shared config builder: pure Python, no qgis (loaded by file path like test_plugin_runner)."""
-import importlib.util
 import json
 import sys
 from pathlib import Path
@@ -13,17 +12,9 @@ PLUGIN = Path(__file__).parents[1] / "qgis_plugin" / "repeat_pump_qgis"
 EXAMPLE = Path(__file__).parents[1] / "configs" / "example_khg.yaml"
 
 
-def _load(name, rel):
-    spec = importlib.util.spec_from_file_location(name, PLUGIN / rel)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-vm = _load("wizard_viewmodel", "wizard/viewmodel.py")
-rc = _load("wizard_runconfig", "runconfig.py")
-runner = _load("wizard_runner", "runner.py")
+sys.path.insert(0, str(PLUGIN.parent))      # the plugin package has no qgis import at package level
+from repeat_pump_qgis import runconfig as rc, runner      # noqa: E402
+from repeat_pump_qgis.wizard import i18n, viewmodel as vm  # noqa: E402
 
 
 def model(state=None, running=None, cfg_path=EXAMPLE):

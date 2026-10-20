@@ -182,6 +182,16 @@ def env_dir() -> Path:
         return Path.home() / ".repeat_pump" / "env"
 
 
+def environment_outdated(python: str) -> bool:
+    """True if ``python`` is the plugin's own environment and the engine bundled in the plugin is newer than the installed one."""
+    ver = bundled_version()
+    d = env_dir()
+    if not ver or str(venv_python(d)) != str(python):
+        return False
+    stamp = d / "engine_version.txt"
+    return not (stamp.exists() and stamp.read_text().strip() == ver)
+
+
 def venv_python(d: Path) -> Path:
     return d / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
 

@@ -16,7 +16,8 @@ from qgis.PyQt.QtWidgets import (QCheckBox, QComboBox, QDockWidget, QFileDialog,
 
 from ..runconfig import build_run_config
 from ..runner import split_source
-from . import styling, theme
+from . import i18n, styling, theme
+from .i18n import tr
 from . import viewmodel as vm
 from .controller import WizardController
 
@@ -42,7 +43,8 @@ def svg_pixmap(svg: str, color: str, size: int) -> QPixmap:
 
 
 def label(text: str = "", name: str = "", wrap: bool = True) -> QLabel:
-    w = QLabel(text)
+    w = QLabel(tr(text))
+    w.setProperty("src", text)
     if name:
         w.setObjectName(name)
     w.setWordWrap(wrap)
@@ -51,7 +53,8 @@ def label(text: str = "", name: str = "", wrap: bool = True) -> QLabel:
 
 
 def button(text: str, name: str, slot=None, enabled: bool = True) -> QPushButton:
-    b = QPushButton(text)
+    b = QPushButton(tr(text))
+    b.setProperty("src", text)
     b.setObjectName(name)
     b.setCursor(Qt.CursorShape.PointingHandCursor)
     b.setEnabled(enabled)
@@ -170,6 +173,7 @@ class WizardPanel(QWidget):
         self.setStyleSheet(theme.QSS)
         self.setMinimumSize(380, 420)
         self.controller = WizardController(self)
+        i18n.set_language(self._initial_language())
         self.learn = False
         self.selected: Optional[int] = None
         self.compact = False
@@ -212,13 +216,26 @@ class WizardPanel(QWidget):
         hl.setContentsMargins(28, 12, 28, 12)
         self.crumb = label("", "crumb", wrap=False)
         self.run_chip = label("", "chip", wrap=False)
-        self.learn_box = QCheckBox("Learn mode")
+        self.learn_box = QCheckBox(tr("Learn mode"))
         self.learn_box.setObjectName("learn")
         self.learn_box.setCursor(Qt.CursorShape.PointingHandCursor)
         self.learn_box.toggled.connect(self._toggle_learn)
         hl.addWidget(self.crumb)
         hl.addWidget(self.run_chip)
         hl.addStretch(1)
+        self.lang_buttons = {}
+        for code, text in (("en", "EN"), ("id", "ID")):
+            lb = QPushButton(text)
+            lb.setObjectName("lang")
+            lb.setCheckable(True)
+            lb.setChecked(i18n.language() == code)
+            lb.setCursor(Qt.CursorShape.PointingHandCursor)
+            lb.setToolTip(i18n.LANGUAGES[code])
+            lb.setAccessibleName(i18n.LANGUAGES[code])
+            lb.clicked.connect(lambda _=False, c=code: self._set_language(c))
+            self.lang_buttons[code] = lb
+            hl.addWidget(lb)
+        hl.addSpacing(12)
         hl.addWidget(self.learn_box)
         main.addWidget(self.header)
 
@@ -258,11 +275,12 @@ class WizardPanel(QWidget):
         self.log_view.setMaximumBlockCount(2000)
         self.log_view.setVisible(False)
         self.log_toggle = button("Show log", "link", self._toggle_log)
+        self.log_toggle.setProperty("src", None)
 
     def _toggle_log(self) -> None:
         show = not self.log_view.isVisible()
         self.log_view.setVisible(show)
-        self.log_toggle.setText("Hide log" if show else "Show log")
+        self.log_toggle.setText(tr("Hide log") if show else tr("Show log"))
         if show:
             self.log_view.setPlainText("\n".join(self.controller.log))
 
@@ -275,6 +293,7 @@ class WizardPanel(QWidget):
         top = QHBoxLayout()
         top.addWidget(label("Run setup", "cardTitle"), 1)
         self.setup_toggle = button("Edit setup", "link", self._toggle_setup)
+        self.setup_toggle.setProperty("src", None)
         top.addWidget(self.setup_toggle)
         lay.addLayout(top)
         self.setup_summary = label("", "hint")
@@ -327,29 +346,29 @@ class WizardPanel(QWidget):
         has_run = self.controller.config_path is not None
         show = self._setup_open if self._setup_open is not None else not has_run
         self.setup_body.setVisible(show)
-        self.setup_toggle.setText("Hide setup" if show else "Edit setup")
+        self.setup_toggle.setText(tr("Hide setup") if show else tr("Edit setup"))
         self.setup_summary.setVisible(has_run and not show)
-        self.setup_summary.setText(f"Run folder: {self.controller.config_path.parent}" if has_run else "")
+        self.setup_summary.setText(tr("Run folder: {path}").format(path=self.controller.config_path.parent) if has_run else "")
 
     def _create_run(self) -> None:
         try:
             out, tpl = self.out_file.filePath().strip(), self.template.filePath().strip()
             if not out:
-                raise ValueError("Choose where the output GeoPackage should go.")
+                raise ValueError(tr("Choose where the output GeoPackage should go."))
             if not Path(tpl).is_file():
-                raise ValueError("Choose a starting config (YAML).")
+                raise ValueError(tr("Choose a starting config (YAML)."))
             if not self.priority.filePath().strip():
-                raise ValueError("Choose the sub-KHG priority table (CSV).")
+                raise ValueError(tr("Choose the sub-KHG priority table (CSV)."))
             vectors, dtm, moisture = {}, "", ""
             for key, (cb, optional, text) in self.combos.items():
                 layer = cb.currentLayer()
                 if layer is None:
                     if optional:
                         continue
-                    raise ValueError(f"Choose a layer for: {text}.")
+                    raise ValueError(tr("Choose a layer for: {text}.").format(text=tr(text)))
                 path, name = split_source(layer.source())
                 if not os.path.exists(path):
-                    raise ValueError(f"{text}: the layer must be saved to a file (temporary layers cannot be passed to the engine).")
+                    raise ValueError(tr("{text}: the layer must be saved to a file (temporary layers cannot be passed to the engine).").format(text=tr(text)))
                 if key == "dtm":
                     dtm = path
                 elif key == "moisture":
@@ -369,11 +388,43 @@ class WizardPanel(QWidget):
         self.controller.write_config(data, cfg_path)
 
     def _open_run(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Open a run config", "", "YAML (*.yaml *.yml)")
+        path, _ = QFileDialog.getOpenFileName(self, tr("Open a run config"), "", "YAML (*.yaml *.yml)")
         if path:
             self._setup_open = False
             self.selected = None
             self.controller.open_run(path)
+
+    # ------------------------------------------------------------------ language
+    @staticmethod
+    def _initial_language() -> str:
+        try:
+            from qgis.core import QgsSettings
+            saved = QgsSettings().value("repeat_pump/language", "") or ""
+            if saved in i18n.LANGUAGES:
+                return saved
+            from qgis.PyQt.QtCore import QLocale
+            return i18n.default_language(str(QgsSettings().value("locale/userLocale", "") or QLocale().name()))
+        except Exception:
+            return "en"
+
+    def _set_language(self, code: str) -> None:
+        i18n.set_language(code)
+        try:
+            from qgis.core import QgsSettings
+            QgsSettings().setValue("repeat_pump/language", code)
+        except Exception:
+            pass
+        for c, b in self.lang_buttons.items():
+            b.setChecked(c == code)
+        self.learn_box.setText(tr("Learn mode"))
+        for w in self.setup_frame.findChildren(QLabel) + self.setup_frame.findChildren(QPushButton):
+            src = w.property("src")
+            if src:
+                w.setText(tr(src))
+        self.log_toggle.setText(tr("Hide log") if self.log_view.isVisible() else tr("Show log"))
+        self.controller.reload_state()          # rebuilds the model (its texts are translated) and re-renders
+        self._last_sig = None
+        self.render()
 
     # ------------------------------------------------------------------ events
     def _toggle_learn(self, on: bool) -> None:
@@ -420,8 +471,8 @@ class WizardPanel(QWidget):
         if action == "rerun" and model is not None:
             later = [v for v in model.stages if v.id > sid and v.status in ("done", "needs_review", "stale")]
             if later:
-                ok = QMessageBox.question(self, "Re-run stage", f"Re-running stage {sid} clears the results of stages "
-                                          f"{later[0].id} to {later[-1].id}, because they depend on it. Continue?")
+                ok = QMessageBox.question(self, tr("Re-run stage"), tr("Re-running stage {sid} clears the results of stages {first} to {last}, "
+                                          "because they depend on it. Continue?").format(sid=sid, first=later[0].id, last=later[-1].id))
                 if ok != QMessageBox.StandardButton.Yes:
                     return
         self.controller.run(action, sid)
@@ -437,8 +488,8 @@ class WizardPanel(QWidget):
 
         self._render_rail(model, has_run)
         run_name = model.check.get("run_name") or ""
-        self.crumb.setText(f"Stage {view.id} of {len(model.stages)}")
-        self.run_chip.setText(run_name or "No run yet")
+        self.crumb.setText(tr("Stage {n} of {total}").format(n=view.id, total=len(model.stages)))
+        self.run_chip.setText(run_name or tr("No run yet"))
         self.run_chip.setVisible(not self.compact)
         self._apply_setup_visibility()
 
@@ -489,7 +540,7 @@ class WizardPanel(QWidget):
             cl.setSpacing(0)
             cl.addWidget(label(model.check.get("run_name") or "No run yet", "runChipTitle", wrap=False))
             done = sum(1 for v in model.stages if v.status == "done")
-            cl.addWidget(label(f"{done} of {len(model.stages)} stages done" if has_run else "Start with the setup on stage 1", "runChipSub"))
+            cl.addWidget(label(tr("{done} of {total} stages done").format(done=done, total=len(model.stages)) if has_run else "Start with the setup on stage 1", "runChipSub"))
             self.rail_layout.addWidget(chip)
         for v in model.stages:
             row = StageRow(v, v.id == self.selected, self.compact)
@@ -512,8 +563,8 @@ class WizardPanel(QWidget):
         b = self.body
         b.addWidget(self._heading(view))
         if c.engine_ready is False:
-            b.addWidget(self._callout("error", "The engine is not set up", c.engine_message +
-                                      "\nUse the Set up engine button on the left. It needs internet once and Python 3.11 or newer."))
+            b.addWidget(self._callout("error", "The engine is not set up", c.engine_message + "\n" +
+                                      tr("Use the Set up engine button on the left. It needs internet once and Python 3.11 or newer.")))
         if view.status == "failed" and view.error:
             b.addWidget(self._callout("error", "This stage stopped", view.error))
         if view.status == "stale":
@@ -529,7 +580,7 @@ class WizardPanel(QWidget):
         if view.warnings:
             shown = view.warnings[:4]
             more = len(view.warnings) - len(shown)
-            b.addWidget(self._callout("warn", "Worth a look", "\n".join(shown) + (f"\n...and {more} more in the run report." if more > 0 else "")))
+            b.addWidget(self._callout("warn", "Worth a look", "\n".join(shown) + ("\n" + tr("...and {n} more in the run report.").format(n=more) if more > 0 else "")))
         if view.params:
             b.addWidget(self._params_card(view))
         if view.id == 11 and view.status == "done" and self.controller.output_gpkg:
@@ -551,7 +602,7 @@ class WizardPanel(QWidget):
                   "stale": " · OUT OF DATE"}.get(view.status, "")
         if view.review and view.status in ("ready", "locked"):
             suffix = " · REVIEW STAGE"
-        eyebrow = label(f"STAGE {view.id}{suffix}", "eyebrow", wrap=False)
+        eyebrow = label(tr("STAGE {n}").format(n=view.id) + (tr(suffix) if suffix else ""), "eyebrow", wrap=False)
         prop(eyebrow, tone=tone)
         lay.addWidget(eyebrow)
         lay.addWidget(label(view.title, "title"))
@@ -572,7 +623,7 @@ class WizardPanel(QWidget):
             fl.addWidget(label(title, "cardTitle"))
             fl.addWidget(label(text))
             if ref:
-                fl.addWidget(label("Reference: " + ref, "learnRef"))
+                fl.addWidget(label(tr("Reference:") + " " + ref, "learnRef"))
             lay.addWidget(f, 0 if not self.compact else i, i if not self.compact else 0)
         return w
 
@@ -621,12 +672,12 @@ class WizardPanel(QWidget):
     def _params_card(self, view: vm.StageView) -> QWidget:
         f, lay = card()
         n_missing = sum(1 for p in view.params if p.missing and not p.recommended)
-        head = "Decisions for this stage" if n_missing == 0 else f"Decisions needed ({n_missing})"
+        head = "Decisions for this stage" if n_missing == 0 else tr("Decisions needed ({n})").format(n=n_missing)
         lay.addWidget(label(head, "cardTitle"))
         lay.addWidget(label("These values are policy choices for your team. The wizard never fills them in for you. They are saved in the run config.", "hint"))
         for p in view.params:
             fld = vm.field_for(p.key)
-            lay.addWidget(label(fld.label + ("  (needed if river water levels are used)" if p.recommended else ""), "paramLabel"))
+            lay.addWidget(label(fld.label + ("  " + tr("(needed if river water levels are used)") if p.recommended else ""), "paramLabel"))
             if fld.help:
                 lay.addWidget(label(fld.help, "paramHelp"))
             row = QHBoxLayout()
@@ -643,7 +694,7 @@ class WizardPanel(QWidget):
             return label("Edit this in the run YAML file (a matrix cannot be typed here).", "paramHelp")
         if fld.kind in ("bool", "enum"):
             cb = QComboBox()
-            items = ["Not decided"] + (["Yes", "No"] if fld.kind == "bool" else list(fld.options))
+            items = [tr("Not decided")] + ([tr("Yes"), tr("No")] if fld.kind == "bool" else list(fld.options))
             cb.addItems(items)
             cur = p.value
             idx = 0 if cur is None else ((1 if cur else 2) if fld.kind == "bool" else (items.index(cur) if cur in items else 0))
@@ -653,7 +704,7 @@ class WizardPanel(QWidget):
                 k, None if i == 0 else ((i == 1) if kind == "bool" else o[i - 1])))
             return cb
         le = QLineEdit("" if p.value is None else str(p.value))
-        le.setPlaceholderText("Not decided yet")
+        le.setPlaceholderText(tr("Not decided yet"))
         le.setProperty("saved", "" if p.value is None else str(p.value))
         prop(le, missing=p.missing, invalid=False, paramKey=p.key)
         le.editingFinished.connect(lambda k=p.key, kind=fld.kind, w=le: self._commit_text(k, kind, w))
@@ -695,28 +746,28 @@ class WizardPanel(QWidget):
             self.footer_layout.addWidget(button(text, name, slot, enabled))
 
         if c.running is not None:
-            note.setText(f"Stage {c.running} is running. QGIS stays usable meanwhile.")
+            note.setText(tr("Stage {n} is running. QGIS stays usable meanwhile.").format(n=c.running))
             add("Cancel run", "ghost", c.cancel)
         elif c.busy:
             note.setText(c.busy)
         elif not has_run:
-            note.setText("Set up your run on stage 1 first.")
+            note.setText(tr("Set up your run on stage 1 first."))
             add("Run stage", "primary", None, False)
         elif view.status == "locked":
-            note.setText(f"Finish stage {view.id - 1} first. You can already prepare its decisions.")
+            note.setText(tr("Finish stage {n} first. You can already prepare its decisions.").format(n=view.id - 1))
             add("Run stage", "primary", None, False)
         elif view.status == "ready":
             note.setText(view.blocking)
-            add(f"Run stage {view.id}", "primary", lambda: self._act("run", view.id), view.can_run)
+            add(tr("Run stage {n}").format(n=view.id), "primary", lambda: self._act("run", view.id), view.can_run)
         elif view.status == "needs_review":
             nxt = model.stage(view.id + 1).title if view.id < len(model.stages) else ""
             add("Re-run this stage", "secondary", lambda: self._act("rerun", view.id), view.can_rerun)
-            add("Accept and continue" + (f": {nxt}" if nxt else ""), "primary", lambda: self._act("accept", view.id), view.can_accept)
+            add(tr("Accept and continue: {title}").format(title=nxt) if nxt else tr("Accept and continue"), "primary", lambda: self._act("accept", view.id), view.can_accept)
             note.setText(view.blocking)
         elif view.status == "done":
             add("Re-run this stage", "secondary", lambda: self._act("rerun", view.id), view.can_rerun)
             if view.id < len(model.stages):
-                add("Next: " + model.stage(view.id + 1).title, "primary", lambda: self._select(view.id + 1))
+                add(tr("Next: {title}").format(title=model.stage(view.id + 1).title), "primary", lambda: self._select(view.id + 1))
             note.setText(view.blocking)
         elif view.status == "stale":
             note.setText(view.blocking)
