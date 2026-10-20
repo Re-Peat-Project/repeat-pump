@@ -217,6 +217,7 @@ class Param:
     key: str
     value: Any
     recommended: bool = False
+    from_preset: bool = False     # value comes from the proposed-defaults preset, not from a team decision
 
     @property
     def missing(self) -> bool:
@@ -344,7 +345,8 @@ class WizardModel:
                     stale_reason = tr("A setting changed after this stage ran. Re-run it to apply the change.")
             v = StageView(sid, tr(title), tr(purpose), tr(what), tr(why), ref, s["review"], status, sub, list(s["missing"]),
                           list(s.get("recommended_missing", [])), error=err, stale_reason=stale_reason)
-            v.params = [Param(e["key"], e["value"]) for e in s.get("needs", [])] + \
+            preset_keys = set((self.check.get("preset") or {}).get("keys", []))
+            v.params = [Param(e["key"], e["value"], from_preset=e["key"] in preset_keys) for e in s.get("needs", [])] + \
                        [Param(e["key"], e["value"], True) for e in s.get("recommended", [])]
             if status == "locked" and s["review"]:
                 v.sub = tr("Locked, review stage")
@@ -386,6 +388,11 @@ class WizardModel:
             if v.status not in ("done", "skipped"):
                 return v.id
         return self.stages[-1].id
+
+    @property
+    def preset_path(self) -> str:
+        """Proposed-defaults file the run opted into, or an empty string."""
+        return (self.check.get("preset") or {}).get("path") or ""
 
     @property
     def warnings(self) -> list[str]:

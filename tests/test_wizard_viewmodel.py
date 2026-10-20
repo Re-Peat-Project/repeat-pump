@@ -3,6 +3,8 @@ import json
 import sys
 from pathlib import Path
 
+import yaml
+
 
 from repeat_pump.core.config import load_config
 from repeat_pump.core.requirements import check
@@ -342,3 +344,40 @@ def test_load_state_missing_or_corrupt(tmp_path):
     assert vm.load_state(g)["stages"] == {}
     (tmp_path / "run_state.json").write_text(json.dumps({"stages": {"1": {"status": "done"}}}))
     assert vm.load_state(g)["stages"]["1"]["status"] == "done"
+
+
+# ---------------------------------------------------------------- proposed-defaults preset
+PRESET_SRC = PLUGIN.parents[1] / "configs" / "proposed_defaults.yaml"
+
+
+def _preset_run(tmp_path):
+    data = yaml.safe_load(EXAMPLE.read_text(encoding="utf8"))
+    rc.attach_preset(data, tmp_path, PRESET_SRC)
+    return rc.write_run_config(data, tmp_path / "run.yaml")
+
+
+def test_attach_preset_copies_file_once_and_uses_a_relative_name(tmp_path):
+    f = _preset_run(tmp_path)
+    assert (tmp_path / rc.PRESET_FILE).exists() and yaml.safe_load(f.read_text(encoding="utf8"))["preset"] == rc.PRESET_FILE
+    (tmp_path / rc.PRESET_FILE).write_text("# team edit\nsekat: {max_spacing_m: 450}\n", encoding="utf8")
+    rc.attach_preset({}, tmp_path, PRESET_SRC)
+    assert "team edit" in (tmp_path / rc.PRESET_FILE).read_text(encoding="utf8")       # an edited copy is never overwritten
+
+
+def test_detach_preset_removes_the_key():
+    d = {"preset": "x.yaml", "run": {}}
+    rc.detach_preset(d)
+    assert "preset" not in d
+
+
+def test_params_from_the_preset_are_flagged_and_filled(tmp_path):
+    m = model(cfg_path=_preset_run(tmp_path))
+    p = {x.key: x for v in m.stages for x in v.params}
+    assert p["pumping.manning_n"].from_preset and p["pumping.manning_n"].value == 0.035 and not p["pumping.manning_n"].missing
+    assert not p["inputs.dtm.vertical_rmse_m"].from_preset and p["inputs.dtm.vertical_rmse_m"].missing    # data facts stay empty
+    assert m.preset_path.endswith(rc.PRESET_FILE)
+
+
+def test_without_a_preset_nothing_is_flagged():
+    m = model()
+    assert not m.preset_path and not any(x.from_preset for v in m.stages for x in v.params)

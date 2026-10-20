@@ -26,4 +26,14 @@ Keys cited in module docstrings (from AGENTS.md section 12). Verify volume and p
 - **Urzainki2020**: Urzainki et al. (2020). Biogeosciences 17, 4769-4784, doi:10.5194/bg-17-4769-2020. Peat tables and scheme from LukeEcomod/blopti (MIT); see `repeat_pump/data/NOTICE-urzainki2020.md`.
 - **PP57-2016**, **KHG-SKSS-2021**: see the spec.
 
+- **Urzainki2023**: Urzainki et al. (2023). A process-based model for quantifying the effects of canal blocking on water table and CO2 emissions in tropical peatlands. Biogeosciences 20, 2099-2116, doi:10.5194/bg-20-2099-2023. Used for the ~600 m reach of block effects.
+- **Hooijer2005**: Hooijer (2005). Hydrology of tropical wetland forests: recent research results from Sarawak peatswamps. In Bonell & Bruijnzeel (eds), Forests, Water and People in the Humid Tropics, CUP, 447-461. Specific yield 0.29 / 0.71, read through a later citation (Sci. Rep. 2026, s41598-026-64641-2), not the original.
+- **Cobb2019**: Cobb & Harvey (2019). Scalar simulation and parameterization of water table dynamics in tropical peatlands. Water Resources Research 55, 9351-9377, doi:10.1029/2019WR025411. Specific yield below 0.15 under a deep water table.
+- **Haman2017**: Haman (2017). Pumps for Florida Irrigation and Drainage Systems, UF/IFAS CIR832 (WI001). Pump efficiency normally 65-80 %.
+- **IPEX-PVC**: IPEX. Hydraulics of PVC Pipe (bulletin). Hazen-Williams C = 150 for PVC.
+- **Meadows2024**: Meadows et al. (2024). Vertical accuracy assessment of freely available global DEMs (FABDEM, Copernicus DEM, NASADEM, AW3D30, SRTM) in flood-prone environments. LiDAR vertical RMSE well within 0.3 m.
+- **PanduanKLH**: Panduan Teknis GIS Rewetting KLH and Workflow GIS Rewetting KLH (`docs/`). Source of the 500 m sekat spacing, 50 m extraction buffer, 30 m river-canal buffer and equal-weight scoring.
+
+Chow1959 Table 5-6 (Manning n) was read through drainagecalculators.com, which reproduces it, not from the book. `configs/proposed_defaults.yaml` uses these; its values are proposals, see `docs/proposed_defaults.md`.
+
 Stage 12 (optional) adds Urzainki2020, Holland1975 and Kirkpatrick1983. Verify volume and page details against the originals before formal citation.

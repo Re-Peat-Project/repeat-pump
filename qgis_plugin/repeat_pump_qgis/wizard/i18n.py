@@ -216,6 +216,13 @@ ID: dict[str, str] = {
     "Create run": "Buat proses", "Open an existing run...": "Buka proses yang ada...", "Open a run config": "Buka konfigurasi proses",
     "Choose where the output GeoPackage should go.": "Pilih lokasi GeoPackage keluaran.",
     "Choose a starting config (YAML).": "Pilih konfigurasi awal (YAML).",
+    "Use the proposed defaults (for trial runs, not team decisions)":
+        "Gunakan nilai usulan (untuk uji coba, bukan keputusan tim)",
+    "Fills the empty decision fields with researched starting values. Each one stays marked as proposed until you enter a value. Values you type always win.":
+        "Mengisi kolom keputusan yang kosong dengan nilai awal hasil kajian. Setiap nilai tetap ditandai sebagai usulan sampai Anda mengisi nilainya sendiri. Nilai yang Anda ketik selalu didahulukan.",
+    "Proposed default, not a team decision. Enter a value to make it yours; the run report lists it until then.":
+        "Nilai usulan, bukan keputusan tim. Isi nilai untuk menjadikannya milik Anda; laporan proses mencantumkannya sampai saat itu.",
+    "Could not turn on the proposed defaults: {err}": "Tidak dapat mengaktifkan nilai usulan: {err}",
     "Choose the sub-KHG priority table (CSV).": "Pilih tabel prioritas sub-KHG (CSV).",
     "Choose a layer for: {text}.": "Pilih layer untuk: {text}.",
     "{text}: the layer must be saved to a file (temporary layers cannot be passed to the engine).":

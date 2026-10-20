@@ -57,6 +57,8 @@ def build_run_config(config_file: str | Path, output_gpkg: Optional[str] = None,
     base = config_file.parent
     data = yaml.safe_load(config_file.read_text(encoding="utf8"))
     absolutise_inputs(data, base)
+    if data.get("preset"):
+        data["preset"] = _absolute(data["preset"], base)      # the run YAML is written to a temp folder
     inp = data["inputs"]
     run = data.setdefault("run", {})
     run["output_gpkg"] = output_gpkg or _absolute(run.get("output_gpkg", "out/run.gpkg"), base)
@@ -78,6 +80,26 @@ def build_run_config(config_file: str | Path, output_gpkg: Optional[str] = None,
     for k, v in (params or {}).items():
         set_dotted(data, k, v)
     return data
+
+
+PRESET_FILE = "proposed_defaults.yaml"
+
+
+def attach_preset(data: dict, run_dir: str | Path, bundled: str | Path) -> None:
+    """Opt the run into the proposed-defaults preset: copy the bundled file next to the run config (an existing copy is kept,
+    it may hold the team's edits) and point the config at it by a relative name, so the run folder stays portable."""
+    run_dir, bundled = Path(run_dir), Path(bundled)
+    if not bundled.is_file():
+        raise FileNotFoundError(f"proposed defaults file not found: {bundled}")
+    run_dir.mkdir(parents=True, exist_ok=True)
+    dest = run_dir / PRESET_FILE
+    if not dest.exists():
+        dest.write_bytes(bundled.read_bytes())
+    data["preset"] = PRESET_FILE
+
+
+def detach_preset(data: dict) -> None:
+    data.pop("preset", None)
 
 
 def write_run_config(data: dict, path: str | Path) -> Path:

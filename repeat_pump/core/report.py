@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from .io import find_col
+from .requirements import get_value
 
 
 def _nulls(obj, prefix="") -> list[str]:
@@ -58,6 +59,7 @@ def run(ctx) -> None:
         "routing": rep.get("routing", {}),
         "pumps": rep.get("pumps", []),
         "null_parameters": todo,
+        "preset": cfg.preset,
         "tma_validation": _tma_validation(ctx),
     }
     canals = ctx.read_layer("canals_clean")
@@ -82,6 +84,9 @@ def run(ctx) -> None:
     L += ["## Pump stations", "", "| station | node | Q m3/s | H m | P kW | units |", "|---|---|---|---|---|---|"]
     L += [f"| {p['station_id']} | {p['node_id']} | {p['q_m3s']:.4f} | {p['h_m']:.2f} | {p['p_kw']:.2f} | {p['units_needed']} |" for p in summary["pumps"]] + [""]
     L += ["## Observed vs modelled levels (validation only)", "", json.dumps(summary["tma_validation"], indent=2, default=str), ""]
+    if cfg.preset["keys"]:
+        L += ["## Values from the proposed-defaults preset (not team decisions)", "", f"Preset: {cfg.preset['path']}", ""]
+        L += [f"- {k} = {get_value(cfg, k)}" for k in cfg.preset["keys"]] + [""]
     L += ["## Parameters still null (TODO(human))", ""] + [f"- {t}" for t in todo] + [""]
     (ctx.out_dir / "run_report.md").write_text("\n".join(L), encoding="utf8")
     ctx.set_counts("11", warnings=len(ctx.warnings), null_parameters=len(todo))

@@ -25,6 +25,7 @@ def engine_files():
 def extra_files():
     """The example config the wizard offers as a starting point."""
     yield ROOT / "configs" / "example_khg.yaml", Path("resources/example_khg.yaml")
+    yield ROOT / "configs" / "proposed_defaults.yaml", Path("resources/proposed_defaults.yaml")
 
 
 def main():

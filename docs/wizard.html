@@ -147,7 +147,7 @@ footer { max-width: 860px; margin: 0 auto; padding: 0 20px 40px; color: var(--mu
 
 <div class="step">
 <h3><span class="n">3</span> Fill in the decisions, run stage 1</h3>
-<p>A stage will not run while a decision is missing. The empty fields are highlighted and the Run button stays off. The wizard never fills them in. Type the values from the <a href="#e-values">table at the end</a>. Commas work as decimal marks.</p>
+<p>A stage will not run while a decision is missing. The empty fields are highlighted and the Run button stays off. The wizard never fills them in on its own (see <i>Proposed defaults</i> under Good to know for the one opt-in exception). Type the values from the <a href="#e-values">table at the end</a>. Commas work as decimal marks.</p>
 <figure><img src="img/decisions_blocked_en.png" alt="Stage 1 with highlighted empty decision fields and a disabled Run button" loading="lazy"><figcaption>Stage 1 before the decisions are filled in. The footer says how many values are missing.</figcaption></figure>
 <p>Click <i>Run stage 1</i>. The result tiles appear, and warnings that deserve a look are listed under them.</p>
 <figure><img src="img/stage1_done_en.png" alt="Stage 1 finished with result tiles and a warning" loading="lazy"><figcaption>Stage 1 done. The DTM accuracy and coverage warnings, if any, show here.</figcaption></figure>
@@ -228,6 +228,7 @@ footer { max-width: 860px; margin: 0 auto; padding: 0 20px 40px; color: var(--mu
 <li><b>Cancel.</b> While a stage runs, <i>Cancel run</i> stops the engine and anything it started, even when it is silent. Run the stage again afterwards.</li>
 <li><b>Come back later.</b> Everything is saved in the run folder. Use <i>Open an existing run</i> to continue where you stopped.</li>
 <li><b>Layers the form does not have.</b> The concession layer and water-level observations are not in the setup form yet. Add them to <code>run_config.yaml</code> by hand and re-run from stage 1.</li>
+<li><b>Proposed defaults.</b> In <i>Run setup</i>, tick <i>Use the proposed defaults</i> (before <i>Create run</i>, or later on an open run) to fill the empty decisions with researched starting values. They are for trial runs, not team decisions. Each filled field shows an amber <i>Proposed default</i> line, and the run report lists every value that came from them. Type a value to make it yours; typed values always win. Vertical datum, DTM accuracy and the moisture direction are never filled, because they describe your data. The values and their sources are in <code>docs/proposed_defaults.md</code>. The wizard copies <code>proposed_defaults.yaml</code> into the run folder, so your team can edit it.</li>
 <li><b>Language.</b> The wizard follows QGIS: it starts in Indonesian when QGIS is set to Indonesian. Messages written by the engine, such as warnings and the log, stay in English.</li>
 </ul>
 
@@ -326,7 +327,7 @@ footer { max-width: 860px; margin: 0 auto; padding: 0 20px 40px; color: var(--mu
 
 <div class="step">
 <h3><span class="n">3</span> Isi keputusan, jalankan tahap 1</h3>
-<p>Sebuah tahap tidak akan berjalan selama masih ada keputusan yang kosong. Kolom yang kosong disorot dan tombol Jalankan tetap mati. Wizard tidak pernah mengisinya. Ketik nilai dari <a href="#i-values">tabel di bagian akhir</a>. Koma dapat dipakai sebagai tanda desimal.</p>
+<p>Sebuah tahap tidak akan berjalan selama masih ada keputusan yang kosong. Kolom yang kosong disorot dan tombol Jalankan tetap mati. Wizard tidak pernah mengisinya sendiri (lihat <i>Nilai usulan</i> di bagian Baik diketahui untuk satu pengecualian yang harus diaktifkan sendiri). Ketik nilai dari <a href="#i-values">tabel di bagian akhir</a>. Koma dapat dipakai sebagai tanda desimal.</p>
 <figure><img src="img/decisions_blocked_id.png" alt="Tahap 1 dengan kolom keputusan kosong yang disorot dan tombol Jalankan mati" loading="lazy"><figcaption>Tahap 1 sebelum keputusan diisi. Bagian bawah menyebut berapa nilai yang masih kurang.</figcaption></figure>
 <p>Klik <i>Jalankan tahap 1</i>. Kotak hasil muncul, dan peringatan yang perlu dilihat dicantumkan di bawahnya.</p>
 <figure><img src="img/stage1_done_id.png" alt="Tahap 1 selesai dengan kotak hasil dan peringatan" loading="lazy"><figcaption>Tahap 1 selesai. Peringatan akurasi DTM dan cakupan, jika ada, tampil di sini.</figcaption></figure>
@@ -407,6 +408,7 @@ footer { max-width: 860px; margin: 0 auto; padding: 0 20px 40px; color: var(--mu
 <li><b>Batalkan.</b> Saat sebuah tahap berjalan, <i>Batalkan proses</i> menghentikan mesin dan semua yang dimulainya, bahkan ketika mesin diam saja. Jalankan tahapnya lagi sesudahnya.</li>
 <li><b>Kembali lagi nanti.</b> Semuanya tersimpan di folder proses. Pakai <i>Buka proses yang ada</i> untuk melanjutkan dari tempat Anda berhenti.</li>
 <li><b>Layer yang belum ada di formulir.</b> Layer konsesi dan pengamatan tinggi muka air belum ada di formulir pengaturan. Tambahkan secara manual ke <code>run_config.yaml</code> lalu jalankan ulang dari tahap 1.</li>
+<li><b>Nilai usulan.</b> Di <i>Pengaturan proses</i>, centang <i>Gunakan nilai usulan</i> (sebelum <i>Buat proses</i>, atau nanti pada proses yang terbuka) untuk mengisi keputusan yang kosong dengan nilai awal hasil kajian. Nilai ini untuk uji coba, bukan keputusan tim. Setiap kolom yang terisi menampilkan baris <i>Nilai usulan</i> berwarna kuning, dan laporan proses mencantumkan semua nilai yang berasal darinya. Ketik nilai untuk menjadikannya milik Anda; nilai yang diketik selalu didahulukan. Datum vertikal, akurasi DTM, dan arah indeks kelembapan tidak pernah diisi, karena menggambarkan data Anda. Nilai dan sumbernya ada di <code>docs/proposed_defaults.md</code>. Wizard menyalin <code>proposed_defaults.yaml</code> ke folder proses, sehingga tim Anda dapat mengeditnya.</li>
 <li><b>Bahasa.</b> Wizard mengikuti QGIS: wizard dimulai dalam bahasa Indonesia jika QGIS diatur ke bahasa Indonesia. Pesan yang ditulis mesin, seperti peringatan dan log, tetap berbahasa Inggris.</li>
 </ul>
 

@@ -14,12 +14,12 @@ from qgis.PyQt.QtGui import QDesktopServices, QPainter, QPixmap
 from qgis.PyQt.QtWidgets import (QCheckBox, QComboBox, QDockWidget, QFileDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
                                  QMessageBox, QPlainTextEdit, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget)
 
-from ..runconfig import build_run_config
+from ..runconfig import attach_preset, build_run_config
 from ..runner import split_source
 from . import i18n, styling, theme
 from .i18n import tr
 from . import viewmodel as vm
-from .controller import WizardController
+from .controller import PRESET_RESOURCE, WizardController
 
 COMPACT_BELOW = 760
 RAIL_W, RAIL_COMPACT_W = 296, 76
@@ -315,6 +315,12 @@ class WizardPanel(QWidget):
         form.addWidget(self.out_file)
         form.addWidget(label("Starting config (policy parameters; yours are saved in the run folder)", "paramLabel"))
         form.addWidget(self.template)
+        self.use_preset = QCheckBox(tr("Use the proposed defaults (for trial runs, not team decisions)"))
+        self.use_preset.setProperty("src", "Use the proposed defaults (for trial runs, not team decisions)")
+        self.use_preset.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.use_preset.toggled.connect(self._toggle_preset)
+        form.addWidget(self.use_preset)
+        form.addWidget(label("Fills the empty decision fields with researched starting values. Each one stays marked as proposed until you enter a value. Values you type always win.", "paramHelp"))
         form.addWidget(label("Sub-KHG priority table (CSV, optional)", "paramLabel"))
         form.addWidget(self.priority)
         self.combos: dict[str, tuple[QgsMapLayerComboBox, bool, str]] = {}
@@ -383,6 +389,11 @@ class WizardPanel(QWidget):
             base = cfg_path if cfg_path.exists() else Path(tpl)
             data = build_run_config(base, output_gpkg=str(Path(out)), dtm=dtm, moisture=moisture,
                                     priority=priority or None, vectors=vectors, drop=drop)
+            if self.use_preset.isChecked():
+                try:
+                    attach_preset(data, cfg_path.parent, PRESET_RESOURCE)
+                except OSError as e:
+                    raise ValueError(tr("Could not turn on the proposed defaults: {err}").format(err=e))
         except Exception as e:
             self.setup_msg.setText(f"<span style='color:{theme.RED_TEXT}'>{e}</span>")
             return
@@ -390,6 +401,20 @@ class WizardPanel(QWidget):
         self._setup_open = False
         self.selected = 1
         self.controller.write_config(data, cfg_path)
+
+    def _toggle_preset(self, on: bool) -> None:
+        if self.controller.config_path is not None:          # a run is open: apply at once (a new run reads it on Create)
+            self.controller.set_preset(on)
+
+    def _sync_preset_box(self, model) -> None:
+        """Show what the open run actually uses, without re-triggering the toggle."""
+        if model is None or self.controller.config_path is None:
+            return
+        want = bool(model.preset_path)
+        if self.use_preset.isChecked() != want:
+            self.use_preset.blockSignals(True)
+            self.use_preset.setChecked(want)
+            self.use_preset.blockSignals(False)
 
     def _open_run(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, tr("Open a run config"), "", "YAML (*.yaml *.yml)")
@@ -421,6 +446,7 @@ class WizardPanel(QWidget):
         for c, b in self.lang_buttons.items():
             b.setChecked(c == code)
         self.learn_box.setText(tr("Learn mode"))
+        self.use_preset.setText(tr(self.use_preset.property("src")))
         for w in self.setup_frame.findChildren(QLabel) + self.setup_frame.findChildren(QPushButton):
             src = w.property("src")
             if src:
@@ -496,8 +522,9 @@ class WizardPanel(QWidget):
         self.run_chip.setText(run_name or tr("No run yet"))
         self.run_chip.setVisible(not self.compact)
         self._apply_setup_visibility()
+        self._sync_preset_box(model)
 
-        sig = (view.id, view.status, tuple(p.key for p in view.params), len(view.tiles), view.error, self.learn, c.engine_ready,
+        sig = (view.id, view.status, tuple((p.key, p.from_preset) for p in view.params), len(view.tiles), view.error, self.learn, c.engine_ready,
                bool(c.busy), c.running is not None, has_run, self.compact, tuple(view.warnings), view.sub)
         if sig != self._last_sig:
             self._last_sig = sig
@@ -686,6 +713,8 @@ class WizardPanel(QWidget):
             lay.addWidget(label(fld.label + ("  " + tr("(needed if river water levels are used)") if p.recommended else ""), "paramLabel"))
             if fld.help:
                 lay.addWidget(label(fld.help, "paramHelp"))
+            if p.from_preset:
+                lay.addWidget(label("Proposed default, not a team decision. Enter a value to make it yours; the run report lists it until then.", "paramProposed"))
             row = QHBoxLayout()
             ed = self._editor(p, fld)
             self._editors[p.key] = ed
@@ -711,7 +740,7 @@ class WizardPanel(QWidget):
             return cb
         le = QLineEdit("" if p.value is None else str(p.value))
         le.setPlaceholderText(tr("Not decided yet"))
-        le.setProperty("saved", "" if p.value is None else str(p.value))
+        le.setProperty("saved", "" if p.value is None or p.from_preset else str(p.value))   # typing a proposed value again pins it
         prop(le, missing=p.missing, invalid=False, paramKey=p.key)
         le.editingFinished.connect(lambda k=p.key, kind=fld.kind, w=le: self._commit_text(k, kind, w))
         return le

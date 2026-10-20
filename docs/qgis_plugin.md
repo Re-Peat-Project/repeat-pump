@@ -31,7 +31,11 @@ Click the water-drop button in the toolbar, or *Plugins > RE-PEAT Pompanisasi > 
    saved files). *Create run* writes `run_config.yaml` in the output folder. *Open an existing run* resumes one.
 2. Each stage card shows what the stage does (turn on *Learn mode* for the why and the references), the **decisions** that stage
    needs, and a **Run** button. A stage whose required values are empty cannot run; the empty fields are highlighted. The wizard
-   never fills these in. Values are saved into `run_config.yaml`.
+   never fills these in on its own. Values are saved into `run_config.yaml`.
+   **Optional:** tick *Use the proposed defaults* in the run setup (before *Create run*, or later on an open run) to fill the
+   empty decisions with the researched starting values of `docs/proposed_defaults.md`. They are meant for trial runs, are marked
+   *Proposed default* on each card, and are listed in the run report. A value you type always wins. Datums, DTM RMSE and the
+   moisture direction are never filled. The wizard copies `proposed_defaults.yaml` into the run folder, so the team can edit it.
 3. After a run the result tiles appear and the stage's layers are loaded into a `RE-PEAT <run name>` group on the map.
 4. **Review stages (2, 6, 9)** stop for you: inspect the layers, then *Accept and continue* or *Re-run this stage*.
 5. **Stage 12 (block optimisation) is optional** and starts switched off (shown as *Optional, switched off* and counted as done). Choose *Yes* under *Decisions* to use it; it gives an alternative plan for which proposed sekat to build first and does not change the pump stages.

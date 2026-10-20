@@ -112,4 +112,4 @@ def check(cfg: Config) -> dict:
                        "recommended": entries(rec.get(sid, [])),
                        "recommended_missing": [k for k in rec.get(sid, []) if get_value(cfg, k) is None],
                        "fingerprint": fingerprint(cfg, sid)})
-    return {"run_name": cfg.run.name, "output_gpkg": cfg.run.output_gpkg, "stages": stages}
+    return {"run_name": cfg.run.name, "output_gpkg": cfg.run.output_gpkg, "stages": stages, "preset": cfg.preset}

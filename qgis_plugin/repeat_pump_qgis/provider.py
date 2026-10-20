@@ -18,7 +18,7 @@ from qgis.core import (QgsProcessing, QgsProcessingAlgorithm, QgsProcessingConte
 from .runconfig import build_run_config
 from .runner import check_environment, ensure_environment, get_python, run_cli, split_source
 
-SHOW_LAYERS = ["canal_segments", "sekat_proposed", "sekat_existing_assessed", "pump_routes", "pump_stations", "gates_required",
+SHOW_LAYERS = ["canal_segments", "sekat_proposed", "sekat_optimised","sekat_existing_assessed", "pump_routes", "pump_stations", "gates_required",
                "qa_topology_dangles", "qa_topology_gaps", "qa_unreachable_targets"]
 
 
@@ -188,7 +188,18 @@ ALGORITHMS = [
     _make("place_sekat", "4. Sekat gap analysis and placement (stage 7)", 7, 7),
     _make("route_and_size_pumps", "5. Network, routing, pumps and report (stages 8-11)", 8, 11),
     _make("run_full_pipeline", "Run full pipeline (stages 1-11)", 1, 11),
+    _make("optimise_blocks", "6. Canal blocking optimisation, optional (stage 12)", 12, 12),
 ]
+
+
+def _optimise_help(self):
+    return ("Optional stage 12 (Urzainki et al. 2020): chooses which of the proposed sekat to build. It is an alternative plan: stages 8-10 "
+            "still assume every proposed sekat is built. Needs the optimise.* values in the YAML config (set optimise.enabled: true); "
+            "with it off the stage is recorded as skipped. Gains are relative to comparator layouts, not field-validated water table changes. "
+            "Run stages 1-7 first.")
+
+
+ALGORITHMS[-1].shortHelpString = _optimise_help
 
 
 class RepeatPumpProvider(QgsProcessingProvider):

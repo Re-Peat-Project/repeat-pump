@@ -1,0 +1,51 @@
+# PROPOSED DEFAULTS, NOT TEAM DECISIONS. Opt in from a run config with a top-level line:
+#
+#     preset: proposed_defaults.yaml      # path relative to that run config
+#
+# The preset only fills values the run config leaves null; anything you set in the run config wins.
+# Every value taken from it is listed as a warning per stage and in run_report.md, so nothing is silent.
+# It never sets facts about the data (vertical datum, DTM RMSE, higher_is_wetter, input paths): see docs/proposed_defaults.md.
+# Confidence: HIGH = taken from a document the team or regulation already uses; MED = literature value, site varies;
+# LOW = engineering judgement with no retrieved source, replace before real use. Full sources: docs/proposed_defaults.md.
+
+run:
+  clip_margin_m: 600              # MED. Edge-effect margin; equals the ~600 m reach of canal block effects [Urzainki2023]
+
+topology:
+  snap_tolerance_m: 1.0           # HIGH. Legacy NODE_TOL (segment end matching). Snaps above this need review in qa_topology_dangles
+
+hydro:
+  breach_max_dist_cells: 100      # LOW. About 100 m at 1 m LiDAR cells; scale it down for 8 m DEMNAS cells (about 12)
+
+sekat:
+  max_spacing_m: 500              # HIGH. KLH workflow: sekat spacing about 500 m (Panduan Teknis GIS, step 3)
+  min_spacing_m: 100              # LOW. The legacy script used 500 m as the MINIMUM, which would override the head rule on
+                                  #   any slope steeper than dA/500 = 0.08 %. 100 m keeps proposals from clustering. Team decision.
+  snap_tolerance_m: 30            # MED. Same 30 m the KLH workflow uses to match river points to canals (Panduan Teknis GIS, 7.2)
+
+prioritise:
+  weights_mode: direct
+  criteria:                       # POLICY, not science. Equal weights are the legacy KLH scoring ("bobot sama"). AHP is the alternative.
+    burn_freq:        {weight: 0.25}
+    peat_depth:       {weight: 0.25}
+    dryness:          {weight: 0.25}
+    upstream_contrib: {weight: 0.25}
+  upstream_buffer_m: 50           # HIGH. KLH workflow extraction buffer of 50 m (Panduan Teknis GIS, step 6.1)
+  feasibility:
+    concession_mode: flag         # POLICY. Flag, do not exclude: nothing disappears silently and the reviewer decides
+
+pumping:
+  conveyance: canal               # POLICY. Pump into the existing canal network; pipes need new infrastructure
+  manning_n: 0.035                # MED. Earth canal, winding, dense weeds or aquatic plants: 0.030-0.040 [Chow1959] Table 5-6
+  hazen_williams_c: 140           # MED. HDPE pipe, conservative (PVC is 150) [IPEX]. Used only if conveyance is switched to pipe
+  pump_efficiency: 0.65           # MED. Lower end of the 65-80 % normal range for irrigation and drainage pumps [Haman2017]
+  max_head_per_station_m: 5.0     # LOW. Low-lift axial or mixed-flow pumps. Replace with the real pump curve
+  pump_capacity_m3s: 0.10         # LOW. About 100 L/s per unit. Replace with the procurement specification
+  uphill_penalty_lambda: 1000     # POLICY. 1 m of lift counts as 1 km of canal. Test 100 to 10000 with the Stage 9 comparison
+  influence_distance_m: 600       # MED. Block effects reach about 600 m [Urzainki2023]; effects on nearby wells are smaller. Calibrate with tma_obs
+  specific_yield: 0.30            # MED. Peat near the surface: 0.29 below -0.1 m, up to 0.71 above [Hooijer2005]; below 0.15 deep down [Cobb2019]
+  water_table_rise_m: 0.40        # LOW. Restores a 0.8 m dry-season water table to the 0.4 m limit of PP 57/2016. Set per site
+  design_period_days: 120         # MED. Dry season July to October [Ritzema2014]. Used only where the priority table has no design_period_days
+
+# Stage 12 (optimise) is deliberately not proposed. transmissivity_multiplier changes results about 100-fold and has no
+# defensible default; the other optimise.* values are meaningless without it. See docs/proposed_defaults.md.

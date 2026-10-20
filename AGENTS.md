@@ -10,6 +10,7 @@
 
 1. **Read this whole file before writing code.** Then read everything in `legacy/` (the QGIS console scripts `alt_shortest_path.py`, `sekat_kontur_klh_try1.py`, `sekat_kontur_klh_try2.py`, and the workflow PDF if present). Port behaviour that is correct and **do not port the known bugs listed in §9**.
 2. **Never invent physical or policy parameter values.** If a value is not in this file or in the config, add it to the config as `null` with a `# TODO(human):` comment and make the pipeline fail with a clear message if it is still `null` at runtime. Section 11 lists the open questions.
+   **Exception, opt-in only:** `configs/proposed_defaults.yaml` holds researched *proposed* values, each with a confidence level and source (`docs/proposed_defaults.md`). A run config uses it only by naming it in a top-level `preset:` key. It fills nulls, never overrides, never sets data facts (datums, RMSE, `higher_is_wetter`, paths), and every value taken from it is a per-stage warning and a report section. The config models, `example_khg.yaml` and the wizard still treat these keys as null/required. Do not add values to the preset without a source or an explicit LOW label.
 3. **Build in the milestone order of §10.** Each milestone must have passing tests before the next starts.
 4. **Every algorithm you implement must cite its reference in the docstring** (use the keys in §12). If you choose an algorithm not listed here, add a reference for it to §12 and to `docs/references.md`, and flag it in your summary.
 5. Commit in small steps. Summarise what you did, what you assumed, and what is still TODO at the end of each milestone.
@@ -437,6 +438,10 @@ At the end of each milestone: a short summary, a list of assumptions, and open T
 
 ---
 
+## 11b. Proposed defaults (answers offered, not decisions)
+
+`configs/proposed_defaults.yaml` offers a value for most of §11 questions 3, 4, 5, 8, 9 and the null parameters of Stages 2, 3, 6, 7, 9 and 10, so a trial run can proceed. Each is HIGH (already in a KLH document), MED (literature, site varies), LOW (engineering judgement) or POLICY (a choice, not a measurement); see `docs/proposed_defaults.md`. Still open and **not** proposed: questions 1 and 2 (datum, RMSE, river levels: facts about the data), 7 (sign-off on weights), 10 (licence, `pip install` on KLH machines), 11 (neraca air format), 12 (hydro backend), 13 (Stage 12 values; `transmissivity_multiplier` has no defensible default).
+
 ## 12. References
 
 - **[Barnes2014]** Barnes, R., Lehman, C., & Mulla, D. (2014). Priority-flood: An optimal depression-filling and watershed-labeling algorithm for digital elevation models. *Computers & Geosciences*, 62, 117–127.
@@ -461,6 +466,7 @@ At the end of each milestone: a short summary, a list of assumptions, and open T
 - **[Takahashi1980]** Takahashi, H., & Matsuyama, A. (1980). An approximate solution for the Steiner problem in graphs. *Mathematica Japonica*, 24(6), 573–577.
 - **[Tarboton1997]** Tarboton, D. G. (1997). A new method for the determination of flow directions and upslope areas in grid digital elevation models. *Water Resources Research*, 33(2), 309–319.
 - **[Urzainki2020]** Urzainki, I., Laurén, A., Palviainen, M., Haahti, K., Budiman, A., Basuki, I., Netzer, M., & Hökkä, H. (2020). Canal blocking optimization in restoration of drained peatlands. *Biogeosciences*, 17, 4769–4784. https://doi.org/10.5194/bg-17-4769-2020 (code: LukeEcomod/blopti, MIT).
+- **[Urzainki2023]**, **[Hooijer2005]**, **[Cobb2019]**, **[Haman2017]**, **[IPEX-PVC]**, **[Meadows2024]**, **[PanduanKLH]**: sources of the proposed defaults, see `docs/references.md`.
 - **[PP57-2016]** Peraturan Pemerintah No. 57 Tahun 2016 tentang Perubahan atas PP No. 71 Tahun 2014 tentang Perlindungan dan Pengelolaan Ekosistem Gambut.
 - **[KHG-SKSS-2021]** Tim Departemen Teknik Geodesi UGM. *Laporan Akhir KHG Sungai Kahayan – Sungai Sebangau* (2021): sekat spacing `js = dA / i_lahan`, sekat height eq. 4.18, IPG metric (§5.3.4).
 

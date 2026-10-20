@@ -12,9 +12,11 @@ from qgis.core import QgsApplication, QgsTask
 from qgis.PyQt.QtCore import QObject, pyqtSignal
 
 from .. import runner
-from ..runconfig import set_dotted, write_run_config
+from ..runconfig import attach_preset, detach_preset, set_dotted, write_run_config
 from . import viewmodel as vm
 from .i18n import tr
+
+PRESET_RESOURCE = Path(__file__).parents[1] / "resources" / "proposed_defaults.yaml"
 
 
 def _flag(name: str):
@@ -182,6 +184,22 @@ class WizardController(QObject):
             return
         data = yaml.safe_load(self.config_path.read_text(encoding="utf8"))
         set_dotted(data, key, value)
+        write_run_config(data, self.config_path)
+        self.refresh_check()
+
+    def set_preset(self, enabled: bool) -> None:
+        """Opt the open run into (or out of) the proposed-defaults preset, then re-check. Values already in the run YAML win."""
+        if not self.config_path:
+            return
+        data = yaml.safe_load(self.config_path.read_text(encoding="utf8"))
+        if enabled:
+            try:
+                attach_preset(data, self.config_path.parent, PRESET_RESOURCE)
+            except OSError as e:
+                self.notice.emit("error", tr("Could not turn on the proposed defaults: {err}").format(err=e))
+                return
+        else:
+            detach_preset(data)
         write_run_config(data, self.config_path)
         self.refresh_check()
 

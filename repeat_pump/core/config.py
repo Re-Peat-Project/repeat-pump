@@ -224,13 +224,62 @@ class Config(_M):
     def base_dir(self) -> Path:
         return Path(getattr(self, "_base", "."))
 
+    @property
+    def preset(self) -> dict:
+        """``{"path": ..., "keys": [...]}``: the proposed-defaults preset the run opted into and the keys it filled."""
+        return getattr(self, "_preset", {"path": None, "keys": []})
+
+
+# What a proposed-defaults preset may fill: policy and engineering values only. Facts about the data (datums, RMSE, which
+# way the moisture index runs) and every input path stay with the user, so a preset can never describe the wrong dataset.
+PRESET_SECTIONS = {"topology", "hydro", "sekat", "prioritise", "pumping", "optimise"}
+PRESET_RUN_KEYS = {"clip_margin_m"}
+
+
+def _fill_nulls(target: dict, source: dict, prefix: str, applied: list[str]) -> None:
+    """Copy ``source`` values into ``target`` where ``target`` has no value (missing or null). Never overwrites."""
+    for k, v in source.items():
+        key = f"{prefix}.{k}" if prefix else k
+        if isinstance(v, dict) and isinstance(target.get(k), dict):
+            _fill_nulls(target[k], v, key, applied)
+        elif isinstance(v, dict) and k not in target:
+            target[k] = {}
+            _fill_nulls(target[k], v, key, applied)
+        elif v is not None and target.get(k) is None:
+            target[k] = v
+            applied.append(key)
+
+
+def apply_preset(data: dict, base: Path) -> tuple[list[str], Optional[str]]:
+    """Fill the null policy/engineering parameters of a run config from the preset file named by its top-level ``preset`` key.
+
+    Opt-in and additive: values the run config already holds are never touched, and a config without ``preset`` loads
+    exactly as before. Returns the keys that came from the preset (dotted) and the preset path.
+    """
+    ref = data.pop("preset", None)
+    if not ref:
+        return [], None
+    p = Path(ref) if Path(ref).is_absolute() else base / ref
+    if not p.exists():
+        raise ConfigError(f"preset file not found: {p}")
+    preset = yaml.safe_load(p.read_text(encoding="utf8")) or {}
+    bad = [k for k in preset if k not in PRESET_SECTIONS | {"run"}]
+    bad += [f"run.{k}" for k in preset.get("run", {}) if k not in PRESET_RUN_KEYS]
+    if bad:
+        raise ConfigError(f"preset {p.name} may only set {sorted(PRESET_SECTIONS)} and run.{sorted(PRESET_RUN_KEYS)}; not allowed: {bad}")
+    applied: list[str] = []
+    _fill_nulls(data, preset, "", applied)
+    return applied, str(p)
+
 
 def load_config(path: str | Path) -> Config:
     path = Path(path)
     with open(path, encoding="utf8") as fh:
         data = yaml.safe_load(fh)
+    applied, preset_path = apply_preset(data, path.parent.resolve())
     cfg = Config.model_validate(data)
     object.__setattr__(cfg, "_base", str(path.parent.resolve()))
+    object.__setattr__(cfg, "_preset", {"path": preset_path, "keys": applied})
     return cfg
 
 
