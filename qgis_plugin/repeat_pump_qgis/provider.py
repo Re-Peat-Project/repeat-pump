@@ -15,6 +15,7 @@ from qgis.core import (QgsProcessing, QgsProcessingAlgorithm, QgsProcessingConte
                        QgsProcessingParameterFileDestination, QgsProcessingParameterRasterLayer, QgsProcessingProvider,
                        QgsVectorLayer)
 
+from .runconfig import build_run_config
 from .runner import check_environment, ensure_environment, get_python, run_cli, split_source
 
 SHOW_LAYERS = ["canal_segments", "sekat_proposed", "sekat_existing_assessed", "pump_routes", "pump_stations", "gates_required",
@@ -78,25 +79,10 @@ class _StageAlgorithm(QgsProcessingAlgorithm):
         self.addParameter(QgsProcessingParameterFileDestination("REPORT", "Run report (markdown)", fileFilter="Markdown (*.md)", optional=True))
 
     def _build_config(self, parameters, context, cfgfile):
-        base = Path(cfgfile).parent
-        data = yaml.safe_load(Path(cfgfile).read_text(encoding="utf8"))
-        inp = data.setdefault("inputs", {})
-
-        def absolute(v):
-            return str(base / v) if isinstance(v, str) and not os.path.isabs(v) else v
-        for sec in inp.values():
-            if isinstance(sec, dict):
-                if "path" in sec:
-                    sec["path"] = absolute(sec["path"])
-                if "paths" in sec:
-                    sec["paths"] = [absolute(p) for p in sec["paths"]]
         out = self.parameterAsFileOutput(parameters, "OUTPUT_GPKG", context)
-        run = data.setdefault("run", {})
-        run["output_gpkg"] = out or absolute(run.get("output_gpkg", "out/run.gpkg"))
+        kw = {}
         if self.FIRST == 1:
-            inp.setdefault("dtm", {})["path"] = self.parameterAsRasterLayer(parameters, "DTM", context).source()
-            inp.setdefault("moisture", {})["paths"] = [self.parameterAsRasterLayer(parameters, "MOISTURE", context).source()]
-            inp["subkhg_priority"] = {"path": self.parameterAsFile(parameters, "PRIORITY", context)}
+            vectors = {}
             for key, _, _, cfgkey, optional in VECTOR_INPUTS:
                 if self.parameterAsSource(parameters, key, context) is None:
                     continue
@@ -104,11 +90,11 @@ class _StageAlgorithm(QgsProcessingAlgorithm):
                 path, name = split_source(layer.source()) if layer is not None else ("", None)
                 if not os.path.exists(path):
                     raise QgsProcessingException(f"{key}: the layer must be saved to a file (temporary layers cannot be passed to the engine)")
-                entry = inp.setdefault(cfgkey, {})
-                entry["path"] = path
-                if name:
-                    entry["layer"] = name
-        return data
+                vectors[cfgkey] = (path, name)
+            kw = dict(dtm=self.parameterAsRasterLayer(parameters, "DTM", context).source(),
+                      moisture=self.parameterAsRasterLayer(parameters, "MOISTURE", context).source(),
+                      priority=self.parameterAsFile(parameters, "PRIORITY", context), vectors=vectors)
+        return build_run_config(cfgfile, output_gpkg=out or None, **kw)
 
     def processAlgorithm(self, parameters, context, feedback):
         python = get_python()

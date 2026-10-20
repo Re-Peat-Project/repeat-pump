@@ -5,6 +5,7 @@ No ``repeat_pump`` import happens inside QGIS, so the engine's dependencies
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -78,12 +79,24 @@ def check_environment(python: str) -> tuple[bool, str]:
     return True, f"OK: {r.stdout.strip()} ({python})"
 
 
-def run_cli(python: str, config: str, cwd: str, first, last, accept, feedback) -> int:
-    """Stream the CLI output into the Processing feedback; return the exit code (0 ok, 1 error, 2 review stop)."""
+def run_check(python: str, config: str) -> dict:
+    """``repeat-pump check``: stages, review flags and the null parameters each stage still needs."""
+    r = subprocess.run([python, "-m", "repeat_pump.cli", "check", "--config", config], capture_output=True, text=True, timeout=180,
+                       creationflags=CREATE_NO_WINDOW, env=clean_env(), cwd=tempfile.gettempdir())
+    if r.returncode != 0:
+        raise RuntimeError((r.stderr or r.stdout).strip()[-600:] or f"check exited with {r.returncode}")
+    return json.loads(r.stdout.strip().splitlines()[-1])
+
+
+def run_cli(python: str, config: str, cwd: str, first, last, accept, feedback, rerun: bool = False) -> int:
+    """Stream the CLI output into the Processing feedback; return the exit code (0 ok, 1 error, 2 review stop).
+
+    ``rerun=True`` forces stage ``first`` (and everything after it up to ``last``) to run again, even stage 1.
+    """
     cmd = [python, "-u", "-m", "repeat_pump.cli", "run", "--config", config]
     if last:
         cmd += ["--stop-after", str(last)]
-    if first and first > 1:
+    if first and (first > 1 or rerun):
         cmd += ["--resume-from", str(first)]
     for a in accept:
         cmd += ["--accept", str(a)]
