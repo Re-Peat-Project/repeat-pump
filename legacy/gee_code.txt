@@ -1,0 +1,304 @@
+// ============================================================
+// INDEKS COMPOSITE KEBASAHAN GAMBUT (CPWI v2)
+// Sentinel-2 SR + Sentinel-1 GRD + Cloud Score+
+// Perbaikan: QA60 → CS+, fallback komposit, mask-safe CPWI
+// ============================================================
+
+var PRIMARY_START   = '2023-07-01';
+var PRIMARY_END     = '2023-10-31';
+var FALLBACK_START  = '2023-04-01';
+var FALLBACK_END    = '2023-11-30';
+
+// ============================================================
+// 1. SENTINEL-2 — Cloud Score+ masking dengan fallback komposit
+// ============================================================
+
+// Dataset Cloud Score+
+var csPlus = ee.ImageCollection('GOOGLE/CLOUD_SCORE_PLUS/V1/S2_HARMONIZED');
+
+// Fungsi masking per-piksel menggunakan CS+
+function maskS2withCSPlus(img) {
+  // cs_cdf ≥ 0.60 → piksel dianggap bersih (clear)
+  var clearMask = img.select('cs_cdf').gte(0.60);
+  return img
+    .updateMask(clearMask)
+    .select('B.*')          // Hanya band spektral, buang QA60/SCL/dll
+    .multiply(0.0001)
+    .copyProperties(img, ['system:time_start']);
+}
+
+// Koleksi primer: Juli–Oktober 2023
+var s2Primary = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+  .filterBounds(aoi)
+  .filterDate(PRIMARY_START, PRIMARY_END)
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 80))  // Pre-filter kasar
+  .linkCollection(csPlus, ['cs_cdf'])
+  .map(maskS2withCSPlus);
+
+// Koleksi fallback: April–November 2023 (lebih lebar, isi gap asap)
+var s2Fallback = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+  .filterBounds(aoi)
+  .filterDate(FALLBACK_START, FALLBACK_END)
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 80))
+  .linkCollection(csPlus, ['cs_cdf'])
+  .map(maskS2withCSPlus);
+
+// Komposit median masing-masing
+var s2Med  = s2Primary.median().clip(aoi);
+var s2Fall = s2Fallback.median().clip(aoi);
+
+// Isi piksel kosong di primer dengan fallback (unmask per piksel)
+var s2 = s2Med.unmask(s2Fall).clip(aoi);
+
+// ============================================================
+// 2. INDEKS SPEKTRAL
+// ============================================================
+
+var ndwi = s2.normalizedDifference(['B3', 'B8']).rename('NDWI');
+var ndmi = s2.normalizedDifference(['B8', 'B11']).rename('NDMI');
+var ndvi = s2.normalizedDifference(['B8', 'B4']).rename('NDVI');
+
+// Simpan valid mask S2 sebelum normalisasi (untuk re-mask CPWI)
+var s2ValidMask = s2.select('B3').mask();
+
+// Normalisasi ke 0–1 (clamp eksplisit agar tidak ada NaN)
+var ndwiNorm = ndwi.clamp(-0.3, 0.4)
+  .subtract(-0.3).divide(0.4 - (-0.3))
+  .clamp(0, 1).rename('NDWI_norm');
+
+var ndmiNorm = ndmi.clamp(-0.2, 0.5)
+  .subtract(-0.2).divide(0.5 - (-0.2))
+  .clamp(0, 1).rename('NDMI_norm');
+
+// ============================================================
+// 3. SENTINEL-1 SAR — Ascending + Descending digabung
+// ============================================================
+
+function filterS1(orbit) {
+  return ee.ImageCollection('COPERNICUS/S1_GRD')
+    .filterBounds(aoi)
+    .filterDate(PRIMARY_START, PRIMARY_END)
+    .filter(ee.Filter.eq('instrumentMode', 'IW'))
+    .filter(ee.Filter.eq('orbitProperties_pass', orbit))
+    .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
+    .select(['VV']);
+}
+
+var s1Asc  = filterS1('ASCENDING');
+var s1Desc = filterS1('DESCENDING');
+
+// Gabungkan ascending + descending untuk tutup gap swath
+var s1Combined = s1Asc.merge(s1Desc).median().clip(aoi);
+
+// Simpan valid mask S1
+var s1ValidMask = s1Combined.select('VV').mask();
+
+// Konversi dB → linear, buat SAR wetness proxy
+var vvLin = ee.Image(10).pow(s1Combined.divide(10));
+
+// NDVI di-clamp minimal 0.01 untuk hindari pembagian nol
+var ndviSafe = ndvi.unmask(0.1).clamp(0.01, 1);
+
+var sarWetness = vvLin
+  .divide(ndviSafe)
+  .clamp(0.01, 0.15)
+  .subtract(0.01).divide(0.15 - 0.01)
+  .clamp(0, 1)
+  .rename('SAR_Wetness');
+
+// ============================================================
+// 4. CPWI — Composite Peatland Wetness Index
+// ============================================================
+
+// Setiap komponen di-unmask ke 0.5 sebelum digabung,
+// lalu hasil akhir di-mask ulang ke area yang benar-benar valid
+// (setidaknya S2 atau S1 punya piksel) agar tidak ada "lubang" palsu
+
+var ndwiSafe = ndwiNorm.unmask(0.5);
+var ndmiSafe = ndmiNorm.unmask(0.5);
+var sarSafe  = sarWetness.unmask(0.5);
+
+// Hitung CPWI kontinu
+var cpwi = ndwiSafe.multiply(0.30)
+  .add(ndmiSafe.multiply(0.35))
+  .add(sarSafe.multiply(0.35))
+  .rename('CPWI');
+
+// Re-mask: piksel valid jika S2 ATAU S1 punya data
+var combinedMask = s2ValidMask.or(s1ValidMask);
+cpwi = cpwi.updateMask(combinedMask).clip(aoi);
+
+// Klasifikasi 5 kelas (1 = Sangat Kering → 5 = Sangat Basah)
+var cpwiClass = ee.Image(0)
+  .where(cpwi.lt(0.25), 1)
+  .where(cpwi.gte(0.25).and(cpwi.lt(0.45)), 2)
+  .where(cpwi.gte(0.45).and(cpwi.lt(0.65)), 3)
+  .where(cpwi.gte(0.65).and(cpwi.lt(0.80)), 4)
+  .where(cpwi.gte(0.80), 5)
+  .updateMask(combinedMask)
+  .rename('CPWI_Class')
+  .clip(aoi);
+
+// ============================================================
+// 5. DIAGNOSTIK — Cek di Console sebelum export
+// ============================================================
+
+print('=== DIAGNOSTIK CPWI v2 ===');
+
+print('[S2] Jumlah citra primer (Jul–Okt 2023):',
+  ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+    .filterBounds(aoi).filterDate(PRIMARY_START, PRIMARY_END)
+    .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 80)).size()
+);
+
+print('[S2] Jumlah citra fallback (Apr–Nov 2023):',
+  ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+    .filterBounds(aoi).filterDate(FALLBACK_START, FALLBACK_END)
+    .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 80)).size()
+);
+
+print('[S1 ASC]  Jumlah scene:', s1Asc.size());
+print('[S1 DESC] Jumlah scene:', s1Desc.size());
+
+print('[CPWI] Min/Max (sample):',
+  cpwi.reduceRegion({reducer: ee.Reducer.minMax(), geometry: aoi, scale: 100, maxPixels: 1e7})
+);
+
+// ============================================================
+// 6. VISUALISASI PETA
+// ============================================================
+
+Map.centerObject(aoi, 11);
+
+var aoiOutline = ee.Image().byte()
+  .paint({featureCollection: aoi, color: 1, width: 2});
+Map.addLayer(aoiOutline, {palette: ['black']}, 'Batas AOI');
+
+var classVis = {
+  min: 1, max: 5,
+  palette: ['#d7191c', '#fdae61', '#ffffbf', '#abd9e9', '#2c7bb6']
+};
+var cpwiVis = {
+  min: 0, max: 1,
+  palette: ['#d7191c', '#fdae61', '#ffffbf', '#abd9e9', '#2c7bb6']
+};
+var ndwiVis = {
+  min: -0.3, max: 0.4,
+  palette: ['#ffffcc', '#a1dab4', '#41b6c4', '#2c7fb8', '#253494']
+};
+
+// Layer diagnostik mask (aktifkan manual jika perlu)
+Map.addLayer(s2ValidMask.selfMask(), {palette: ['green']}, 'Mask S2 Valid', false);
+Map.addLayer(s1ValidMask.selfMask(), {palette: ['orange']}, 'Mask S1 Valid', false);
+Map.addLayer(combinedMask.selfMask(), {palette: ['lime']}, 'Mask Combined', false);
+
+var activeLayer = Map.addLayer(cpwiClass, classVis, 'Klasifikasi Kebasahan (CPWI Class)');
+
+// ============================================================
+// 7. PANEL LEGENDA DINAMIS
+// ============================================================
+
+var legendPanel = ui.Panel({
+  style: {position: 'bottom-left', padding: '8px 12px'}
+});
+Map.add(legendPanel);
+
+function updateLegend(layerName) {
+  legendPanel.clear();
+
+  if (layerName === 'Klasifikasi Kebasahan (CPWI Class)') {
+    legendPanel.add(ui.Label('Tingkat Kebasahan Gambut',
+      {fontWeight: 'bold', fontSize: '13px', margin: '0 0 6px 0'}));
+    var labels = [
+      '1 – Sangat Kering (Defisit Parah)',
+      '2 – Kering (Rawan Terbakar)',
+      '3 – Sedang / Lembap',
+      '4 – Basah / Jenuh Air',
+      '5 – Sangat Basah (Air Permukaan)'
+    ];
+    for (var i = 0; i < 5; i++) {
+      var box = ui.Label({style: {
+        backgroundColor: classVis.palette[i],
+        padding: '7px 10px', margin: '0 6px 3px 0'
+      }});
+      legendPanel.add(ui.Panel(
+        [box, ui.Label(labels[i], {margin: '2px 0 0 0', fontSize: '11px'})],
+        ui.Panel.Layout.Flow('horizontal')
+      ));
+    }
+
+  } else if (layerName === 'CPWI Continuous (Nilai 0 – 1)') {
+    legendPanel.add(ui.Label('Nilai Indeks CPWI',
+      {fontWeight: 'bold', fontSize: '13px', margin: '0 0 6px 0'}));
+    var grad = ee.Image.pixelLonLat().select('latitude')
+      .multiply((1 - 0) / 100).add(0);
+    var thumb = ui.Thumbnail({
+      image: grad.visualize(cpwiVis),
+      params: {bbox: '0,0,10,100', format: 'png'},
+      style: {stretch: 'vertical', margin: '0 8px 0 0', maxHeight: '100px', width: '15px'}
+    });
+    legendPanel.add(ui.Panel([
+      thumb,
+      ui.Panel([
+        ui.Label('1.0 (Sangat Basah)', {margin: '0 0 65px 0', fontSize: '11px'}),
+        ui.Label('0.0 (Sangat Kering)', {margin: '0', fontSize: '11px'})
+      ])
+    ], ui.Panel.Layout.Flow('horizontal')));
+  }
+}
+
+// ============================================================
+// 8. DROPDOWN SELECTOR
+// ============================================================
+
+var selectPanel = ui.Panel({style: {position: 'top-right', padding: '6px 10px'}});
+selectPanel.add(ui.Label('Pilih Tampilan Layer:',
+  {fontWeight: 'bold', fontSize: '12px', margin: '0 0 4px 0'}));
+
+var layerSelect = ui.Select({
+  items: [
+    'Klasifikasi Kebasahan (CPWI Class)',
+    'CPWI Continuous (Nilai 0 – 1)',
+    'NDWI Air Permukaan'
+  ],
+  value: 'Klasifikasi Kebasahan (CPWI Class)',
+  onChange: function(selected) {
+    Map.layers().remove(activeLayer);
+    if (selected === 'Klasifikasi Kebasahan (CPWI Class)') {
+      activeLayer = Map.addLayer(cpwiClass, classVis, selected);
+    } else if (selected === 'CPWI Continuous (Nilai 0 – 1)') {
+      activeLayer = Map.addLayer(cpwi, cpwiVis, selected);
+    } else if (selected === 'NDWI Air Permukaan') {
+      activeLayer = Map.addLayer(ndwi, ndwiVis, selected);
+    }
+    updateLegend(selected);
+  }
+});
+
+selectPanel.add(layerSelect);
+Map.add(selectPanel);
+updateLegend('Klasifikasi Kebasahan (CPWI Class)');
+
+// ============================================================
+// 9. EXPORT KE GOOGLE DRIVE
+// ============================================================
+
+Export.image.toDrive({
+  image: cpwiClass.toInt8(),
+  description: 'PeatlandIndex_Class_KHG_Kahseb_v2',
+  folder: 'GEE_Exports',
+  scale: 10,
+  region: aoi,
+  maxPixels: 1e9,
+  crs: 'EPSG:32750'  // WGS84 UTM Zone 50S — sesuaikan jika AOI beda zona
+});
+
+Export.image.toDrive({
+  image: cpwi.toFloat(),
+  description: 'PeatlandIndex_Continuous_KHG_Kahseb_v2',
+  folder: 'GEE_Exports',
+  scale: 10,
+  region: aoi,
+  maxPixels: 1e9,
+  crs: 'EPSG:32750'
+});

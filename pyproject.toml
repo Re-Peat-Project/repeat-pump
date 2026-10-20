@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "repeat-pump"
+version = "0.1.0"
+description = "RE-PEAT: rewetting with pompanisasi (canal prioritisation, sekat placement, pump routing)"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy", "scipy", "rasterio", "geopandas", "shapely>=2", "pyogrio",
+  "networkx", "whitebox", "pydantic>=2", "pyyaml",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+repeat-pump = "repeat_pump.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["repeat_pump*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

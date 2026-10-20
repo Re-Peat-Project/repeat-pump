@@ -1,0 +1,400 @@
+# Agent Instructions: Build the "Rewetting with Pompanisasi" Module
+
+**Project:** RE-PEAT (World Bank – KLH), GIS workstream, Departemen Teknik Geodesi UGM
+**Module:** `repeat_pump`, the *Rewetting with pompanisasi* intervention
+**Audience:** a local coding agent (e.g., Claude Code). Rename this file to `CLAUDE.md` / `AGENTS.md` at the repo root if your agent expects that.
+
+---
+
+## 0. How to work
+
+1. **Read this whole file before writing code.** Then read everything in `legacy/` (the QGIS console scripts `alt_shortest_path.py`, `sekat_kontur_klh_try1.py`, `sekat_kontur_klh_try2.py`, and the workflow PDF if present). Port behaviour that is correct and **do not port the known bugs listed in §9**.
+2. **Never invent physical or policy parameter values.** If a value is not in this file or in the config, add it to the config as `null` with a `# TODO(human):` comment and make the pipeline fail with a clear message if it is still `null` at runtime. Section 11 lists the open questions.
+3. **Build in the milestone order of §10.** Each milestone must have passing tests before the next starts.
+4. **Every algorithm you implement must cite its reference in the docstring** (use the keys in §12). If you choose an algorithm not listed here, add a reference for it to §12 and to `docs/references.md`, and flag it in your summary.
+5. Commit in small steps. Summarise what you did, what you assumed, and what is still TODO at the end of each milestone.
+
+---
+
+## 1. Context and scope
+
+The module sits at the end of a larger pipeline:
+
+```
+DEM (LiDAR / DEMNAS / FABDEM) ─► [DSM?] ─► DEM correction & smoothing ─► Sub-KHG delineation
+                                                                               │
+Project data + Open data ─────────────────► Neraca air (water-sharing) ◄───────┘
+                                                     │
+                                         Sub-KHG prioritisation
+                                                     │
+                                              Interventions
+                                     ┌───────────────┼───────────────┐
+                                    ...   ► Rewetting with pompanisasi ◄   ...
+```
+
+**In scope (this module):**
+- Hydro-conditioning the *already-corrected* DTM **for flow routing only**.
+- Canal network cleaning, segmentation, and graph construction.
+- Canal-segment prioritisation **inside priority sub-KHGs** (need score and feasibility filter).
+- Gap analysis of existing canal blocks (sekat) and placement of new sekat by hydraulic head.
+- Identifying water sources (river–canal intersections) and pump targets.
+- Head-aware routing of pumped water, pump station siting, and pump sizing.
+- Outputs for QGIS users and for the downstream dashboard.
+
+**Out of scope (consume, do not recompute):**
+- DEM correction and smoothing, and the DSM→DTM decision. The module receives a bare-earth DTM.
+- Sub-KHG delineation.
+- Neraca air and sub-KHG prioritisation. The module receives their outputs as a table (§3).
+
+LiDAR DTM is the primary input. DEMNAS/FABDEM-derived DTMs must still work, with accuracy warnings (§5, Stage 1).
+
+---
+
+## 2. Architecture and stack
+
+**Pattern: core library + thin adapters.**
+
+```
+repeat_pump/
+  core/
+    config.py        # pydantic models for the YAML config; validation
+    io.py            # loading, CRS/extent/resolution checks, tiling helpers
+    topology.py      # Stage 2
+    hydro.py         # Stage 3
+    segments.py      # Stage 4
+    profiles.py      # Stage 5 (along-canal land profiles)
+    prioritise.py    # Stage 6
+    sekat.py         # Stage 7
+    network.py       # Stage 8 (graph build)
+    routing.py       # Stage 9
+    pumps.py         # Stage 10
+    report.py        # run report, QA layers
+    pipeline.py      # stage orchestration, checkpoints, resume
+  cli.py             # `repeat-pump run --config khg.yaml [--stop-after S] [--resume-from S]`
+  qgis_provider/     # QgsProcessingProvider wrapping core stages
+tests/
+  fixtures/          # small synthetic + one pilot sub-KHG
+legacy/              # original console scripts (read-only reference)
+docs/
+  references.md
+configs/
+  example_khg.yaml
+```
+
+**Rules**
+- `core/` must **not import `qgis`**. It uses: Python ≥3.11, numpy, scipy, rasterio, geopandas, shapely ≥2, pyogrio, networkx, whitebox (WhiteboxTools), pydantic, pyyaml. Add others only with justification.
+- `qgis_provider/` only declares typed parameters and calls `core`. Target QGIS version: see §11.
+- All outputs go to a single GeoPackage per run plus `run_report.md` and `run_report.json`.
+- Every stage writes its output layer and a stage log, and records completion in `run_state.json` so runs can resume.
+- Large rasters (1 m LiDAR over a full KHG): use windowed reads and tiling. Never load a full KHG raster into memory unless it fits the configured memory budget.
+
+---
+
+## 3. Input contract
+
+All inputs are listed in the config. `io.py` validates them before any processing.
+
+| Key | Type | Required fields / notes |
+|---|---|---|
+| `dtm` | GeoTIFF | Bare-earth DTM, metres. Config must declare `surface_type: DTM`; **refuse to run if `DSM`**. Config also declares `vertical_rmse_m`. |
+| `subkhg` | Polygon layer | `subkhg_id` (unique). |
+| `subkhg_priority` | CSV / table | `subkhg_id`, `priority_rank` (int, 1 = highest), `deficit_mm` (water deficit for the design period, from neraca air), `design_period_days`. Produced by the neraca air module. |
+| `canals` | Line layer | `canal_class` (primer/sekunder/tersier), optional `depth_m`, `width_m`. |
+| `sekat_existing` | Point layer | `sekat_id`, optional `type`, `has_gate` (bool), `crest_elev_m`. May be empty. |
+| `rivers` | Polygon or line layer | Optional `dry_season_wl_m` (dry-season water level, m, same vertical datum as DTM), `perennial` (bool). |
+| `burn_area` | Polygon layer | `burn_freq` (int count of burn years; normalise from text like "2x" in `io.py` and log every unparsed value). |
+| `peat_depth` | Polygon layer | Peat thickness class. Parse class strings such as `'3,0 - 4,0 meter'` to numeric `depth_min_m`, `depth_max_m` (note the comma decimal separator). |
+| `moisture` | GeoTIFF(s) | Satellite moisture index from upstream (e.g., NDMI/OPTRAM-type). Config declares `higher_is_wetter: true/false`. |
+| `concession` | Polygon layer | Optional. Used only as a feasibility filter (§5, Stage 6). |
+| `tma_obs` | Point layer | Optional water-table/canal level observations for validation. |
+
+**Validation rules (fail fast, with a clear message):**
+- All layers must be reprojected to `config.crs` (projected, metres). Check the DTM's CRS explicitly. Legacy runs mixed EPSG:32748 and EPSG:32749 by mistake. **Raise an error if any input's CRS differs from `config.crs` and `auto_reproject: false`.** If `auto_reproject: true`, reproject and log it.
+- Check that every input overlaps the analysis extent (selected sub-KHGs). Warn when an input covers <90% of it.
+- Check that the vertical datum of `rivers.dry_season_wl_m` matches the DTM's (config field `vertical_datum`). If unknown, stop and ask.
+
+---
+
+## 4. Config (YAML)
+
+Validate with pydantic. Example skeleton (`configs/example_khg.yaml`):
+
+```yaml
+run:
+  name: khg_kahayan_sebangau_pilot
+  output_gpkg: out/pilot.gpkg
+  crs: EPSG:32749
+  auto_reproject: false
+  vertical_datum: null            # TODO(human)
+  memory_budget_gb: 8
+  subkhg_selection: {mode: top_n, n: 3}   # or {mode: ids, ids: [...]}
+
+inputs:
+  dtm: {path: ..., surface_type: DTM, vertical_rmse_m: null}   # TODO(human)
+  # ... other inputs per §3
+
+hydro:
+  breach_max_dist_cells: null     # TODO(human); passed to Whitebox BreachDepressionsLeastCost
+  burn_depth_default_m: 2.0       # used only where canals.depth_m is missing
+  flow_algorithm: dinf            # dinf | mfd | d8
+
+segments:
+  max_length_m: 500
+  min_length_m: 25                # shorter pieces flagged, excluded from scoring
+
+profiles:
+  bank_offsets_m: [6, 10]         # lateral sampling beyond canal edge, both sides
+  sample_step_m: 5
+  smoothing_window_m: 50          # median filter along profile
+
+sekat:
+  dA_m: 0.40                      # max water-table depth below surface, PP 57/2016
+  max_spacing_m: null             # TODO(human); upper bound on spacing
+  slope_reinforced_pct: 5.0       # legacy SLOPE_MIN_PCT; flags leaky/reinforced type
+
+prioritise:
+  ring_buffer_m: [15, 100]        # inner, outer, for moisture extraction
+  criteria:                       # need criteria only
+    burn_freq:   {weight: null, direction: higher_is_worse}
+    peat_depth:  {weight: null, direction: higher_is_worse}
+    dryness:     {weight: null, direction: higher_is_worse}
+    upstream_contrib: {weight: null, direction: higher_is_worse}
+  weights_mode: direct            # direct | ahp
+  ahp_matrix: null                # required if weights_mode == ahp
+  feasibility:
+    concession_mode: null         # TODO(human): exclude | flag | ignore
+  top_fraction: 0.2               # share of segments selected as targets
+
+pumping:
+  conveyance: null                # TODO(human): canal | pipe
+  manning_n: null                 # TODO(human), canal mode
+  hazen_williams_c: null          # TODO(human), pipe mode
+  pipe_diameter_m: null           # pipe mode
+  pump_efficiency: null           # TODO(human)
+  max_head_per_station_m: null    # TODO(human)
+  pump_capacity_m3s: null         # TODO(human), per unit
+  uphill_penalty_lambda: null     # TODO(human); cost weight per metre of lift
+  demand_mode: deficit            # deficit | specific_yield
+  specific_yield: null            # required if demand_mode == specific_yield
+  influence_distance_m: null      # TODO(human); canal-to-peat rewetting reach, calibrate with tma_obs
+  routing: steiner                # steiner | per_target (legacy-equivalent baseline)
+```
+
+---
+
+## 5. Pipeline stages
+
+Each stage lists its purpose, method, references, outputs, and human checkpoint. Stages marked **[REVIEW]** stop by default and write a QA layer. They continue only when `--accept STAGE` is passed or `review.auto_accept` lists the stage.
+
+### Stage 1: Load and validate
+- Apply all checks in §3.
+- **Accuracy warning:** if `sekat.dA_m < 2 × dtm.vertical_rmse_m`, emit a prominent warning in the run report. Head-based sekat placement is then dominated by DTM noise. Do not block the run.
+- Clip all inputs to the selected sub-KHGs (by `subkhg_priority` + `subkhg_selection`) plus a configurable margin.
+- **Output:** `inputs_clipped/*`, validation section of the report.
+
+### Stage 2: Canal topology **[REVIEW]**
+- Snap endpoints within tolerance, break lines at intersections, remove duplicates, and report dangles. Equivalent to GRASS `v.clean tool=snap,break,rmdupl` (Neteler & Mitasova, 2008). Implement with shapely (`unary_union` + `line_merge` + noding) **or** call GRASS if available. Keep the core path GRASS-free.
+- **Do not silently delete dangles.** Write them to `qa_topology_dangles` with the distance to the nearest other segment. Snapping above the tolerance needs human review.
+- Assign stable `canal_id` per cleaned feature.
+- **Output:** `canals_clean`, `qa_topology_dangles`, `qa_topology_gaps`.
+
+### Stage 3: Hydro-conditioning (flow routing only)
+- Input is the corrected DTM. Produce a **separate** conditioned raster. **The unconditioned DTM is used for all elevation/slope/profile work in Stages 5 and 7** (legacy rule: slope from DTM_smooth, never from the burned DTM).
+- Depression handling: least-cost breaching with fill fallback (`BreachDepressionsLeastCost`, Lindsay, 2016a), or priority-flood (Barnes et al., 2014).
+- Canal burning: burn using `canals.depth_m` where present, else `burn_depth_default_m`; log the share of canal length using the default. Document burn artefacts (Lindsay, 2016b).
+- Flats: ensure drainage over flats is resolved (Garbrecht & Martz, 1997; Whitebox handles this in breaching/flow tools; verify in tests).
+- Flow accumulation: D-infinity by default (Tarboton, 1997); MFD (Holmgren, 1994) or D8 configurable.
+- **Output:** `dtm_conditioned.tif`, `flow_acc.tif` (both as files referenced in the report, not inside the GPKG).
+
+### Stage 4: Segmentation
+- Split cleaned canals into ≤ `max_length_m` pieces. Assign unique, stable `seg_id` (deterministic ordering: by `canal_id` then along-line position, **not** row order).
+- Flag pieces `< min_length_m` with `status_mcda = 0`. Keep them in the network and exclude them only from scoring.
+- **Output:** `canal_segments`.
+
+### Stage 5: Along-canal land profiles
+- For each canal, sample the **unconditioned** DTM every `sample_step_m` along lines offset by `bank_offsets_m` on both sides. The canal centreline in LiDAR is water/canal bed, not land surface. Take the median across offsets at each station, then apply a median filter of `smoothing_window_m`.
+- Derive per station: `z_land`, local slope `i_lahan` (m/m and %).
+- Determine downstream direction of each canal from the profile trend and network position relative to river intersections. Where flat (|Δz| below RMSE over the canal), mark `direction = ambiguous` and resolve by network distance to the nearest river node.
+- **Output:** `canal_profiles` (station points), per-segment `z_up`, `z_down`, `i_lahan_mean` on `canal_segments`.
+
+### Stage 6: Segment prioritisation **[REVIEW]**
+Run only inside the selected priority sub-KHGs.
+
+**Attribute transfer (polygon → segment), length-weighted:** for categorical polygon attributes (burn frequency, peat depth class), the value assigned to a segment is the one covering the **largest total length** of that segment. **Do not use feature-count "majority"** (legacy bug). Implement as: intersect, compute piece lengths, group by (`seg_id`, value), sum the lengths, and take the argmax per `seg_id`. Also store `share_dominant` (dominant length ÷ segment length).
+
+**Raster extraction:**
+- Dryness: mean of `moisture` within a **ring buffer** (`ring_buffer_m` inner/outer) on both sides of the segment, excluding the canal water surface. Respect `higher_is_wetter`.
+- Upstream contribution: max of `flow_acc` within a narrow buffer, then log-transform. Alternatively, compute upstream canal length via the network graph (Stage 8). Make this a config option and document which was used.
+
+**Scoring (need score):**
+- Normalise each criterion to [0, 1] (min–max on the analysis extent, with direction applied); store raw values too.
+- Weighted linear combination (Malczewski, 2006). Weights come from `direct` config **or** an AHP pairwise matrix (Saaty, 1980). For AHP, compute the consistency ratio and **fail if CR > 0.10**.
+- If any weight is `null`, stop and ask (§0 rule 2).
+- **Sensitivity analysis:** one-at-a-time perturbation of each weight by ±10% and ±20% (renormalised). Report Spearman rank correlation of segment ranks against the baseline, and the share of top-fraction segments that remain selected (Chen et al., 2010).
+
+**Feasibility (kept separate from need):** concession and accessibility are applied **after** scoring as filters or flags according to `feasibility.concession_mode`. Never add them into the need score.
+
+- **Output:** `canal_segments` gains `need_score`, `need_rank`, `feasible`, criterion raw/normalised fields; `qa_sensitivity` table.
+
+### Stage 7: Sekat gap analysis and placement
+Head-based design following the team's 2021 KHG Kahayan–Sebangau report, Ritzema et al. (2014), and Dohong et al. (2018):
+
+- **Required spacing:** `js = dA / i_lahan` per canal reach (report eq.; dA from PP 57/2016). Clip to `max_spacing_m`.
+- **Required count per canal:** `n_req = ceil((z_up − z_down) / dA)`.
+- **Gap analysis (existing sekat first):** snap `sekat_existing` to canals (tolerance in config; log unsnapped points). Compute the IPG metric = `n_existing / n_req` per canal (report §5.3.4; > 1 = adequate).
+- **Placement of new sekat:** walk each canal from downstream to upstream. Starting from the downstream end or the last existing sekat, place a new sekat where the cumulative land-elevation rise since the previous sekat reaches `dA` (equivalent to crossing a `dA`-interval contour, without generating vector contours). Never place within `min_spacing` of an existing sekat (config).
+- **Sekat height:** `ts = dk + js·tan α − dA` (report eq. 4.18); requires `canals.depth_m` (`dk`), else leave null and flag.
+- **Type flag:** `leaky/reinforced` if local slope ≥ `slope_reinforced_pct`, else `standard` (legacy rule).
+- **Output:** `sekat_existing_assessed` (with IPG per canal), `sekat_proposed` (with `ts`, type, `z_land`, chainage).
+
+### Stage 8: Network graph
+- Build a **directed** networkx graph from `canal_segments`. Nodes are segment endpoints, sekat locations (existing and proposed), and river–canal intersection points. Each edge stores `seg_id`, `length_m`, `z_from`, `z_to` (land elevation at ends, from Stage 5), `dz = z_to − z_from`.
+- Add both directions for each segment; edge cost is direction-dependent (Stage 9).
+- Mark edges crossing a sekat. A sekat without a gate (`has_gate = false`) **blocks** pumped flow unless config allows a gate to be added; record needed gates as outputs.
+- **Output:** pickled/serialised graph in the run folder; `network_nodes`, `network_edges` layers for inspection.
+
+### Stage 9: Sources, targets, and routing **[REVIEW]**
+**Sources:** river–canal intersection nodes. Keep only rivers with `perennial = true` or known `dry_season_wl_m` (otherwise flag). Each source carries its source water level `z_src`.
+
+**Targets:** for each connected cluster of selected priority segments (top `top_fraction` of feasible segments), the target node is the **highest** pool (upstream-most node by `z_land`). Do not use segment centroids (legacy), because water must reach the top of the reach.
+
+**Edge cost (head-aware):**
+`cost(u→v) = length_m + λ · max(0, z_to − z_from)`, with λ = `uphill_penalty_lambda`. Downhill/flat edges cost length only. This is a proxy for pumping energy (P ∝ H; Karassik et al., 2008).
+
+**Routing modes:**
+- `per_target` (baseline, reproduces legacy): multi-source Dijkstra (Dijkstra, 1959) from all sources to each target independently.
+- `steiner` (default): directed Steiner arborescence via the shortest-path heuristic (Takahashi & Matsuyama, 1980). Start from a virtual super-source connected to all sources at zero cost. Repeatedly connect the cheapest unconnected target to the current tree with Dijkstra. For an undirected comparison, networkx's `steiner_tree` (Kou et al., 1981; Mehlhorn, 1988) may be reported as a secondary result only.
+- Report total length, total lift, and the number of targets unreachable (e.g., blocked by ungated sekat).
+
+- **Output:** `pump_sources`, `pump_targets`, `pump_routes` (with mode, cost, cumulative lift), `qa_unreachable_targets`.
+
+### Stage 10: Water demand, pump stations, and sizing
+**Demand per target:**
+- `deficit` mode: `V = deficit_mm / 1000 × A_served`, where `deficit_mm` comes from `subkhg_priority` and `A_served` is the peat area within `influence_distance_m` of the target's served segments (clipped to the sub-KHG).
+- `specific_yield` mode: `V = Δh × Sy × A_served`, with `Δh` = required water-table rise (config) and `Sy` from config.
+- `Q_required = V / (design_period_days × 86400)`. If `Q_required` > installed capacity, report the shortfall. Do not silently cap.
+
+**Head along each route:**
+- Static lift: `H_static = z_target_pool − z_src`, where the target pool water level = `z_land − dA` at the target.
+- Friction loss: `canal` mode uses Manning, `h_f = L · (n·Q / (A·R^(2/3)))²` (Chow, 1959), requiring canal cross-section from `width_m`/`depth_m`. `pipe` mode uses Hazen–Williams (Mays, 2011).
+- `H = H_static + Σ h_f`.
+
+**Station siting:** walk each route from source. Place a pump station where cumulative `H` since the last station would exceed `max_head_per_station_m`. Snap stations to the nearest sekat node where possible, since a lift station is naturally co-located with a block/gate.
+
+**Power:** `P = ρ g Q H / η` per station (Karassik et al., 2008), with ρ = 1000 kg/m³, g = 9.81 m/s².
+
+**Gates:** every existing or proposed sekat on a route must be gated/spillway type. List the ones needing a gate.
+
+- **Output:** `pump_stations` (Q, H, P, units needed), `pump_routes` updated with demand, `gates_required`.
+
+### Stage 11: Report
+- `run_report.md` / `.json`: config echo, input validation results, warnings (accuracy, defaults used, unparsed attributes), per-stage counts, IPG table per canal, sensitivity summary, routing summary, pump table, and the list of TODO/null parameters.
+- If `tma_obs` is provided, report observed vs. modelled canal/pool levels where comparable (validation only, no calibration in v1).
+
+---
+
+## 6. Output contract (GeoPackage layers)
+
+`canals_clean`, `qa_topology_dangles`, `qa_topology_gaps`, `canal_segments`, `canal_profiles`, `sekat_existing_assessed`, `sekat_proposed`, `network_nodes`, `network_edges`, `pump_sources`, `pump_targets`, `pump_routes`, `pump_stations`, `gates_required`, `qa_unreachable_targets`, `qa_sensitivity` (table).
+
+Every layer includes `run_name` and `stage` fields. Field names are lower_snake_case and ≤ 30 characters. Units go in names where ambiguous (`_m`, `_m3s`, `_kw`).
+
+---
+
+## 7. QGIS Processing provider
+
+- One provider ("RE-PEAT Pompanisasi") with one algorithm per stage group plus a "Run full pipeline" algorithm.
+- Parameters are typed (`QgsProcessingParameterRasterLayer`, `...VectorLayer` with geometry type, `...File` for config). Layer roles must be explicit and named (e.g., *River polygons (water sources)*). This avoids the legacy start/muara swap.
+- The provider writes a temporary YAML from the dialog values and calls `core.pipeline`. No logic in the provider.
+- Must work with `qgis_process run` headless.
+
+---
+
+## 8. Testing
+
+Use pytest. Required tests:
+
+1. **Tilted plane:** a synthetic DTM with known uniform slope `s` and a straight canal. Proposed sekat spacing must equal `dA / s` within one sample step; `n_req` must match analytically.
+2. **Length-weighted dominance:** a 500 m segment crossing two polygons (400 m class A, 100 m class B) must get A. A three-piece case (A 150, B 200, A 150) must also get A.
+3. **No summed means:** after any split/aggregate step, per-segment values extracted from rasters must be unchanged (regression on legacy bug §9).
+4. **CRS mismatch:** a DTM in EPSG:32748 with config EPSG:32749 and `auto_reproject: false` must raise.
+5. **DSM refusal:** `surface_type: DSM` must raise.
+6. **Routing:** toy graph with known optimal Steiner arborescence; the heuristic cost must be ≤ 2× optimal and equal on trivial cases. Ungated sekat must make a target unreachable.
+7. **Head-aware cost:** on a graph with a short uphill path and a longer flat path, a large λ must select the flat path.
+8. **AHP:** a known consistent matrix gives CR ≈ 0; an inconsistent one fails.
+9. **Pump sizing:** hand-calculated P for a single station matches within 1%.
+10. **Pilot regression:** on the pilot sub-KHG fixture, `per_target` mode must reproduce legacy route geometries (Hausdorff distance below tolerance) once legacy bugs are excluded. Document any intentional differences.
+
+---
+
+## 9. Known legacy bugs: do not port
+
+1. **Mixed CRS** (EPSG:32748 vs 32749) between DTM and vectors.
+2. **Feature-count `majority`** used as if length-weighted (QGIS Aggregate).
+3. **Summing per-segment means/max** (`cpwi_mean`, `flow_max` set to `sum` in the peat-depth Aggregate), which inflates values for split segments.
+4. **Fixed flow-accumulation thresholds (1.5 / 3.0)** applied to cell counts. Use normalisation (§5, Stage 6).
+5. **Full buffer including canal water** for moisture extraction. Use the ring buffer.
+6. **Equal-score ties** in burn frequency (2x and 3x+ both scored 3). Use the numeric count.
+7. **Concession mixed into need score.** Keep it as a feasibility filter.
+8. **Centroid targets** instead of the upstream-most pool.
+9. **Console globals and layer-role swaps** (`start` vs `muara`). All inputs are explicit, named parameters.
+10. **0.5 m contour interval.** Use `dA_m` (default 0.40 per PP 57/2016) consistently.
+
+---
+
+## 10. Milestones
+
+1. **M1:** Skeleton, config models, I/O validation, Stage 1 + tests 4–5.
+2. **M2:** Stages 2 and 4 (topology, segmentation) + QA layers.
+3. **M3:** Stage 3 (hydro-conditioning) on a tiled pilot DTM.
+4. **M4:** Stage 5 profiles + Stage 7 sekat (gap analysis + placement) + test 1.
+5. **M5:** Stage 6 prioritisation + sensitivity + tests 2, 3, 8.
+6. **M6:** Stages 8–9 network and routing + tests 6–7, 10.
+7. **M7:** Stage 10 pumps + test 9; Stage 11 report.
+8. **M8:** QGIS provider + headless `qgis_process` run.
+
+At the end of each milestone: a short summary, a list of assumptions, and open TODOs.
+
+---
+
+## 11. Open questions: ask the human, do not guess
+
+1. DTM vertical RMSE and vertical datum; datum of river water levels.
+2. Source of dry-season river water levels (TMA stations? tidal influence?).
+3. Conveyance mode: pumping into canals (open channel) or through pipe/hose?
+4. Pump specifications: capacity, max head per unit, efficiency.
+5. `uphill_penalty_lambda`: derive from energy cost, or set by KLH preference?
+6. Canal-to-peat `influence_distance_m` (to be calibrated against `tma_obs` / dipwells).
+7. Criterion weights, or the AHP matrix, and who signs off on them.
+8. Concession handling: exclude, flag, or ignore?
+9. Breach max distance and min/max sekat spacing.
+10. Target QGIS version (LTR?), and licence for the repository.
+11. Format and units of the neraca air output (confirm `deficit_mm` per sub-KHG and design period).
+
+---
+
+## 12. References
+
+- **[Barnes2014]** Barnes, R., Lehman, C., & Mulla, D. (2014). Priority-flood: An optimal depression-filling and watershed-labeling algorithm for digital elevation models. *Computers & Geosciences*, 62, 117–127.
+- **[Chen2010]** Chen, Y., Yu, J., & Khan, S. (2010). Spatial sensitivity analysis of multi-criteria weights in GIS-based land suitability evaluation. *Environmental Modelling & Software*, 25(12), 1582–1591.
+- **[Chow1959]** Chow, V. T. (1959). *Open-Channel Hydraulics*. McGraw-Hill.
+- **[Dijkstra1959]** Dijkstra, E. W. (1959). A note on two problems in connexion with graphs. *Numerische Mathematik*, 1, 269–271.
+- **[Dohong2018]** Dohong, A., Aziz, A. A., & Dargusch, P. (2018). A review of techniques for effective tropical peatland restoration. *Wetlands*, 38, 275–292.
+- **[Garbrecht1997]** Garbrecht, J., & Martz, L. W. (1997). The assignment of drainage direction over flat surfaces in raster digital elevation models. *Journal of Hydrology*, 193, 204–213.
+- **[Holmgren1994]** Holmgren, P. (1994). Multiple flow direction algorithms for runoff modelling in grid based elevation models: an empirical evaluation. *Hydrological Processes*, 8, 327–334.
+- **[Karassik2008]** Karassik, I. J., Messina, J. P., Cooper, P., & Heald, C. C. (2008). *Pump Handbook* (4th ed.). McGraw-Hill.
+- **[Kou1981]** Kou, L., Markowsky, G., & Berman, L. (1981). A fast algorithm for Steiner trees. *Acta Informatica*, 15, 141–145.
+- **[Lindsay2016a]** Lindsay, J. B. (2016). Efficient hybrid breaching-filling sink removal methods for flow path enforcement in digital elevation models. *Hydrological Processes*, 30(6), 846–857.
+- **[Lindsay2016b]** Lindsay, J. B. (2016). The practice of DEM stream burning revisited. *Earth Surface Processes and Landforms*, 41(5), 658–668.
+- **[Malczewski2006]** Malczewski, J. (2006). GIS-based multicriteria decision analysis: a survey of the literature. *International Journal of Geographical Information Science*, 20(7), 703–726.
+- **[Mays2011]** Mays, L. W. (2011). *Water Resources Engineering* (2nd ed.). Wiley.
+- **[Mehlhorn1988]** Mehlhorn, K. (1988). A faster approximation algorithm for the Steiner problem in graphs. *Information Processing Letters*, 27(3), 125–128.
+- **[Neteler2008]** Neteler, M., & Mitasova, H. (2008). *Open Source GIS: A GRASS GIS Approach* (3rd ed.). Springer.
+- **[Ritzema2014]** Ritzema, H., Limin, S., Kusin, K., Jauhiainen, J., & Wösten, H. (2014). Canal blocking strategies for hydrological restoration of degraded tropical peatlands in Central Kalimantan, Indonesia. *Catena*, 114, 11–20.
+- **[Saaty1980]** Saaty, T. L. (1980). *The Analytic Hierarchy Process*. McGraw-Hill.
+- **[Takahashi1980]** Takahashi, H., & Matsuyama, A. (1980). An approximate solution for the Steiner problem in graphs. *Mathematica Japonica*, 24(6), 573–577.
+- **[Tarboton1997]** Tarboton, D. G. (1997). A new method for the determination of flow directions and upslope areas in grid digital elevation models. *Water Resources Research*, 33(2), 309–319.
+- **[PP57-2016]** Peraturan Pemerintah No. 57 Tahun 2016 tentang Perubahan atas PP No. 71 Tahun 2014 tentang Perlindungan dan Pengelolaan Ekosistem Gambut.
+- **[KHG-SKSS-2021]** Tim Departemen Teknik Geodesi UGM. *Laporan Akhir KHG Sungai Kahayan – Sungai Sebangau* (2021): sekat spacing `js = dA / i_lahan`, sekat height eq. 4.18, IPG metric (§5.3.4).
+
+> Verify volume/page details against the originals before any formal citation.

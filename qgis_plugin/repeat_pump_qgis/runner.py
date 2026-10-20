@@ -1,0 +1,247 @@
+"""Run the repeat-pump CLI in an external Python environment (option B).
+
+No ``repeat_pump`` import happens inside QGIS, so the engine's dependencies
+(rasterio, geopandas, ...) never clash with QGIS's own Python packages.
+"""
+from __future__ import annotations
+
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+KEY = "repeat_pump/python"
+CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
+
+
+def split_source(source: str):
+    """File path and layer name from a QGIS layer source such as ``/x/a.gpkg|layername=canals``."""
+    path = source.split("|")[0]
+    m = re.search(r"layername=([^|]+)", source)
+    return path, (m.group(1) if m else None)
+
+
+_DROP = ("PYTHONHOME", "PYTHONPATH", "PYTHONSTARTUP", "PYTHONUSERBASE", "VIRTUAL_ENV", "GDAL_DATA", "GDAL_DRIVER_PATH",
+         "GDAL_PLUGINS", "PROJ_LIB", "PROJ_DATA", "GEOTIFF_CSV", "QGIS_PREFIX_PATH", "QT_PLUGIN_PATH", "QT_QPA_PLATFORM_PLUGIN_PATH", "O4W_QT_PREFIX")
+
+
+def clean_env() -> dict:
+    """Environment for the engine process: QGIS's Python/GDAL/PROJ settings must not leak into the venv."""
+    env = {k: v for k, v in os.environ.items() if k.upper() not in _DROP and not k.upper().startswith("PYTHON")}
+    parts = [p for p in env.get("PATH", "").split(os.pathsep) if p and not re.search(r"osgeo4w|qgis", p, re.I)]
+    root = os.environ.get("SystemRoot")
+    if root:
+        for extra in (root, os.path.join(root, "System32")):
+            if extra not in parts:
+                parts.append(extra)
+    env["PATH"] = os.pathsep.join(parts)
+    env["PYTHONNOUSERSITE"] = "1"
+    env["PYTHONUTF8"] = "1"
+    return env
+
+
+def get_python() -> str:
+    """Engine interpreter: REPEAT_PUMP_PYTHON, then a user-chosen one, then the auto-managed environment."""
+    env = os.environ.get("REPEAT_PUMP_PYTHON")
+    if env:
+        return env
+    try:
+        from qgis.core import QgsSettings
+        chosen = QgsSettings().value(KEY, "") or ""
+    except Exception:
+        chosen = ""
+    if chosen:
+        return chosen
+    auto = venv_python(env_dir())
+    return str(auto) if auto.exists() else ""
+
+
+def set_python(path: str) -> None:
+    from qgis.core import QgsSettings
+    QgsSettings().setValue(KEY, path)
+
+
+def check_environment(python: str) -> tuple[bool, str]:
+    """True if ``python -m repeat_pump.cli --version`` works there."""
+    if not python or not os.path.exists(python):
+        return False, "No engine environment yet. Run RE-PEAT Pompanisasi > Set up engine environment (or choose a Python with Plugins > RE-PEAT Pompanisasi > Set Python environment)."
+    try:
+        r = subprocess.run([python, "-m", "repeat_pump.cli", "--version"], capture_output=True, text=True, timeout=60,
+                           creationflags=CREATE_NO_WINDOW, env=clean_env(), cwd=tempfile.gettempdir())
+    except Exception as e:
+        return False, f"Could not start {python}: {e}"
+    if r.returncode != 0:
+        return False, f"repeat-pump is not installed in {python}:\n{(r.stderr or r.stdout).strip()[-400:]}"
+    return True, f"OK: {r.stdout.strip()} ({python})"
+
+
+def run_cli(python: str, config: str, cwd: str, first, last, accept, feedback) -> int:
+    """Stream the CLI output into the Processing feedback; return the exit code (0 ok, 1 error, 2 review stop)."""
+    cmd = [python, "-u", "-m", "repeat_pump.cli", "run", "--config", config]
+    if last:
+        cmd += ["--stop-after", str(last)]
+    if first and first > 1:
+        cmd += ["--resume-from", str(first)]
+    for a in accept:
+        cmd += ["--accept", str(a)]
+    feedback.pushInfo("Running: " + " ".join(cmd))
+    p = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
+                         creationflags=CREATE_NO_WINDOW, env=clean_env())
+    try:
+        for line in p.stdout:
+            line = line.rstrip()
+            if line:
+                (feedback.pushWarning if line.startswith(("WARNING", "ERROR")) else feedback.pushInfo)(line)
+            if feedback.isCanceled():
+                p.terminate()
+                break
+    finally:
+        p.stdout.close()
+    return p.wait()
+
+
+# ---------------------------------------------------------------------------- auto-managed environment
+MIN_PY = (3, 11)
+
+
+def engine_dir() -> Path:
+    """Engine source bundled inside the plugin by scripts/install_plugin.py."""
+    return Path(__file__).parent / "engine"
+
+
+def bundled_version() -> str:
+    f = engine_dir() / "repeat_pump" / "__init__.py"
+    m = re.search(r'__version__\s*=\s*"([^"]+)"', f.read_text(encoding="utf8")) if f.exists() else None
+    return m.group(1) if m else ""
+
+
+def env_dir() -> Path:
+    d = os.environ.get("REPEAT_PUMP_ENV_DIR")
+    if d:
+        return Path(d)
+    try:
+        from qgis.core import QgsApplication
+        return Path(QgsApplication.qgisSettingsDirPath()) / "repeat_pump_env"
+    except Exception:
+        return Path.home() / ".repeat_pump" / "env"
+
+
+def venv_python(d: Path) -> Path:
+    return d / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+
+
+def _probe(exe: str, extra_env: dict | None = None) -> bool:
+    """True if ``exe`` is Python >= 3.11 with venv, ensurepip and ssl (pip needs it)."""
+    env = clean_env()
+    env.update(extra_env or {})
+    try:
+        r = subprocess.run([exe, "-c", "import sys,venv,ensurepip,ssl;print(sys.version_info[0],sys.version_info[1])"], capture_output=True,
+                           text=True, timeout=60, creationflags=CREATE_NO_WINDOW, env=env, cwd=tempfile.gettempdir())
+        if r.returncode != 0:
+            return False
+        major, minor = map(int, r.stdout.split()[:2])
+        return (major, minor) >= MIN_PY
+    except Exception:
+        return False
+
+
+def _windows_pythons() -> list:
+    """Installed CPython executables from the registry (PEP 514) and the usual install folders."""
+    found = []
+    try:
+        import winreg
+        for hive in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
+            try:
+                core = winreg.OpenKey(hive, r"SOFTWARE\Python\PythonCore")
+            except OSError:
+                continue
+            for k in range(winreg.QueryInfoKey(core)[0]):
+                ver = winreg.EnumKey(core, k)
+                try:
+                    ip = winreg.OpenKey(core, ver + r"\InstallPath")
+                    try:
+                        exe = winreg.QueryValueEx(ip, "ExecutablePath")[0]
+                    except OSError:
+                        exe = os.path.join(winreg.QueryValueEx(ip, "")[0], "python.exe")
+                    found.append((ver, exe))
+                except OSError:
+                    pass
+    except ImportError:
+        pass
+    import glob
+    for pat in (os.path.expandvars(r"%LOCALAPPDATA%\Programs\Python\Python3*\python.exe"), r"C:\Program Files\Python3*\python.exe", r"C:\Python3*\python.exe"):
+        for exe in glob.glob(pat):
+            found.append((os.path.basename(os.path.dirname(exe)), exe))
+    found.sort(key=lambda t: t[0], reverse=True)      # newest first (string order is fine for 3.11..3.99)
+    return [exe for _, exe in found if os.path.exists(exe)]
+
+
+def find_base_python():
+    """A system Python >= 3.11 (with venv, pip and ssl) to build the venv from, as (exe, extra_env)."""
+    cands = []
+    if sys.platform == "win32":
+        cands += [(exe, {}) for exe in _windows_pythons()]
+    for name in ("python3", "python"):
+        w = shutil.which(name, path=clean_env().get("PATH"))
+        if w and "WindowsApps" not in w:        # skip the Microsoft Store stubs
+            cands.append((w, {}))
+    home = os.environ.get("PYTHONHOME")          # set by QGIS itself: its bundled Python (often lacks ssl)
+    if home:
+        for exe in ("python.exe", "bin/python3"):
+            if (Path(home) / exe).exists():
+                cands.append((str(Path(home) / exe), {"PYTHONHOME": home}))
+    seen = set()
+    for exe, extra in cands:
+        if exe.lower() in seen:
+            continue
+        seen.add(exe.lower())
+        if _probe(exe, extra):
+            return exe, extra
+    return None
+
+
+def _run_stream(cmd, log, extra_env=None) -> None:
+    env = clean_env()
+    env.update(extra_env or {})
+    log("$ " + " ".join(str(c) for c in cmd))
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, env=env,
+                         creationflags=CREATE_NO_WINDOW, cwd=tempfile.gettempdir())
+    for line in p.stdout:
+        if line.strip():
+            log(line.rstrip())
+    p.stdout.close()
+    if p.wait() != 0:
+        raise RuntimeError(f"command failed ({p.returncode}): {' '.join(str(c) for c in cmd)}")
+
+
+def ensure_environment(log=print, force: bool = False) -> str:
+    """Create or update the plugin's own venv with the bundled engine; return its python. Needs internet for pip."""
+    d = env_dir()
+    py = venv_python(d)
+    stamp = d / "engine_version.txt"
+    ver = bundled_version()
+    if not force and py.exists() and stamp.exists() and stamp.read_text().strip() == ver and check_environment(str(py))[0]:
+        return str(py)
+    if not (engine_dir() / "pyproject.toml").exists():
+        raise RuntimeError("This plugin copy has no bundled engine. Install it with scripts/install_plugin.py or the zip, "
+                           "or set a Python environment manually.")
+    base = find_base_python()
+    if base is None:
+        raise RuntimeError("No Python 3.11+ with venv/pip found. Install Python from python.org, then run the setup again, "
+                           "or set a Python environment manually.")
+    log(f"Setting up the engine environment in {d} (first time only; needs internet, may take several minutes)")
+    if d.exists():
+        shutil.rmtree(d, ignore_errors=True)
+    d.parent.mkdir(parents=True, exist_ok=True)
+    _run_stream([base[0], "-m", "venv", str(d)], log, base[1])
+    _run_stream([str(py), "-m", "pip", "install", "--upgrade", "pip"], log)
+    _run_stream([str(py), "-m", "pip", "install", str(engine_dir())], log)
+    ok, msg = check_environment(str(py))
+    if not ok:
+        raise RuntimeError(msg)
+    stamp.write_text(ver)
+    log(msg)
+    return str(py)
