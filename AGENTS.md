@@ -44,7 +44,7 @@ Project data + Open data ─────────────────► 
 **Out of scope (consume, do not recompute):**
 - DEM correction and smoothing, and the DSM→DTM decision. The module receives a bare-earth DTM.
 - Sub-KHG delineation.
-- Neraca air and sub-KHG prioritisation. The module receives their outputs as a table (§3).
+- Neraca air and sub-KHG prioritisation. The module receives their outputs as an **optional** table (§3). Where it is not available (for example no TMA stations to build a water balance), neutral fallbacks apply (§5, Stages 1 and 10).
 
 LiDAR DTM is the primary input. DEMNAS/FABDEM-derived DTMs must still work, with accuracy warnings (§5, Stage 1).
 
@@ -104,7 +104,7 @@ All inputs are listed in the config. `io.py` validates them before any processin
 |---|---|---|
 | `dtm` | GeoTIFF | Bare-earth DTM, metres. Config must declare `surface_type: DTM`; **refuse to run if `DSM`**. Config also declares `vertical_rmse_m`. |
 | `subkhg` | Polygon layer | `subkhg_id` (unique). |
-| `subkhg_priority` | CSV / table | `subkhg_id`, `priority_rank` (int, 1 = highest), `deficit_mm` (water deficit for the design period, from neraca air), `design_period_days`. Produced by the neraca air module. |
+| `subkhg_priority` | CSV / table, **optional** | `subkhg_id` (required if the table is given); `priority_rank` (int, 1 = highest), `deficit_mm` (water deficit for the design period, from neraca air), `design_period_days` are each optional. Produced by the neraca air module. Missing table or column: all selected sub-KHGs get equal priority (`priority_weight = 1/n`), and pump demand uses specific yield (Stage 10). Warn, never invent a value. |
 | `canals` | Line layer | `canal_class` (primer/sekunder/tersier), optional `depth_m`, `width_m`. |
 | `sekat_existing` | Point layer | `sekat_id`, optional `type`, `has_gate` (bool), `crest_elev_m`. May be empty. |
 | `rivers` | Polygon or line layer | Optional `dry_season_wl_m` (dry-season water level, m, same vertical datum as DTM), `perennial` (bool). |
@@ -195,7 +195,7 @@ Each stage lists its purpose, method, references, outputs, and human checkpoint.
 ### Stage 1: Load and validate
 - Apply all checks in §3.
 - **Accuracy warning:** if `sekat.dA_m < 2 × dtm.vertical_rmse_m`, emit a prominent warning in the run report. Head-based sekat placement is then dominated by DTM noise. Do not block the run.
-- Clip all inputs to the selected sub-KHGs (by `subkhg_priority` + `subkhg_selection`) plus a configurable margin.
+- Clip all inputs to the selected sub-KHGs (by `subkhg_priority` + `subkhg_selection`) plus a configurable margin. `subkhg_selection.mode`: `top_n` (needs `priority_rank`), `ids`, or `all`. **No ranking available** (no table, or no `priority_rank`): `top_n` falls back to every sub-KHG in the layer with equal priority, with a warning; the report records `priority_source` (`table` or `equal`) and `demand_source` (`deficit_table` or `specific_yield`).
 - **Output:** `inputs_clipped/*`, validation section of the report.
 
 ### Stage 2: Canal topology **[REVIEW]**
@@ -279,6 +279,7 @@ Head-based design following the team's 2021 KHG Kahayan–Sebangau report, Ritze
 - `deficit` mode: `V = deficit_mm / 1000 × A_served`, where `deficit_mm` comes from `subkhg_priority` and `A_served` is the peat area within `influence_distance_m` of the target's served segments (clipped to the sub-KHG).
 - `specific_yield` mode: `V = Δh × Sy × A_served`, with `Δh` = required water-table rise (config) and `Sy` from config.
 - `Q_required = V / (design_period_days × 86400)`. If `Q_required` > installed capacity, report the shortfall. Do not silently cap.
+- **No water deficit** (no table, or no `deficit_mm`/`design_period_days` for the selected sub-KHGs): `deficit` mode switches to `specific_yield` with a warning, which needs `pumping.specific_yield` and `pumping.water_table_rise_m`. `design_period_days` comes from the table when it has it, else from `pumping.design_period_days`. These are human decisions: if null, the stage stops and lists them (§0 rule 2).
 
 **Head along each route:**
 - Static lift: `H_static = z_target_pool − z_src`, where the target pool water level = `z_land − dA` at the target.
@@ -404,7 +405,7 @@ At the end of each milestone: a short summary, a list of assumptions, and open T
 9. Breach max distance and min/max sekat spacing.
 10. ~~Target QGIS version~~ Decided: QGIS 4.x for training (LTR 3.x optional later). Still open: licence for the repository; whether KLH machines may `pip install` into QGIS's Python.
 12. Hydro backend (deferred): is Whitebox Workflows' free tier sufficient (tools and licence), or do we keep WhiteboxTools?
-11. Format and units of the neraca air output (confirm `deficit_mm` per sub-KHG and design period).
+11. Format and units of the neraca air output (confirm `deficit_mm` per sub-KHG and design period), when it is available. Where it is not, who sets `specific_yield`, `water_table_rise_m` and `pumping.design_period_days`?
 
 ---
 

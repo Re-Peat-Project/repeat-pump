@@ -247,27 +247,52 @@ def run_stage1(ctx: RunContext) -> None:
     if "subkhg_id" not in subkhg or subkhg["subkhg_id"].duplicated().any():
         raise InputError("subkhg: needs a unique 'subkhg_id' column")
     subkhg = subkhg.assign(geometry=make_valid(subkhg.geometry.values))
-    prio_path = resolve(cfg, cfg.inputs.subkhg_priority.path)
-    prio = pd.read_csv(prio_path)
-    need = {"subkhg_id", "priority_rank", "deficit_mm", "design_period_days"}
-    if not need <= set(prio.columns):
-        raise InputError(f"subkhg_priority: missing columns {sorted(need - set(prio.columns))}")
+    # The priority table (neraca air + prioritisation) is optional. Without it, or without some of its columns, the
+    # neutral fallbacks apply: equal priority for every selected sub-KHG, and (stage 10) demand from specific yield.
+    subkhg["subkhg_id"] = subkhg["subkhg_id"].astype(str)
+    prio = None
+    if cfg.inputs.subkhg_priority is not None:
+        prio = pd.read_csv(resolve(cfg, cfg.inputs.subkhg_priority.path))
+        if "subkhg_id" not in prio:
+            raise InputError("subkhg_priority: needs a 'subkhg_id' column")
+        prio["subkhg_id"] = prio["subkhg_id"].astype(str)
+        for col, note in (("priority_rank", "all sub-KHGs get equal priority"),
+                          ("deficit_mm", "pump demand will use specific yield instead of the water deficit"),
+                          ("design_period_days", "the design period must be given as pumping.design_period_days")):
+            if col not in prio:
+                prio[col] = np.nan
+                ctx.warn(f"subkhg_priority has no '{col}' column: {note}")
+    has_rank = prio is not None and prio["priority_rank"].notna().any()
     sel = cfg.run.subkhg_selection
-    if sel.mode == "top_n":
+    if sel.mode == "top_n" and not has_rank:
+        ctx.warn("No priority ranking available (no subkhg_priority table or no priority_rank): every sub-KHG in the layer is "
+                 "selected, with equal priority")
+        ids = subkhg["subkhg_id"].tolist()
+    elif sel.mode == "top_n":
         if sel.n is None:
             raise InputError("run.subkhg_selection.n is required for mode top_n")
         ids = prio.sort_values(["priority_rank", "subkhg_id"]).head(sel.n)["subkhg_id"].tolist()
+    elif sel.mode == "all":
+        ids = subkhg["subkhg_id"].tolist()
     else:
         if not sel.ids:
             raise InputError("run.subkhg_selection.ids is required for mode ids")
         ids = list(sel.ids)
     ids = [str(i) for i in ids]
-    subkhg["subkhg_id"] = subkhg["subkhg_id"].astype(str)
-    prio["subkhg_id"] = prio["subkhg_id"].astype(str)
-    missing = [i for i in ids if i not in set(subkhg["subkhg_id"]) or i not in set(prio["subkhg_id"])]
+    missing = [i for i in ids if i not in set(subkhg["subkhg_id"]) or (prio is not None and i not in set(prio["subkhg_id"]))]
     if missing:
-        raise InputError(f"selected sub-KHG ids not in subkhg layer and subkhg_priority: {missing}")
-    selected = subkhg[subkhg["subkhg_id"].isin(ids)].merge(prio, on="subkhg_id", how="left")
+        raise InputError(f"selected sub-KHG ids not in subkhg layer{' and subkhg_priority' if prio is not None else ''}: {missing}")
+    selected = subkhg[subkhg["subkhg_id"].isin(ids)]
+    if prio is not None:
+        selected = selected.merge(prio, on="subkhg_id", how="left")
+    else:
+        selected = selected.assign(priority_rank=np.nan, deficit_mm=np.nan, design_period_days=np.nan)
+    if not has_rank:                                   # equal distribution of priority among the selected sub-KHGs
+        selected = selected.assign(priority_rank=1.0)
+    selected = selected.assign(priority_weight=1.0 / len(selected) if not has_rank else np.nan)
+    val["priority_source"] = "table" if has_rank else "equal"
+    have_deficit = bool(selected[["deficit_mm", "design_period_days"]].notna().all().all())
+    val["demand_source"] = "deficit_table" if have_deficit else "specific_yield"
     ctx.write_layer("subkhg_selected", selected, "1")
     area = selected.geometry.union_all()
     extent = area.buffer(cfg.run.clip_margin_m)

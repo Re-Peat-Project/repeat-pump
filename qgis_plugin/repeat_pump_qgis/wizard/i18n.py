@@ -187,7 +187,12 @@ ID: dict[str, str] = {
     "Canal influence distance": "Jarak pengaruh kanal",
     "How far from a canal the peat is rewetted. Calibrate with water-table observations.":
         "Seberapa jauh dari kanal gambut terbasahi kembali. Kalibrasi dengan pengamatan muka air tanah.",
-    "Specific yield": "Hasil jenis (specific yield)", "Needed in specific-yield demand mode.": "Diperlukan pada mode kebutuhan hasil jenis.",
+    "Specific yield": "Hasil jenis (specific yield)", "Needed in specific-yield demand mode, and when there is no water deficit (neraca air).":
+        "Diperlukan pada mode kebutuhan hasil jenis, dan saat tidak ada defisit air (neraca air).",
+    "Design period": "Periode rancangan", "days": "hari",
+    "The days over which the water must be delivered. Needed when the priority table does not give it.":
+        "Jumlah hari untuk menyalurkan air tersebut. Diperlukan jika tabel prioritas tidak memberikannya.",
+    "Sub-KHG priority table (CSV, optional)": "Tabel prioritas sub-KHG (CSV, opsional)",
     "Required water-table rise": "Kenaikan muka air tanah yang dibutuhkan",
     "AHP pairwise matrix": "Matriks perbandingan berpasangan AHP",
     "Edit this in the YAML file (a matrix cannot be typed here).": "Ubah ini di berkas YAML (matriks tidak dapat diketik di sini).",

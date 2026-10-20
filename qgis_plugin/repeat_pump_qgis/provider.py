@@ -70,7 +70,7 @@ class _StageAlgorithm(QgsProcessingAlgorithm):
         if self.FIRST == 1:
             self.addParameter(QgsProcessingParameterRasterLayer("DTM", "Bare-earth DTM (metres)"))
             self.addParameter(QgsProcessingParameterRasterLayer("MOISTURE", "Moisture index raster"))
-            self.addParameter(QgsProcessingParameterFile("PRIORITY", "Sub-KHG priority table (CSV)", extension="csv"))
+            self.addParameter(QgsProcessingParameterFile("PRIORITY", "Sub-KHG priority table (CSV, optional)", extension="csv", optional=True))
             for key, label, geom, _, optional in VECTOR_INPUTS:
                 self.addParameter(QgsProcessingParameterFeatureSource(key, label, [_vt(geom)], optional=optional))
         self.addParameter(QgsProcessingParameterFileDestination("OUTPUT_GPKG", "Output GeoPackage", fileFilter="GeoPackage (*.gpkg)", optional=True))
@@ -93,9 +93,12 @@ class _StageAlgorithm(QgsProcessingAlgorithm):
                 if not os.path.exists(path):
                     raise QgsProcessingException(f"{key}: the layer must be saved to a file (temporary layers cannot be passed to the engine)")
                 vectors[cfgkey] = (path, name)
+            priority = self.parameterAsFile(parameters, "PRIORITY", context)
+            if not priority:
+                drop.append("subkhg_priority")       # optional: equal priority and specific-yield demand apply instead
             kw = dict(dtm=self.parameterAsRasterLayer(parameters, "DTM", context).source(),
                       moisture=self.parameterAsRasterLayer(parameters, "MOISTURE", context).source(),
-                      priority=self.parameterAsFile(parameters, "PRIORITY", context), vectors=vectors, drop=drop)
+                      priority=priority or None, vectors=vectors, drop=drop)
         return build_run_config(cfgfile, output_gpkg=out or None, **kw)
 
     def processAlgorithm(self, parameters, context, feedback):

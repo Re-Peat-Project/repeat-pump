@@ -13,7 +13,7 @@ run:
 inputs:
   dtm: {path: data/dtm.tif, surface_type: DTM, vertical_rmse_m: null}   # TODO(human)
   subkhg: {path: data/subkhg.gpkg}
-  subkhg_priority: {path: data/subkhg_priority.csv}   # subkhg_id, priority_rank, deficit_mm, design_period_days
+  subkhg_priority: {path: data/subkhg_priority.csv}   # OPTIONAL (delete the line if there is no neraca air): subkhg_id, priority_rank, deficit_mm, design_period_days
   canals: {path: data/canals.gpkg}
   canal_edits: {path: data/canal_edits.gpkg}   # optional: lines with action = add | delete
   sekat_existing: {path: data/sekat_existing.gpkg}
@@ -77,6 +77,7 @@ pumping:
   demand_mode: deficit            # deficit | specific_yield
   specific_yield: null
   water_table_rise_m: null        # TODO(human): required for specific_yield mode
+  design_period_days: null        # TODO(human): only needed when there is no priority table (no neraca air); days to deliver the water
   influence_distance_m: null      # TODO(human): calibrate with tma_obs
   routing: steiner                # steiner | per_target
   allow_gate_addition: false

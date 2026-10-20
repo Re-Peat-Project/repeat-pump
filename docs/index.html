@@ -211,7 +211,7 @@ figure.shot figcaption{color:var(--muted);font-size:.88rem;margin-top:.4rem}
 <tbody>
 <tr><td><b>DTM</b></td><td>Raster (GeoTIFF)</td><td>Elevation in metres</td><td>Must be a <b>bare-earth DTM</b>. A surface model (DSM) is refused. Needs a known vertical accuracy (RMSE) in the config.</td></tr>
 <tr><td><b>Sub-KHG</b></td><td>Polygons</td><td><code>subkhg_id</code> (unique)</td><td>The work area.</td></tr>
-<tr><td><b>Priority table</b></td><td>CSV</td><td><code>subkhg_id</code>, <code>priority_rank</code> (1 = highest), <code>deficit_mm</code>, <code>design_period_days</code></td><td>Comes from the water-balance (neraca air) work. Decides which sub-KHGs are used and how much water they need.</td></tr>
+<tr><td><b>Priority table</b> <small>(optional)</small></td><td>CSV</td><td><code>subkhg_id</code>, <code>priority_rank</code> (1 = highest), <code>deficit_mm</code>, <code>design_period_days</code></td><td>Comes from the water-balance (neraca air) work. Decides which sub-KHGs are used and how much water they need. <b>Not available?</b> Leave it out, or give only <code>subkhg_id</code>. All sub-KHGs then get equal priority, and pump demand uses a specific-yield estimate and a design period that you enter yourself (see stage 10).</td></tr>
 <tr><td><b>Canals</b></td><td>Lines</td><td><code>canal_class</code></td><td>Optional but recommended: <code>depth_m</code>, <code>width_m</code>. Depth is needed for sekat height and canal burning; depth and width for pump friction losses.</td></tr>
 <tr><td><b>Canal edits</b> <small>(optional)</small></td><td>Lines</td><td><code>action</code> = <code>add</code> or <code>delete</code></td><td>Your manual topology fixes (see <a href="#s2">stage 2</a>). Keeping them in a layer makes every run repeatable.</td></tr>
 <tr><td><b>Existing sekat</b> <small>(optional)</small></td><td>Points</td><td><code>sekat_id</code>, <code>has_gate</code> (yes/no)</td><td>May be empty. A sekat without a gate blocks pumped water.</td></tr>
@@ -232,7 +232,7 @@ figure.shot figcaption{color:var(--muted);font-size:.88rem;margin-top:.4rem}
 <tbody>
 <tr><td><b>DTM</b></td><td>Raster (GeoTIFF)</td><td>Ketinggian dalam meter</td><td>Harus berupa <b>DTM permukaan tanah</b>. Model permukaan (DSM) ditolak. Akurasi vertikal (RMSE) yang diketahui harus ada di konfigurasi.</td></tr>
 <tr><td><b>Sub-KHG</b></td><td>Poligon</td><td><code>subkhg_id</code> (unik)</td><td>Wilayah kerja.</td></tr>
-<tr><td><b>Tabel prioritas</b></td><td>CSV</td><td><code>subkhg_id</code>, <code>priority_rank</code> (1 = tertinggi), <code>deficit_mm</code>, <code>design_period_days</code></td><td>Berasal dari pekerjaan neraca air. Menentukan sub-KHG mana yang dipakai dan berapa air yang dibutuhkan.</td></tr>
+<tr><td><b>Tabel prioritas</b> <small>(opsional)</small></td><td>CSV</td><td><code>subkhg_id</code>, <code>priority_rank</code> (1 = tertinggi), <code>deficit_mm</code>, <code>design_period_days</code></td><td>Berasal dari pekerjaan neraca air. Menentukan sub-KHG mana yang dipakai dan berapa air yang dibutuhkan. <b>Tidak tersedia?</b> Lewatkan saja, atau isi hanya <code>subkhg_id</code>. Semua sub-KHG lalu mendapat prioritas yang sama, dan kebutuhan pompa memakai perkiraan hasil jenis (specific yield) serta periode rancangan yang Anda isi sendiri (lihat tahap 10).</td></tr>
 <tr><td><b>Kanal</b></td><td>Garis</td><td><code>canal_class</code></td><td>Opsional tetapi disarankan: <code>depth_m</code>, <code>width_m</code>. Kedalaman diperlukan untuk tinggi sekat dan pembakaran kanal; kedalaman dan lebar untuk kehilangan gesekan pompa.</td></tr>
 <tr><td><b>Suntingan kanal</b> <small>(opsional)</small></td><td>Garis</td><td><code>action</code> = <code>add</code> atau <code>delete</code></td><td>Perbaikan topologi manual Anda (lihat <a href="#s2">tahap 2</a>). Menyimpannya dalam satu layer membuat setiap proses dapat diulang.</td></tr>
 <tr><td><b>Sekat yang ada</b> <small>(opsional)</small></td><td>Titik</td><td><code>sekat_id</code>, <code>has_gate</code> (ya/tidak)</td><td>Boleh kosong. Sekat tanpa pintu air menghalangi air pompa.</td></tr>
@@ -267,6 +267,7 @@ figure.shot figcaption{color:var(--muted);font-size:.88rem;margin-top:.4rem}
 <tr><td><code>prioritise.feasibility.concession_mode</code></td><td><code>exclude</code>, <code>flag</code> or <code>ignore</code> concession areas (only if a concession layer is given)</td><td>6</td></tr>
 <tr><td><code>sekat.max_spacing_m</code>, <code>snap_tolerance_m</code>, <code>min_spacing_m</code></td><td>Upper limit for spacing, how close an existing sekat must be to a canal to count, and the minimum distance from an existing sekat to a new one</td><td>7</td></tr>
 <tr><td><code>pumping.uphill_penalty_lambda</code></td><td>How strongly the routing avoids uphill (energy-costly) canals</td><td>9</td></tr>
+<tr><td><code>pumping.specific_yield</code>, <code>water_table_rise_m</code>, <code>design_period_days</code></td><td>Only when there is no water deficit from neraca air: how much water the peat needs to rise by, and over how many days it is delivered</td><td>10</td></tr>
 <tr><td><code>pumping.*</code> pump settings</td><td>Canal or pipe, roughness, pump efficiency, maximum head per station, capacity per pump, influence distance</td><td>10</td></tr>
 </tbody></table>
 <div class="note"><b>Ready-made values</b>Some settings already have a default you can keep: 500 m maximum segment length, 25 m minimum segment length, 0.40 m sekat step (PP 57/2016), 5 % slope for reinforced sekat, 15 to 100 m ring for moisture.</div>
@@ -289,6 +290,7 @@ figure.shot figcaption{color:var(--muted);font-size:.88rem;margin-top:.4rem}
 <tr><td><code>prioritise.feasibility.concession_mode</code></td><td><code>exclude</code>, <code>flag</code>, atau <code>ignore</code> untuk area konsesi (hanya jika layer konsesi diberikan)</td><td>6</td></tr>
 <tr><td><code>sekat.max_spacing_m</code>, <code>snap_tolerance_m</code>, <code>min_spacing_m</code></td><td>Batas atas jarak antarsekat, seberapa dekat sekat yang ada harus dari kanal agar dihitung, dan jarak minimum dari sekat yang ada ke sekat baru</td><td>7</td></tr>
 <tr><td><code>pumping.uphill_penalty_lambda</code></td><td>Seberapa kuat penentuan rute menghindari kanal menanjak (boros energi)</td><td>9</td></tr>
+<tr><td><code>pumping.specific_yield</code>, <code>water_table_rise_m</code>, <code>design_period_days</code></td><td>Hanya bila tidak ada defisit air dari neraca air: berapa kenaikan muka air yang dibutuhkan gambut, dan dalam berapa hari air disalurkan</td><td>10</td></tr>
 <tr><td><code>pumping.*</code> pengaturan pompa</td><td>Kanal atau pipa, kekasaran, efisiensi pompa, tinggi tekan maksimum per stasiun, kapasitas per pompa, jarak pengaruh</td><td>10</td></tr>
 </tbody></table>
 <div class="note"><b>Nilai bawaan</b>Beberapa pengaturan sudah punya nilai bawaan yang boleh Anda pakai: panjang segmen maksimum 500 m, panjang segmen minimum 25 m, langkah sekat 0,40 m (PP 57/2016), kemiringan 5 % untuk sekat yang diperkuat, cincin 15 sampai 100 m untuk kelembapan.</div>
@@ -369,7 +371,7 @@ python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accep
 
 <div class="stage" id="s1"><h3><span class="num">1</span> Load and validate</h3>
 <p>Checks that your data is usable and keeps only what is inside the chosen sub-KHGs.</p>
-<dl><dt>Does</dt><dd>Refuses a DSM, checks the CRS of every layer, selects the sub-KHGs (top N by priority, or by ID), cuts all data to them plus the margin, converts text attributes (burn frequency, peat class).</dd>
+<dl><dt>Does</dt><dd>Refuses a DSM, checks the CRS of every layer, selects the sub-KHGs (top N by priority, by ID, or all; without a priority ranking every sub-KHG is selected with equal priority), cuts all data to them plus the margin, converts text attributes (burn frequency, peat class).</dd>
 <dt>Output</dt><dd><code>subkhg_selected</code>, <code>inputs_clipped_*</code> layers, a clipped DTM and moisture raster.</dd>
 <dt>Check</dt><dd>The warnings list. Pay attention to the <b>accuracy warning</b>, to unreadable burn or peat values, and to layers that cover less than 90 % of the area.</dd></dl></div>
 
@@ -421,7 +423,7 @@ python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accep
 
 <div class="stage" id="s10"><h3><span class="num">10</span> Water demand and pump stations</h3>
 <p>Calculates how much water is needed and where and how big the pumps must be.</p>
-<dl><dt>Does</dt><dd>Demand = water deficit x peat area within the influence distance of the served canals, spread over the design period. The lift is the height difference between the river level and the target pool plus friction losses. Stations are placed so that no station lifts more than the maximum head, preferably at a sekat. Power = density x gravity x flow x head / efficiency.</dd>
+<dl><dt>Does</dt><dd>Demand = water deficit x peat area within the influence distance of the served canals, spread over the design period. Without a water deficit (no neraca air) it uses the required water-table rise x specific yield instead, and the design period you enter. The lift is the height difference between the river level and the target pool plus friction losses. Stations are placed so that no station lifts more than the maximum head, preferably at a sekat. Power = density x gravity x flow x head / efficiency.</dd>
 <dt>Output</dt><dd><code>pump_stations</code> (flow <code>q_m3s</code>, head <code>h_m</code>, power <code>p_kw</code>, <code>units_needed</code>), <code>gates_required</code> (sekat on a route that must be a gated type), and demand fields on <code>pump_routes</code>.</dd>
 <dt>Check</dt><dd>Warnings about demand above the installed capacity (<code>shortfall_m3s</code>) and about single canal pieces that need more head than allowed.</dd></dl></div>
 
@@ -435,7 +437,7 @@ python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accep
 
 <div class="stage" id="s1"><h3><span class="num">1</span> Muat dan validasi</h3>
 <p>Memeriksa bahwa data Anda dapat dipakai dan hanya menyimpan yang berada di dalam sub-KHG terpilih.</p>
-<dl><dt>Dilakukan</dt><dd>Menolak DSM, memeriksa CRS setiap layer, memilih sub-KHG (N teratas menurut prioritas, atau menurut ID), memotong semua data ke sub-KHG itu ditambah margin, dan mengubah atribut teks (frekuensi kebakaran, kelas gambut).</dd>
+<dl><dt>Dilakukan</dt><dd>Menolak DSM, memeriksa CRS setiap layer, memilih sub-KHG (N teratas menurut prioritas, menurut ID, atau semuanya; tanpa peringkat prioritas semua sub-KHG dipilih dengan prioritas yang sama), memotong semua data ke sub-KHG itu ditambah margin, dan mengubah atribut teks (frekuensi kebakaran, kelas gambut).</dd>
 <dt>Keluaran</dt><dd><code>subkhg_selected</code>, layer <code>inputs_clipped_*</code>, DTM dan raster kelembapan yang terpotong.</dd>
 <dt>Periksa</dt><dd>Daftar peringatan. Perhatikan <b>peringatan akurasi</b>, nilai kebakaran atau gambut yang tidak terbaca, dan layer yang mencakup kurang dari 90 % wilayah.</dd></dl></div>
 
@@ -487,7 +489,7 @@ python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accep
 
 <div class="stage" id="s10"><h3><span class="num">10</span> Kebutuhan air dan stasiun pompa</h3>
 <p>Menghitung berapa air yang dibutuhkan serta di mana dan sebesar apa pompanya.</p>
-<dl><dt>Dilakukan</dt><dd>Kebutuhan = defisit air x luas gambut dalam jarak pengaruh kanal yang dilayani, dibagi sepanjang periode rancangan. Angkatan adalah selisih tinggi antara muka air sungai dan kolam sasaran ditambah kehilangan gesekan. Stasiun ditempatkan agar tidak ada stasiun yang mengangkat melebihi tinggi tekan maksimum, sebaiknya di sebuah sekat. Daya = massa jenis x gravitasi x debit x tinggi tekan / efisiensi.</dd>
+<dl><dt>Dilakukan</dt><dd>Kebutuhan = defisit air x luas gambut dalam jarak pengaruh kanal yang dilayani, dibagi sepanjang periode rancangan. Tanpa defisit air (tidak ada neraca air), dipakai kenaikan muka air yang dibutuhkan x hasil jenis, dengan periode rancangan yang Anda isi. Angkatan adalah selisih tinggi antara muka air sungai dan kolam sasaran ditambah kehilangan gesekan. Stasiun ditempatkan agar tidak ada stasiun yang mengangkat melebihi tinggi tekan maksimum, sebaiknya di sebuah sekat. Daya = massa jenis x gravitasi x debit x tinggi tekan / efisiensi.</dd>
 <dt>Keluaran</dt><dd><code>pump_stations</code> (debit <code>q_m3s</code>, tinggi tekan <code>h_m</code>, daya <code>p_kw</code>, <code>units_needed</code>), <code>gates_required</code> (sekat pada rute yang harus bertipe berpintu air), dan kolom kebutuhan pada <code>pump_routes</code>.</dd>
 <dt>Periksa</dt><dd>Peringatan tentang kebutuhan di atas kapasitas terpasang (<code>shortfall_m3s</code>) dan tentang potongan kanal tunggal yang membutuhkan tinggi tekan lebih besar daripada yang diizinkan.</dd></dl></div>
 

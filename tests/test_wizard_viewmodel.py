@@ -271,6 +271,24 @@ def test_optional_layers_left_empty_are_dropped_from_the_config(tmp_path):
     load_config(rc.write_run_config(out, tmp_path / "r" / "run_config.yaml"))     # still a valid engine config
 
 
+def test_priority_table_is_optional_in_the_config_builder(tmp_path):
+    cfg = tmp_path / "t.yaml"
+    cfg.write_text(EXAMPLE.read_text(encoding="utf8"), encoding="utf8")
+    out = rc.build_run_config(cfg, drop=["subkhg_priority"])
+    assert "subkhg_priority" not in out["inputs"]
+    load_config(rc.write_run_config(out, tmp_path / "r" / "run_config.yaml"))       # the engine accepts a config without the table
+
+
+def test_design_period_is_a_decision_field_with_a_translation():
+    f = vm.field_for("pumping.design_period_days")
+    assert f.kind == "float" and f.unit == "days" and "priority table" in f.help
+    i18n.set_language("id")
+    try:
+        assert vm.field_for("pumping.design_period_days").label == "Periode rancangan"
+    finally:
+        i18n.set_language("en")
+
+
 def test_dotted_helpers():
     d = {}
     rc.set_dotted(d, "prioritise.criteria.burn_freq.weight", 0.3)

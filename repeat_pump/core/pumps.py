@@ -94,13 +94,22 @@ def _area_served(ctx, seg_ids, segs, peat_union, sk, influence):
 def run(ctx) -> None:
     cfg = ctx.cfg
     pc = cfg.pumping
+    sk = ctx.read_layer("subkhg_selected")
+    has_deficit = {"deficit_mm", "design_period_days"} <= set(sk.columns) and bool(sk[["deficit_mm", "design_period_days"]].notna().all().all())
+    mode = pc.demand_mode
+    if mode == "deficit" and not has_deficit:
+        mode = "specific_yield"
+        ctx.warn("Stage 10: no water deficit (neraca air) for the selected sub-KHGs; demand uses specific yield x water-table rise instead")
+    has_period = "design_period_days" in sk.columns and bool(sk["design_period_days"].notna().all())
     need = ["conveyance", "pump_efficiency", "max_head_per_station_m", "pump_capacity_m3s", "influence_distance_m"]
     if pc.conveyance == "canal":
         need.append("manning_n")
     elif pc.conveyance == "pipe":
         need += ["hazen_williams_c", "pipe_diameter_m"]
-    if pc.demand_mode == "specific_yield":
+    if mode == "specific_yield":
         need += ["specific_yield", "water_table_rise_m"]
+    if not has_period:
+        need.append("design_period_days")
     require(pc, need, "Stage 10", "pumping")
     dA = cfg.sekat.dA_m
     with open(ctx.work / "network.pkl", "rb") as fh:
@@ -110,7 +119,6 @@ def run(ctx) -> None:
     segs = ctx.read_layer("canal_segments")
     tgt = ctx.read_layer("pump_targets").set_index("target_id")
     src = ctx.read_layer("pump_sources").set_index("node_id")
-    sk = ctx.read_layer("subkhg_selected")
     peat_union = ctx.read_layer("inputs_clipped_peat_depth").geometry.union_all()
     routes_gdf = ctx.read_layer("pump_routes")
 
@@ -122,8 +130,9 @@ def run(ctx) -> None:
         q = v_tot = a_tot = 0.0
         for kid, a in areas.items():
             r = sk[sk["subkhg_id"] == kid].iloc[0]
-            V = (r["deficit_mm"] / 1000.0 * a) if pc.demand_mode == "deficit" else pc.water_table_rise_m * pc.specific_yield * a
-            q += V / (r["design_period_days"] * 86400.0)
+            V = (r["deficit_mm"] / 1000.0 * a) if mode == "deficit" else pc.water_table_rise_m * pc.specific_yield * a
+            days = r["design_period_days"] if r["design_period_days"] == r["design_period_days"] else pc.design_period_days
+            q += V / (days * 86400.0)
             v_tot += V; a_tot += a
         dem[tid] = dict(q=q, v=v_tot, a_ha=a_tot / 1e4)
 

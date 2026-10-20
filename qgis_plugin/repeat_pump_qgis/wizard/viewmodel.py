@@ -138,8 +138,9 @@ FIELDS: dict[str, Field_] = {f.key: f for f in [
     Field_("pumping.max_head_per_station_m", "Maximum head per station", "float", "m", "A new station is placed when this would be exceeded."),
     Field_("pumping.pump_capacity_m3s", "Capacity per pump unit", "float", "m3/s", ""),
     Field_("pumping.influence_distance_m", "Canal influence distance", "float", "m", "How far from a canal the peat is rewetted. Calibrate with water-table observations."),
-    Field_("pumping.specific_yield", "Specific yield", "float", "", "Needed in specific-yield demand mode."),
-    Field_("pumping.water_table_rise_m", "Required water-table rise", "float", "m", "Needed in specific-yield demand mode."),
+    Field_("pumping.specific_yield", "Specific yield", "float", "", "Needed in specific-yield demand mode, and when there is no water deficit (neraca air)."),
+    Field_("pumping.design_period_days", "Design period", "float", "days", "The days over which the water must be delivered. Needed when the priority table does not give it."),
+    Field_("pumping.water_table_rise_m", "Required water-table rise", "float", "m", "Needed in specific-yield demand mode, and when there is no water deficit (neraca air)."),
 ]}
 
 

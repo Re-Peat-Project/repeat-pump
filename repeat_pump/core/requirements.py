@@ -19,6 +19,19 @@ def get_value(cfg: Config, key: str) -> Any:
     return node
 
 
+def _priority_columns(cfg: Config) -> set:
+    """Columns of the optional priority table (empty set if there is none or it cannot be read)."""
+    if cfg.inputs.subkhg_priority is None:
+        return set()
+    try:
+        import pandas as pd
+
+        from .config import resolve
+        return set(pd.read_csv(resolve(cfg, cfg.inputs.subkhg_priority.path), nrows=0).columns)
+    except Exception:
+        return set()
+
+
 def needs_by_stage(cfg: Config) -> dict[int, list[str]]:
     """Every parameter each stage needs, filled or not (given the current conveyance / demand / weights modes)."""
     pc, pr = cfg.pumping, cfg.prioritise
@@ -38,8 +51,11 @@ def needs_by_stage(cfg: Config) -> dict[int, list[str]]:
         p.append("manning_n")
     elif pc.conveyance == "pipe":
         p += ["hazen_williams_c", "pipe_diameter_m"]
-    if pc.demand_mode == "specific_yield":
-        p += ["specific_yield", "water_table_rise_m"]
+    cols = _priority_columns(cfg)
+    if pc.demand_mode == "specific_yield" or not {"deficit_mm", "design_period_days"} <= cols:
+        p += ["specific_yield", "water_table_rise_m"]      # no water deficit available: demand comes from specific yield
+    if "design_period_days" not in cols:
+        p.append("design_period_days")
     need[10] = [f"pumping.{k}" for k in p]
     return need
 

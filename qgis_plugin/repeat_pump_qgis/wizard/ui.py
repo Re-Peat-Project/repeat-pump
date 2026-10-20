@@ -313,7 +313,7 @@ class WizardPanel(QWidget):
         form.addWidget(self.out_file)
         form.addWidget(label("Starting config (policy parameters; yours are saved in the run folder)", "paramLabel"))
         form.addWidget(self.template)
-        form.addWidget(label("Sub-KHG priority table (CSV)", "paramLabel"))
+        form.addWidget(label("Sub-KHG priority table (CSV, optional)", "paramLabel"))
         form.addWidget(self.priority)
         self.combos: dict[str, tuple[QgsMapLayerComboBox, bool, str]] = {}
         spec = [("dtm", "Bare-earth DTM (metres)", "raster", False), ("moisture", "Moisture index raster", "raster", False),
@@ -357,9 +357,10 @@ class WizardPanel(QWidget):
                 raise ValueError(tr("Choose where the output GeoPackage should go."))
             if not Path(tpl).is_file():
                 raise ValueError(tr("Choose a starting config (YAML)."))
-            if not self.priority.filePath().strip():
-                raise ValueError(tr("Choose the sub-KHG priority table (CSV)."))
             vectors, dtm, moisture, drop = {}, "", "", []
+            priority = self.priority.filePath().strip()
+            if not priority:
+                drop.append("subkhg_priority")       # optional: equal priority and specific-yield demand apply instead
             for key, (cb, optional, text) in self.combos.items():
                 layer = cb.currentLayer()
                 if layer is None:
@@ -379,7 +380,7 @@ class WizardPanel(QWidget):
             cfg_path = Path(out).parent / "run_config.yaml"
             base = cfg_path if cfg_path.exists() else Path(tpl)
             data = build_run_config(base, output_gpkg=str(Path(out)), dtm=dtm, moisture=moisture,
-                                    priority=self.priority.filePath().strip(), vectors=vectors, drop=drop)
+                                    priority=priority or None, vectors=vectors, drop=drop)
         except Exception as e:
             self.setup_msg.setText(f"<span style='color:{theme.RED_TEXT}'>{e}</span>")
             return

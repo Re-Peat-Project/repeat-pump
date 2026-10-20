@@ -29,7 +29,7 @@ Inputs (all in the same projected CRS in metres, or set `run.auto_reproject: tru
 | Input | Notes |
 |---|---|
 | `dtm` | Bare-earth DTM. `surface_type: DSM` is refused. |
-| `subkhg`, `subkhg_priority` | Polygons with `subkhg_id`; CSV with `subkhg_id, priority_rank, deficit_mm, design_period_days`. |
+| `subkhg`, `subkhg_priority` (optional) | Polygons with `subkhg_id`; CSV with `subkhg_id, priority_rank, deficit_mm, design_period_days` (each column optional). Without them all sub-KHGs get equal priority and pump demand uses specific yield and `pumping.design_period_days`. |
 | `canals` | Lines with `canal_class`, optional `depth_m`, `width_m`. |
 | `canal_edits` (optional) | Lines with `action` = `add` or `delete`: reproducible manual topology fixes. |
 | `sekat_existing` (optional) | Points with `sekat_id`, `has_gate`. |

@@ -43,7 +43,9 @@ class _M(BaseModel):
 
 
 class SubKhgSelection(_M):
-    mode: Literal["top_n", "ids"] = "top_n"
+    """``top_n``: the N highest-ranked sub-KHGs of the priority table; ``ids``: the listed ones; ``all``: every sub-KHG in the layer.
+    Without a priority ranking, ``top_n`` falls back to ``all`` (equal priority) and says so in the report."""
+    mode: Literal["top_n", "ids", "all"] = "top_n"
     n: Optional[int] = None
     ids: Optional[list[Any]] = None
 
@@ -84,7 +86,7 @@ class PathCfg(_M):
 class InputsCfg(_M):
     dtm: DtmCfg
     subkhg: PathCfg
-    subkhg_priority: PathCfg
+    subkhg_priority: Optional[PathCfg] = None   # optional: without it all selected sub-KHGs get equal priority and demand comes from specific yield
     canals: PathCfg
     canal_edits: Optional[PathCfg] = None   # lines with an "action" column: add | delete (reproducible manual fixes)
     sekat_existing: Optional[PathCfg] = None
@@ -163,6 +165,7 @@ class PumpingCfg(_M):
     demand_mode: Literal["deficit", "specific_yield"] = "deficit"
     specific_yield: Optional[float] = None
     water_table_rise_m: Optional[float] = None  # TODO(human): delta h, specific_yield mode
+    design_period_days: Optional[float] = None  # TODO(human): needed only where the priority table gives no design_period_days
     influence_distance_m: Optional[float] = None
     routing: Literal["steiner", "per_target"] = "steiner"
     allow_gate_addition: bool = False
