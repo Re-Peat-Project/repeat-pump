@@ -1,4 +1,4 @@
-# Example run config. Every `null` is a TODO(human) from AGENT_INSTRUCTIONS section 11:
+# Example run config. Every `null` is a TODO(human) from AGENTS.md section 11:
 # the stage that needs it stops with one message listing the missing keys. Do not invent values.
 run:
   name: khg_kahayan_sebangau_pilot

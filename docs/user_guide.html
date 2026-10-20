@@ -131,8 +131,8 @@ svg.diagram{width:100%;height:auto;display:block;margin:.8rem 0;background:var(-
 <section id="before">
 <h2>Before you start</h2>
 <ol>
-  <li><b>QGIS 4</b> with the <b>RE-PEAT Pompanisasi</b> plugin installed and enabled (see <a href="#run">Running it</a>).</li>
-  <li><b>Internet</b> for the very first run only. The plugin downloads what it needs once.</li>
+  <li><b>QGIS 4</b> with the <b>RE-PEAT Pompanisasi</b> plugin installed and enabled. Step-by-step instructions, in English and Bahasa Indonesia, are in <a href="install.html">install.html</a>.</li>
+  <li><b>Internet</b> for the first engine setup, and again the first time stage 3 runs, when the tool downloads the WhiteboxTools program. After that it works offline.</li>
   <li><b>Python 3.11 or newer</b> (from python.org) installed on the computer. The plugin uses it to build its own private environment, so you do not touch Python yourself.</li>
   <li>Your data prepared as in <a href="#data">Input data</a>, all saved as files (GeoPackage, Shapefile, GeoTIFF). Temporary layers do not work.</li>
   <li>A <b>config file</b> (<code>.yaml</code>) filled in by the person responsible for the decisions in <a href="#config">The config file</a>.</li>
@@ -186,9 +186,21 @@ svg.diagram{width:100%;height:auto;display:block;margin:.8rem 0;background:var(-
 
 <section id="run">
 <h2>Running it</h2>
-<h3>In QGIS (recommended)</h3>
+<h3>In QGIS with the guided wizard (recommended)</h3>
+<p>The wizard takes you through the 11 stages one at a time. Install the plugin first (see <a href="install.html">install.html</a>), then:</p>
 <ol>
-  <li><b>Install the plugin once.</b> Either run <code>python scripts/install_plugin.py</code> in the project folder, or in QGIS use <i>Plugins &rsaquo; Manage and Install Plugins &rsaquo; Install from ZIP</i> and choose <code>dist/repeat_pump_qgis.zip</code>. Then tick <b>RE-PEAT Pompanisasi</b> in the plugin list.</li>
+  <li>Open the wizard with the water-drop button on the toolbar, or <i>Plugins &rsaquo; RE-PEAT Pompanisasi &rsaquo; Guided wizard</i>. If it asks for the engine, click <b>Set up engine</b> and wait a few minutes.</li>
+  <li>On stage 1, open <b>Run setup</b>. Choose the output GeoPackage, a starting config, the priority table (CSV) and each input layer, then click <b>Create run</b>. The run folder is the folder of the GeoPackage; your settings are saved there in <code>run_config.yaml</code>.</li>
+  <li>Each stage card has a <b>Decisions</b> box with the settings that stage needs. Empty ones are highlighted and the Run button stays off until you fill them. The wizard never fills them in for you.</li>
+  <li>Click <b>Run stage</b>. The result numbers appear on the card and the stage's layers are added to the map. QGIS stays usable while it runs, and <b>Cancel run</b> stops it.</li>
+  <li>At a review stop (stages 2, 6 and 9) the card says <i>Review needed</i>. Look at the layers, then click <b>Accept and continue</b> (see <a href="#review">Review stops</a>).</li>
+  <li>Turn on <b>Learn mode</b> (top right) to see what each stage does and why, with references. The <b>EN</b> and <b>ID</b> buttons switch between English and Bahasa Indonesia.</li>
+</ol>
+<div class="note"><b>Layers the form does not have</b>The setup form has no slot for the concession layer or water-level observations. Add them to <code>run_config.yaml</code> by hand (see the commented lines in <code>configs/example_khg.yaml</code>); the wizard then marks stage 1 as out of date and you re-run from there.</div>
+
+<h3>In QGIS with the Processing algorithms</h3>
+<p>The same work is available as separate algorithms, useful for repeating only part of a run or for batch use.</p>
+<ol>
   <li>Open the <b>Processing Toolbox</b> and find <b>RE-PEAT Pompanisasi</b>.</li>
   <li>Choose <b>Run full pipeline</b>. Pick your config file, then each input layer. Choose where to save the output GeoPackage.</li>
   <li>Click <b>Run</b>. <b>The very first run</b> also builds the tool's private environment, which needs internet and takes a few minutes. This happens only once (you can also trigger it with <i>Set up engine environment</i>).</li>
@@ -272,12 +284,26 @@ python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accep
 <section id="review">
 <h2>Review stops</h2>
 <p>After stages <b>2</b>, <b>6</b> and <b>9</b> the tool stops on purpose. These are the points where a human decision matters most.</p>
+<h3>In the wizard</h3>
+<ol>
+  <li>The stage card shows <i>Review needed</i> and the stage's layers are on the map (open the layers listed in the stage description above).</li>
+  <li>If something is wrong, fix the cause (a setting in the <b>Decisions</b> box, canal edits) and click <b>Re-run this stage</b>.</li>
+  <li>If it is fine, click <b>Accept and continue</b>. The next stage unlocks.</li>
+</ol>
+<h3>In the Processing algorithms</h3>
 <ol>
   <li>The run ends with a message such as <i>"Stage 2 finished; inspect the QA layers... re-run with --accept 2"</i>. In QGIS this appears as a warning, not a failure.</li>
   <li>Open the output GeoPackage and look at the layers listed in the stage description above.</li>
   <li>If something is wrong, fix the cause (canal edits, weights, config) and run again.</li>
   <li>If it is fine, run again with that stage ticked under <b>Review stages to accept</b>. The tool continues from where it stopped and does not redo finished work.</li>
 </ol>
+<h3>If you change something after a stage ran</h3>
+<ul>
+  <li>The wizard marks that stage and every later one <b>Out of date</b>, and you cannot accept them until you re-run. The stage records the settings it was run with, so this also catches a value you edited after the result was produced.</li>
+  <li><b>Re-run this stage</b> on an earlier stage clears the results of all later stages, because they depend on it. The wizard asks first and also takes their layers off the map.</li>
+  <li>Warnings raised by a stage disappear when it is re-run, so the list always matches the current result.</li>
+  <li>Canal edits and the other input layers are read in stage 1. If you change them, re-run from stage 1, not stage 2.</li>
+</ul>
 <div class="stop"><b>Do not skip review</b>An unconnected canal in stage 2 or a wrong weight in stage 6 quietly changes everything after it. Tick all three stages at once only for a repeat run whose inputs you have already reviewed.</div>
 </section>
 
@@ -307,7 +333,11 @@ python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accep
 <tr><td>CRS error</td><td>A layer is in a different coordinate system</td><td>Reproject it to the project CRS and save it as a file.</td></tr>
 <tr><td>"refusing to run on a DSM"</td><td><code>surface_type</code> is not <code>DTM</code></td><td>Use a bare-earth DTM.</td></tr>
 <tr><td>"the layer must be saved to a file"</td><td>A temporary (scratch) layer was selected</td><td>Export it to a GeoPackage, then select it.</td></tr>
-<tr><td>"Could not set up the engine environment"</td><td>No internet, or no Python 3.11+ found</td><td>Connect to the internet, install Python from python.org, run <i>Set up engine environment</i> again.</td></tr>
+<tr><td>"Could not set up the engine environment", or the wizard shows a <b>Set up engine</b> button</td><td>No internet, or no Python 3.11+ found</td><td>Connect to the internet, install Python from python.org, click <b>Set up engine</b> (wizard) or run <i>Set up engine environment</i> (Processing) again.</td></tr>
+<tr><td>"The engine is older than the plugin"</td><td>You installed a newer plugin</td><td>Click <b>Set up engine</b> in the wizard to update the engine.</td></tr>
+<tr><td>Run button is off and a field is highlighted</td><td>The stage needs a decision from you</td><td>Fill in the highlighted field in the <b>Decisions</b> box. Commas work as decimal marks.</td></tr>
+<tr><td>Stage shows <b>Out of date</b></td><td>A setting or input changed after the stage ran</td><td>Click <b>Re-run to apply your change</b>. Later stages are re-run after it.</td></tr>
+<tr><td>Stage shows <b>Interrupted</b></td><td>The run was cancelled or QGIS closed while it ran</td><td>Run the stage again.</td></tr>
 <tr><td>Canals "have no connection to a river"</td><td>A gap bigger than the snap tolerance</td><td>Add a bridging line in the canal edits layer.</td></tr>
 <tr><td>Target "unreachable"</td><td>See the <code>reason</code> in <code>qa_unreachable_targets</code></td><td>Add a gate, fix topology, or accept that the target cannot be served.</td></tr>
 <tr><td>Accuracy warning</td><td>DTM error is too large for a 0.40 m sekat step</td><td>Treat sekat positions as indicative, or use a better DTM.</td></tr>
@@ -336,6 +366,6 @@ python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accep
 
 </main>
 </div>
-<footer>RE-PEAT Pompanisasi · Departemen Teknik Geodesi UGM · Full specification: AGENT_INSTRUCTIONS_pompanisasi.md · Technical setup: docs/qgis_plugin.md</footer>
+<footer>RE-PEAT Pompanisasi · Departemen Teknik Geodesi UGM · Full specification: AGENTS.md · Installation: <a href="install.html">install.html</a> · Plugin details: <a href="qgis_plugin.md">docs/qgis_plugin.md</a></footer>
 </body>
 </html>

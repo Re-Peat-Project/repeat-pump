@@ -1,6 +1,6 @@
 # References
 
-Keys cited in module docstrings (from AGENT_INSTRUCTIONS section 12). Verify volume and page details against the originals before formal citation.
+Keys cited in module docstrings (from AGENTS.md section 12). Verify volume and page details against the originals before formal citation.
 
 - **Barnes2014**: Barnes, Lehman & Mulla (2014). Priority-flood. Computers & Geosciences 62, 117-127.
 - **Chen2010**: Chen, Yu & Khan (2010). Spatial sensitivity analysis of multi-criteria weights. Environmental Modelling & Software 25(12), 1582-1591.
