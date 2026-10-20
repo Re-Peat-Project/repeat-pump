@@ -12,7 +12,7 @@ from qgis.core import QgsApplication, QgsTask
 from qgis.PyQt.QtCore import QObject, pyqtSignal
 
 from .. import runner
-from ..runconfig import attach_preset, detach_preset, set_dotted, write_run_config
+from ..runconfig import attach_preset, detach_preset, set_dotted, unset_dotted, write_run_config
 from . import viewmodel as vm
 from .i18n import tr
 
@@ -48,8 +48,13 @@ class FnTask(QgsTask):
 class _Feedback:
     """The slice of QgsProcessingFeedback that ``runner.run_cli`` uses."""
 
-    def __init__(self, task: QgsTask, emit: Callable[[str], None]):
-        self._task, self._emit = task, emit
+    def __init__(self, task: QgsTask, emit: Callable[[str], None], on_progress: Optional[Callable[[int, float, str], None]] = None):
+        self._task, self._emit, self._on_progress = task, emit, on_progress
+
+    def progress(self, stage: int, fraction: float, text: str) -> None:
+        self._task.setProgress(fraction * 100)           # also drives QGIS's own task manager bar
+        if self._on_progress:
+            self._on_progress(stage, fraction, text)
 
     def pushInfo(self, line: str) -> None:
         self._emit(line)
@@ -66,6 +71,7 @@ class WizardController(QObject):
     log_line = pyqtSignal(str)       # thread-safe: may be emitted from a worker
     notice = pyqtSignal(str, str)    # level (info|success|warning|error), text
     stage_finished = pyqtSignal(int, int)   # stage id, exit code
+    progress_changed = pyqtSignal(int, float, str)   # stage id, 0..1, what it is doing (thread-safe: emitted from the worker)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -184,8 +190,42 @@ class WizardController(QObject):
             return
         data = yaml.safe_load(self.config_path.read_text(encoding="utf8"))
         set_dotted(data, key, value)
+        if key == "run.vertical_datum" and (data.get("inputs") or {}).get("rivers"):
+            data["inputs"]["rivers"]["vertical_datum"] = value      # the engine needs both to be the same datum
         write_run_config(data, self.config_path)
         self.refresh_check()
+
+    def set_option(self, key: str, value: Any) -> None:
+        """Like :meth:`set_param` for a setting that has a default: an empty value removes the key instead of writing ``null``."""
+        if value is not None:
+            self.set_param(key, value)
+            return
+        if not self.config_path:
+            return
+        data = yaml.safe_load(self.config_path.read_text(encoding="utf8"))
+        unset_dotted(data, key)
+        write_run_config(data, self.config_path)
+        self.refresh_check()
+
+    def reset_run(self) -> None:
+        """Start over: take the run's layers off the map, delete what the engine wrote, keep the config and inputs."""
+        if self.running is not None or not self.config_path or not self.engine_ready:
+            return
+        from . import styling
+        styling.remove_run_group(self.check_json.get("run_name", "") if self.check_json else "")
+        py, cfg = runner.get_python(), str(self.config_path)
+        self.busy = tr("Starting over...")
+        self.log.clear()
+        self.changed.emit()
+
+        def done(res, err):
+            self.busy = ""
+            if err:
+                self.notice.emit("error", tr("Could not start over: {err}").format(err=err))
+            else:
+                self.notice.emit("success", tr("The run was cleared. Your settings and data are untouched."))
+            self.refresh_check()
+        self._submit("RE-PEAT: start over", lambda task: runner.run_reset(py, cfg), done)
 
     def set_preset(self, enabled: bool) -> None:
         """Opt the open run into (or out of) the proposed-defaults preset, then re-check. Values already in the run YAML win."""
@@ -224,7 +264,7 @@ class WizardController(QObject):
 
         def work(task):
             return runner.run_cli(py, cfg, str(self.config_path.parent), plan.first, plan.last, list(plan.accept),
-                                  _Feedback(task, self.log_line.emit), rerun=plan.rerun)
+                                  _Feedback(task, self.log_line.emit, self.progress_changed.emit), rerun=plan.rerun)
 
         def done(code, err):
             self.running = None

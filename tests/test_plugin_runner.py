@@ -96,3 +96,23 @@ def test_get_python_prefers_explicit_then_auto_env(tmp_path, monkeypatch):
     assert runner.get_python() == str(py)
     monkeypatch.setenv("REPEAT_PUMP_PYTHON", "X")
     assert runner.get_python() == "X"
+
+
+def test_progress_lines_are_parsed_and_routed():
+    assert runner.parse_progress("@@progress|3|0.25|removing depressions") == (3, 0.25, "removing depressions")
+    assert runner.parse_progress("@@progress|5|1.7|") == (5, 1.0, "") and runner.parse_progress("@@progress|x|y") is None
+
+    class Wizard:
+        got = None
+        def progress(self, *a): self.got = a
+    class Processing:
+        pct = None
+        def setProgress(self, p): self.pct = p
+    w, p = Wizard(), Processing()
+    runner.report_progress(w, "@@progress|2|0.5|x"); runner.report_progress(p, "@@progress|2|0.5|x")
+    assert w.got == (2, 0.5, "x") and p.pct == 50.0
+    runner.report_progress(Fb(), "@@progress|2|0.5|x")          # feedback objects with neither method just ignore it
+
+
+def test_child_env_asks_the_engine_for_progress():
+    assert runner.clean_env()["REPEAT_PUMP_PROGRESS"] == "1"

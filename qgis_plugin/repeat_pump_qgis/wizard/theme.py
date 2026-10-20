@@ -90,6 +90,9 @@ QCheckBox#learn::indicator:checked {{ background: {TEAL_DARK}; }}
 #paramLabel {{ font-weight: 600; }}
 #paramHelp {{ color: {MUTED}; font-size: 8.5pt; }}
 #paramProposed {{ color: {AMBER_TEXT}; font-size: 8.5pt; font-weight: 600; }}
+#progressFrame {{ background: {AMBER_TINT}; border-top: 1px solid {AMBER_LINE}; }}
+QProgressBar {{ background: #DCE5E0; border: none; border-radius: 4px; }}
+QProgressBar::chunk {{ background: {TEAL}; border-radius: 4px; }}
 #paramUnit {{ color: {MUTED}; }}
 #wizard QLineEdit, #wizard QComboBox, #wizard QgsFileWidget {{ border: 1px solid #C9C3B3; border-radius: 8px; padding: 6px 8px; background: #FBFAF6; color: {INK}; }}
 #wizard QLineEdit[missing="true"], #wizard QComboBox[missing="true"] {{ border: 2px solid #D98A1F; background: #FFF6E6; }}

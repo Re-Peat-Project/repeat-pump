@@ -76,8 +76,10 @@ qgis_plugin/repeat_pump_qgis/   # QGIS plugin (outside the engine package; never
   plugin.py, provider.py, runner.py   # Processing provider + external runner (M8a, done)
   runconfig.py       # shared run-YAML builder (provider and wizard), no qgis imports
   wizard/            # stage-by-stage wizard (§7b): viewmodel.py (pure Python), controller.py (QgsTask + runner),
-                     #   ui.py (Qt widgets), theme.py (QSS), styling.py (layer symbology in code)
-  resources/         # example_khg.yaml (copied in by scripts/install_plugin.py)
+                     #   ui.py (Qt widgets), setup_form.py (run-setup parts that read the chosen layers), widgets.py (shared helpers),
+                     #   preflight.py (early layer checks, pure core), maptools.py (which layers to show, zoom, map export),
+                     #   theme.py (QSS), styling.py (layer symbology in code)
+  resources/         # example_khg.yaml, proposed_defaults.yaml (copied in by scripts/install_plugin.py)
 tests/
   fixtures/          # small synthetic + one pilot sub-KHG
 legacy/              # original console scripts (read-only reference)
@@ -351,6 +353,10 @@ Purpose: train KLH staff. The plugin registers the §7 provider and adds a dock-
 - On completion each stage stores a `fingerprint` (the config sections that determine its results, `core/requirements.py`). `repeat-pump check` returns the current fingerprints; if they differ the wizard marks the stage and every later one **out of date**: Accept is disabled and the primary action is "Re-run to apply your change".
 - Run next = `last=N`; Accept = `last=N, accept=[N]` (no `first`); Re-run / Back = `first=N`.
 - Tiles read `report.counts[stage]`; callouts read `warnings`.
+- `check` also returns, per stage, `options`: the settings that have a default (`requirements.OPTIONS_BY_STAGE`), never counted as missing. `review.auto_accept` is deliberately not an option. A front end offers every option, so no engine setting needs a text editor.
+- Stage 1 needs both vertical datums as soon as the rivers layer carries `dry_season_wl_m` (read with pyogrio), so CLI, provider and wizard agree. The two must be equal; the wizard asks for one datum and writes both.
+- Progress: with `REPEAT_PUMP_PROGRESS=1` the engine prints `@@progress|<stage>|<0..1>|<text>` lines (the runner sets it; plain CLI output is unchanged). `runner.report_progress` hands them to `feedback.progress(stage, fraction, text)` or `setProgress(percent)`.
+- `repeat-pump reset --config X` deletes the GeoPackage, work folder, `run_state.json` and the report, and refuses to touch anything outside the run folder. Config, preset and inputs stay.
 
 **Structure**
 - **Stepper rail** (left): the 12 stages (stage 12 is optional), each with status `locked | ready | running | done | needs_review | failed | stale | skipped`, taken from `run_state.json`. [REVIEW] stages have a distinct "your turn" accent.
@@ -359,7 +365,11 @@ Purpose: train KLH staff. The plugin registers the §7 provider and adds a dock-
 - **Review panel** for [REVIEW] stages: auto-load the QA layers with bundled QML styles, then offer *Accept*, *Re-run with changes*, *Back*. Accept writes to `review.auto_accept`/`--accept` equivalent in the state file.
 - **Learn toggle:** expands explanations, formulas and §12 references per stage.
 - **Null parameters (§0 rule 2):** missing keys come from `repeat-pump check`, shown as required, highlighted fields. The wizard writes them into the run YAML; Run stays disabled until filled; never prefill physical values.
-- **Final screen:** run report preview and links to outputs.
+- **Advanced settings:** every stage lists its options (above) in a folded card; an emptied field removes the key so the engine default applies again. Choices show readable names while the YAML keeps the codes.
+- **Run setup reads the layers:** the run CRS comes from the DTM; a layer in another CRS blocks *Create run* unless reprojection is ticked; required columns, coverage and the DTM's vertical datum (when it names one) are checked early; sub-KHGs can be picked (including "use the features selected on the map"); concession and water-level layers and extra moisture tiles are chosen in the form. The engine still validates everything in stage 1.
+- **Map handling:** after a stage its layers load, the stage's own layers and their context are shown, the rest hidden, and the canvas zooms to them. Draw order is fixed (`styling.DRAW_ORDER`). Styling stays in code. Stage cards have *Show this stage on the map* and *Show every layer*; the final stage can export an A4 map (PDF or PNG) with legend, scale bar and notes. Logic that decides what to show is pure (`maptools.visibility_plan`); Qt calls do nothing without an `iface`.
+- **Progress and control:** a bar with the step, elapsed time and stages done while a stage runs; *Start over* clears a run after closing its layers.
+- **Final screen:** run report link and the map export. A report preview and a diagram of the key ideas (sekat head rule, ring buffer, head-aware cost) are not built yet.
 
 **Implementation rules**
 - Run stages off the UI thread (`QgsTask`, or a subprocess if `core` runs in a separate environment). QGIS must not freeze during Stage 3, 5 or 9.

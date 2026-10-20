@@ -86,10 +86,13 @@ def run(ctx) -> None:
     burned = ctx.work / "dtm_burned_tmp.tif"
     cond = ctx.work / "dtm_conditioned.tif"
     acc = ctx.work / "flow_acc.tif"
+    ctx.progress(0.05, "burning the canals into the DTM")
     share_default = burn_canals(dtm, canals, cfg.hydro.burn_depth_default_m, burned)
     if share_default > 0:
         ctx.warn(f"Stage 3: {share_default:.0%} of canal length burned with the default depth {cfg.hydro.burn_depth_default_m} m (canals.depth_m missing)")
+    ctx.progress(0.15, "removing depressions (breaching)")
     condition_dem(burned, cond, cfg.hydro.breach_max_dist_cells, ctx.work)
+    ctx.progress(0.6, "accumulating flow")
     flow_accumulation(cond, acc, cfg.hydro.flow_algorithm, ctx.work)
     burned.unlink(missing_ok=True)
     ctx.report["inputs"].update(dtm_conditioned=str(cond), flow_acc=str(acc))

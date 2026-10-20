@@ -43,6 +43,7 @@ def clean_env() -> dict:
     env["PATH"] = os.pathsep.join(parts)
     env["PYTHONNOUSERSITE"] = "1"
     env["PYTHONUTF8"] = "1"
+    env["REPEAT_PUMP_PROGRESS"] = "1"       # the engine then prints "@@progress|stage|fraction|text" lines (see stream_process)
     return env
 
 
@@ -90,6 +91,16 @@ def run_check(python: str, config: str) -> dict:
     return json.loads(r.stdout.strip().splitlines()[-1])
 
 
+def run_reset(python: str, config: str) -> list[str]:
+    """``repeat-pump reset``: delete the run's GeoPackage, work folder, state and report (never the config or the inputs).
+    Returns the paths removed. Close the run's layers in QGIS first: Windows will not delete a file that is open."""
+    r = subprocess.run([python, "-m", "repeat_pump.cli", "reset", "--config", config], capture_output=True, text=True, timeout=180,
+                       creationflags=CREATE_NO_WINDOW, env=clean_env(), cwd=tempfile.gettempdir())
+    if r.returncode != 0:
+        raise RuntimeError((r.stderr or r.stdout).strip()[-600:] or f"reset exited with {r.returncode}")
+    return [l[len("removed "):] for l in r.stdout.splitlines() if l.startswith("removed ")]
+
+
 def run_cli(python: str, config: str, cwd: str, first, last, accept, feedback, rerun: bool = False) -> int:
     """Stream the CLI output into the Processing feedback; return the exit code (0 ok, 1 error, 2 review stop).
 
@@ -115,6 +126,27 @@ def kill_tree(p: subprocess.Popen) -> None:
         subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], capture_output=True, creationflags=CREATE_NO_WINDOW)
     else:
         p.kill()
+
+
+def parse_progress(line: str):
+    """``@@progress|3|0.25|removing depressions`` -> (3, 0.25, "removing depressions"); None if malformed."""
+    try:
+        _, stage, frac, text = (line.split("|", 3) + [""])[:4]
+        return int(stage), min(max(float(frac), 0.0), 1.0), text
+    except ValueError:
+        return None
+
+
+def report_progress(feedback, line: str) -> None:
+    """Pass a progress line on to whatever the feedback object offers: the wizard's ``progress(stage, fraction, text)`` or the
+    Processing feedback's ``setProgress(percent)``. Feedback objects with neither (tests) simply ignore it."""
+    p = parse_progress(line)
+    if p is None:
+        return
+    if hasattr(feedback, "progress"):
+        feedback.progress(*p)
+    elif hasattr(feedback, "setProgress"):
+        feedback.setProgress(p[1] * 100)
 
 
 def stream_process(cmd, cwd, env, feedback) -> int:
@@ -145,7 +177,9 @@ def stream_process(cmd, cwd, env, feedback) -> int:
             if line is None:
                 break
             line = line.rstrip()
-            if line:
+            if line.startswith("@@progress|"):
+                report_progress(feedback, line)
+            elif line:
                 (feedback.pushWarning if line.startswith(("WARNING", "ERROR")) else feedback.pushInfo)(line)
         if feedback.isCanceled():
             cancelled = True

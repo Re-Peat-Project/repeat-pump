@@ -79,7 +79,8 @@ def run(ctx) -> None:
     dtm = ctx.report["inputs"]["dtm"]  # unconditioned DTM, never the burned one
     prof_rows, can_rows = [], {}
     with rasterio.open(dtm) as src:
-        for cid, line in zip(canals["canal_id"], canals.geometry):
+        for k, (cid, line) in enumerate(zip(canals["canal_id"], canals.geometry)):
+            ctx.progress(k / max(len(canals), 1) * 0.9, f"canal {k + 1} of {len(canals)}")
             s, zr = sample_profile(src, line, pc.sample_step_m, pc.bank_offsets_m)
             z = smooth(zr, pc.sample_step_m, pc.smoothing_window_m)
             slope = np.gradient(z, s) if len(s) > 1 else np.zeros(len(s))   # signed dz/ds along digitised direction

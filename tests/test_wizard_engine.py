@@ -115,3 +115,62 @@ def test_check_follows_conveyance_and_demand_mode(world):
 def test_check_cli_prints_json(capsys):
     assert cli.main(["check", "--config", str(EXAMPLE)]) == 0
     assert json.loads(capsys.readouterr().out)["stages"][1]["name"] == "topology"
+
+
+# ---------------------------------------------------------------- options, datum requirement, progress, reset
+def test_check_lists_options_that_are_never_missing_and_skips_auto_accept():
+    from repeat_pump.core.requirements import OPTIONS_BY_STAGE, get_value
+    out = check(load_config(EXAMPLE))
+    opts = {e["key"] for s in out["stages"] for e in s["options"]}
+    assert "sekat.dA_m" in opts and "pumping.routing" in opts and "hydro.flow_algorithm" in opts
+    assert "review.auto_accept" not in opts, "auto_accept would skip the review stops"
+    cfg = load_config(EXAMPLE)
+    assert all(get_value(cfg, k) is not None or k.endswith(("overshoot_max_m", "ids", "n", "max_units_per_station")) for ks in OPTIONS_BY_STAGE.values() for k in ks)
+    assert not (opts & {k for s in out["stages"] for k in s["missing"]} - {"run.vertical_datum"})
+
+
+def test_both_datums_are_required_once_the_rivers_carry_water_levels(world):
+    cfg, tmp = world
+    cfg["run"]["vertical_datum"] = None
+    cfg["inputs"]["rivers"]["vertical_datum"] = None
+    c = load_config(write_cfg(tmp / "c.yaml", cfg))
+    s1 = check(c)["stages"][0]
+    assert {"run.vertical_datum", "inputs.rivers.vertical_datum"} <= set(s1["missing"])
+    assert required_by_stage(c)[1][-2:] == ["run.vertical_datum", "inputs.rivers.vertical_datum"]
+    cfg["run"]["vertical_datum"] = cfg["inputs"]["rivers"]["vertical_datum"] = "X"
+    assert not {"run.vertical_datum", "inputs.rivers.vertical_datum"} & set(check(load_config(write_cfg(tmp / "d.yaml", cfg)))["stages"][0]["missing"])
+
+
+def test_progress_lines_only_appear_when_asked_for(world, capsys, monkeypatch):
+    cfg, tmp = world
+    c = load_config(write_cfg(tmp / "c.yaml", cfg))
+    monkeypatch.delenv("REPEAT_PUMP_PROGRESS", raising=False)
+    with pytest.raises(ReviewRequired):
+        run_pipeline(c, stop_after=2)
+    assert "@@progress" not in capsys.readouterr().out
+    monkeypatch.setenv("REPEAT_PUMP_PROGRESS", "1")
+    run_pipeline(c, stop_after=3, resume_from=3, accept=[2])
+    lines = [l for l in capsys.readouterr().out.splitlines() if l.startswith("@@progress|3|")]
+    assert lines[0].split("|")[2] == "0.000" and lines[-1].split("|")[2] == "1.000"
+
+
+def test_reset_removes_only_what_the_engine_wrote(world):
+    from repeat_pump.core.pipeline import reset_run
+    cfg, tmp = world
+    cfgfile = write_cfg(tmp / "c.yaml", cfg)
+    c = load_config(cfgfile)
+    with pytest.raises(ReviewRequired):
+        run_pipeline(c)
+    out = Path(c.base_dir) / c.run.output_gpkg
+    removed = reset_run(c)
+    assert removed and not out.exists() and not (out.parent / "run_state.json").exists()
+    assert cfgfile.exists() and (tmp / "dtm.tif").exists(), "config and inputs must survive a reset"
+    assert reset_run(c) == []
+
+
+def test_reset_command_line(world):
+    cfg, tmp = world
+    cfgfile = write_cfg(tmp / "c.yaml", cfg)
+    with pytest.raises(ReviewRequired):
+        run_pipeline(load_config(cfgfile))
+    assert cli.main(["reset", "--config", str(cfgfile)]) == 0 and not list(tmp.rglob("run_state.json"))

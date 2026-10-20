@@ -97,7 +97,8 @@ def run(ctx) -> None:
         ctx.warn(f"Stage 7: {len(unsnapped)} existing sekat could not be snapped to a canal within {sk.snap_tolerance_m} m: {unsnapped[:10]}")
 
     prop_rows, canal_upd = [], {}
-    for _, c in canals.iterrows():
+    for k, (_, c) in enumerate(canals.iterrows()):
+        ctx.progress(k / max(len(canals), 1), f"canal {k + 1} of {len(canals)}")
         cid, L, direction = c["canal_id"], c.geometry.length, c["direction"]
         if cid not in by_canal:
             continue

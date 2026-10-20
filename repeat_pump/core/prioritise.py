@@ -191,13 +191,20 @@ def run(ctx) -> None:
     # ---- raster criteria
     inner, outer = pc.ring_buffer_m
     with rasterio.open(ctx.report["inputs"]["moisture"]) as m:
-        ring_mean = [zonal(m, ring(g, inner, outer), "mean") for g in segs.geometry]
+        ring_mean = []
+        for k, g in enumerate(segs.geometry):
+            ctx.progress(k / max(len(segs), 1) * 0.5, f"moisture ring, segment {k + 1} of {len(segs)}")
+            ring_mean.append(zonal(m, ring(g, inner, outer), "mean"))
     sign = -1.0 if cfg.inputs.moisture.higher_is_wetter else 1.0
     segs["moisture_ring_mean"] = ring_mean
     segs["dryness_raw"] = sign * segs["moisture_ring_mean"]
     if pc.upstream_method == "flow_acc":
         with rasterio.open(ctx.report["inputs"]["flow_acc"]) as f:
-            segs["flow_acc_max"] = [zonal(f, g.buffer(pc.upstream_buffer_m), "max") for g in segs.geometry]
+            fa = []
+            for k, g in enumerate(segs.geometry):
+                ctx.progress(0.5 + k / max(len(segs), 1) * 0.4, f"flow accumulation, segment {k + 1} of {len(segs)}")
+                fa.append(zonal(f, g.buffer(pc.upstream_buffer_m), "max"))
+            segs["flow_acc_max"] = fa
         segs["upstream_contrib_raw"] = np.log1p(segs["flow_acc_max"])
     else:
         segs["upstream_contrib_raw"] = segs["seg_id"].map(upstream_length_graph(segs)).fillna(0.0)

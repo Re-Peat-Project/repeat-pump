@@ -29,6 +29,11 @@ Click the water-drop button in the toolbar, or *Plugins > RE-PEAT Pompanisasi > 
 
 1. **Stage 1 > Run setup:** pick the output GeoPackage, a starting config, the priority CSV and each layer (layers must be
    saved files). *Create run* writes `run_config.yaml` in the output folder. *Open an existing run* resumes one.
+   The form also takes concession polygons, water-level observations and extra moisture tiles, and lets you choose which sub-KHGs to
+   analyse (highest priority, ticked ones, or all; *Use the features selected on the map* ticks the ones you selected). The run's
+   coordinate system comes from the DTM; a layer in another system blocks *Create run* unless *Reproject layers...* is ticked.
+   Required columns, coverage and the DTM's vertical datum (when it names one) are checked before the run is created.
+   *Start over* clears a run's results (after you confirm) and keeps its settings and data.
 2. Each stage card shows what the stage does (turn on *Learn mode* for the why and the references), the **decisions** that stage
    needs, and a **Run** button. A stage whose required values are empty cannot run; the empty fields are highlighted. The wizard
    never fills these in on its own. Values are saved into `run_config.yaml`.
@@ -38,7 +43,10 @@ Click the water-drop button in the toolbar, or *Plugins > RE-PEAT Pompanisasi > 
    empty decisions with the researched starting values of `docs/proposed_defaults.md`. They are meant for trial runs, are marked
    *Proposed default* on each card, and are listed in the run report. A value you type always wins. Datums, DTM RMSE and the
    moisture direction are never filled. The wizard copies `proposed_defaults.yaml` into the run folder, so the team can edit it.
-3. After a run the result tiles appear and the stage's layers are loaded into a `RE-PEAT <run name>` group on the map.
+   Settings that already have a default are in a folded **Advanced settings** card on each stage (empty a field to restore the default).
+3. While a stage runs, a bar shows what it is doing, the elapsed time and the stages done. After a run the result tiles appear and
+   the stage's layers are loaded into a `RE-PEAT <run name>` group on the map; that stage's layers are shown, the others hidden, and
+   the map zooms to them (*Show this stage on the map*, *Show every layer*). The last stage can *Export the map* as an A4 PDF or PNG.
 4. **Review stages (2, 6, 9)** stop for you: inspect the layers, then *Accept and continue* or *Re-run this stage*.
 5. **Stage 12 (block optimisation) is optional** and starts switched off (shown as *Optional, switched off* and counted as done). Choose *Yes* under *Decisions* to use it; it gives an alternative plan for which proposed sekat to build first and does not change the pump stages.
 6. *Re-run* on an earlier stage clears all later stages, because they depend on it (you are asked first). Their layers leave the map too.

@@ -23,7 +23,18 @@ def main(argv=None) -> int:
     r.add_argument("--accept", type=int, action="append", default=[])
     c = sub.add_parser("check", help="list stages, review flags and the null parameters each stage still needs (JSON on stdout)")
     c.add_argument("--config", required=True)
+    x = sub.add_parser("reset", help="delete the GeoPackage, work folder, state and report of a run (not the config or the inputs)")
+    x.add_argument("--config", required=True)
     a = ap.parse_args(argv)
+    if a.cmd == "reset":
+        from .core.pipeline import reset_run
+        try:
+            for p in reset_run(load_config(a.config)):
+                print(f"removed {p}")
+        except Exception as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 1
+        return 0
     if a.cmd == "check":
         try:
             print(json.dumps(check(load_config(a.config))))

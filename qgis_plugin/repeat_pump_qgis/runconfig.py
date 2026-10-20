@@ -37,6 +37,18 @@ def set_dotted(data: dict, key: str, value: Any) -> None:
     node[parts[-1]] = value
 
 
+def unset_dotted(data: dict, key: str) -> None:
+    """Remove a key so the engine's own default applies again (an emptied option must not become ``null``)."""
+    node: Any = data
+    parts = key.split(".")
+    for p in parts[:-1]:
+        node = node.get(p) if isinstance(node, dict) else None
+        if node is None:
+            return
+    if isinstance(node, dict):
+        node.pop(parts[-1], None)
+
+
 def get_dotted(data: dict, key: str) -> Any:
     node: Any = data
     for p in key.split("."):
@@ -47,7 +59,7 @@ def get_dotted(data: dict, key: str) -> Any:
 
 
 def build_run_config(config_file: str | Path, output_gpkg: Optional[str] = None, dtm: Optional[str] = None,
-                     moisture: Optional[str] = None, priority: Optional[str] = None,
+                     moisture: Optional[str | list[str]] = None, priority: Optional[str] = None,
                      vectors: Optional[dict[str, LayerRef]] = None, params: Optional[dict[str, Any]] = None,
                      drop: Optional[list[str]] = None) -> dict:
     """Template YAML -> run config dict. ``vectors`` maps a config key (``canals``) to ``(path, layer_or_None)``;
@@ -65,7 +77,7 @@ def build_run_config(config_file: str | Path, output_gpkg: Optional[str] = None,
     if dtm:
         inp.setdefault("dtm", {})["path"] = dtm
     if moisture:
-        inp.setdefault("moisture", {})["paths"] = [moisture]
+        inp.setdefault("moisture", {})["paths"] = [p for p in ([moisture] if isinstance(moisture, str) else moisture) if p]
     if priority:
         inp["subkhg_priority"] = {"path": priority}
     for cfgkey, (path, layer) in (vectors or {}).items():

@@ -34,6 +34,27 @@ def warning_stage(w: str) -> int:
     return int(m.group(1)) if m else 1
 
 
+def reset_run(cfg: Config) -> list[str]:
+    """Delete everything the engine wrote for this run (GeoPackage, work folder, state, report) and nothing else: the config,
+    its preset and the input data stay. Returns what was removed. Refuses to touch anything outside the run's output folder."""
+    import shutil
+
+    from .config import resolve
+    gpkg = resolve(cfg, cfg.run.output_gpkg)
+    out = gpkg.parent.resolve()
+    targets = [gpkg, gpkg.with_name(gpkg.name + "-wal"), gpkg.with_name(gpkg.name + "-shm"), out / "run_state.json",
+               out / "run_report.md", out / "run_report.json", out / (gpkg.stem + "_work")]
+    removed = []
+    for t in targets:
+        if not t.exists():
+            continue
+        if out not in t.resolve().parents:
+            raise ValueError(f"refusing to delete {t}: outside the run folder {out}")
+        shutil.rmtree(t) if t.is_dir() else t.unlink()
+        removed.append(str(t))
+    return removed
+
+
 class ReviewRequired(Exception):
     """Raised (and caught by the CLI) when a REVIEW stage finished and awaits acceptance."""
 
@@ -73,8 +94,11 @@ def run_pipeline(cfg: Config, stop_after: Optional[int] = None, resume_from: Opt
         ctx.log.addHandler(fh)
         ctx.log.setLevel(logging.INFO)
         ctx.log.info("Stage %s (%s) started", sid, name)
+        ctx.current_stage = sid
+        ctx.progress(0.0, name)
         try:
             outcome = fn(ctx)
+            ctx.progress(1.0, name)
             ctx.log.info("Stage %s (%s) finished: %s", sid, name, ctx.report.get("counts", {}).get(str(sid), {}))
         except Exception as e:
             ctx.log.error("Stage %s failed: %s", sid, e)

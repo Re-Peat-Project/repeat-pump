@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -39,6 +41,17 @@ class RunContext:
         self.state["warnings"] = self.warnings
         self.state["report"] = self.report
         self.state_path.write_text(json.dumps(self.state, indent=2, default=str))
+
+    def progress(self, fraction: float, message: str = "") -> None:
+        """Tell a front end how far the running stage is. Printed only when ``REPEAT_PUMP_PROGRESS=1`` (the QGIS plugin sets it),
+        as ``@@progress|<stage>|<0..1>|<text>``, so ordinary command-line output is unchanged."""
+        if os.environ.get("REPEAT_PUMP_PROGRESS") != "1":
+            return
+        now = time.monotonic()
+        if fraction < 1 and now - getattr(self, "_progress_t", 0.0) < 0.3:
+            return
+        self._progress_t = now
+        print(f"@@progress|{getattr(self, 'current_stage', 0)}|{min(max(fraction, 0.0), 1.0):.3f}|{message.replace('|', '/')}", flush=True)
 
     def warn(self, msg: str) -> None:
         if msg not in self.warnings:

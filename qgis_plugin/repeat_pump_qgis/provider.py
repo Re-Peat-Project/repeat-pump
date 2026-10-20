@@ -40,6 +40,8 @@ VECTOR_INPUTS = [
     ("RIVERS", "River polygons or lines (water sources)", "Polygon", "rivers", True),
     ("BURN", "Burn-scar polygons (burn frequency)", "Polygon", "burn_area", False),
     ("PEAT", "Peat-depth polygons", "Polygon", "peat_depth", False),
+    ("CONCESSION", "Concession polygons (feasibility filter, optional)", "Polygon", "concession", True),
+    ("TMA", "Water-level observations (validation, optional)", "Point", "tma_obs", True),
 ]
 
 

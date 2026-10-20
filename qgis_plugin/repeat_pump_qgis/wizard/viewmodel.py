@@ -105,10 +105,13 @@ STAGE_TILES: dict[int, list[tuple[str, str, str, bool]]] = {
 # layers worth showing after a stage (all in the output GeoPackage)
 STAGE_LAYERS: dict[int, list[str]] = {
     2: ["canals_clean", "qa_topology_dangles", "qa_topology_gaps"], 4: ["canal_segments"], 5: ["canal_profiles"],
-    6: ["canal_segments", "qa_sensitivity"], 7: ["sekat_existing_assessed", "sekat_proposed"], 8: ["network_nodes", "network_edges"],
+    6: ["canal_segments", "qa_sensitivity"], 7: ["canals_clean", "sekat_existing_assessed", "sekat_proposed"], 8: ["network_nodes", "network_edges"],
     9: ["pump_sources", "pump_targets", "pump_routes", "qa_unreachable_targets"], 10: ["pump_stations", "gates_required"],
     12: ["sekat_optimised", "qa_optimisation"],
 }
+
+# GeoTIFFs outside the GeoPackage, loaded from the run report
+STAGE_RASTERS: dict[int, list[str]] = {3: ["dtm_conditioned", "flow_acc"]}
 
 REVIEW_HINT: dict[int, str] = {
     2: "Open the dangles and gaps layers. Snaps above the tolerance need your decision. To fix canals, add a canal-edits layer in the run setup (stage 1) and re-run from stage 1, or change the snap tolerance below and re-run this stage.",
@@ -119,18 +122,21 @@ REVIEW_HINT: dict[int, str] = {
 
 @dataclass(frozen=True)
 class Field_:
-    """A parameter a human must decide. ``kind``: float | int | bool | text | enum."""
+    """A parameter a human may set. ``kind``: float | int | bool | text | enum | multi | floatlist | idlist | matrix.
+    ``options`` are the stored codes of an enum or multi field, ``labels`` their readable names (same order, may be empty)."""
     key: str
     label: str
     kind: str
     unit: str = ""
     help: str = ""
     options: tuple = ()
+    labels: tuple = ()
 
 
 FIELDS: dict[str, Field_] = {f.key: f for f in [
     Field_("prioritise.weights_mode", "Weighting method", "enum", "",
-           "Direct: type a weight per criterion. AHP: compare the criteria in pairs and the weights follow from the comparisons.", ("direct", "ahp")),
+           "Direct: type a weight per criterion. AHP: compare the criteria in pairs and the weights follow from the comparisons.", ("direct", "ahp"),
+           ("Direct weights", "AHP pairwise comparisons")),
     Field_("run.clip_margin_m", "Clip margin around sub-KHGs", "float", "m", "Extra distance kept around the selected sub-KHGs."),
     Field_("inputs.dtm.vertical_rmse_m", "DTM vertical accuracy (RMSE)", "float", "m", "From the LiDAR provider. Needed to judge if a dA step is larger than the DTM noise."),
     Field_("inputs.moisture.higher_is_wetter", "Moisture index: higher means wetter", "bool", "", "Depends on the index used (check its definition)."),
@@ -139,12 +145,13 @@ FIELDS: dict[str, Field_] = {f.key: f for f in [
     Field_("topology.snap_tolerance_m", "Snap tolerance", "float", "m", "Canal ends closer than this are joined. Larger snaps are listed for your review."),
     Field_("hydro.breach_max_dist_cells", "Maximum breach distance", "int", "cells", "How far a pit may be breached before it is filled instead."),
     Field_("prioritise.upstream_buffer_m", "Upstream buffer", "float", "m", "Narrow buffer used to read flow accumulation along a segment."),
-    Field_("prioritise.feasibility.concession_mode", "Concession handling", "enum", "", "Applied after scoring, never inside the need score.", ("exclude", "flag", "ignore")),
+    Field_("prioritise.feasibility.concession_mode", "Concession handling", "enum", "", "Applied after scoring, never inside the need score.", ("exclude", "flag", "ignore"),
+           ("Exclude from the selection", "Flag only", "Ignore")),
     Field_("sekat.max_spacing_m", "Maximum sekat spacing", "float", "m", "Upper bound on spacing between sekat."),
     Field_("sekat.snap_tolerance_m", "Snap tolerance for existing sekat", "float", "m", "How far an existing sekat may be from a canal and still be attached to it."),
     Field_("sekat.min_spacing_m", "Minimum sekat spacing", "float", "m", "No new sekat closer than this to an existing one."),
     Field_("pumping.uphill_penalty_lambda", "Uphill penalty (lambda)", "float", "m per m of lift", "Extra route cost per metre of lift: a proxy for pumping energy."),
-    Field_("pumping.conveyance", "Conveyance", "enum", "", "Pump into the canals (open channel) or through pipes.", ("canal", "pipe")),
+    Field_("pumping.conveyance", "Conveyance", "enum", "", "Pump into the canals (open channel) or through pipes.", ("canal", "pipe"), ("Open canal", "Pipe or hose")),
     Field_("pumping.manning_n", "Manning roughness n", "float", "", "Open-channel friction loss."),
     Field_("pumping.hazen_williams_c", "Hazen-Williams C", "float", "", "Pipe friction loss."),
     Field_("pumping.pipe_diameter_m", "Pipe diameter", "float", "m", ""),
@@ -153,7 +160,8 @@ FIELDS: dict[str, Field_] = {f.key: f for f in [
     Field_("pumping.pump_capacity_m3s", "Capacity per pump unit", "float", "m3/s", ""),
     Field_("pumping.influence_distance_m", "Canal influence distance", "float", "m", "How far from a canal the peat is rewetted. Calibrate with water-table observations."),
     Field_("optimise.enabled", "Run the canal blocking optimisation", "bool", "", "Optional. Chooses which proposed sekat to build first when you cannot build them all. It is an alternative plan and does not change the pump stages."),
-    Field_("optimise.objective", "How layouts are scored", "enum", "", "canal_rise is quick and needs few inputs. pde uses a groundwater model and needs the physical inputs below. screen_then_pde searches with canal rise and re-scores the winners with the groundwater model.", ("canal_rise", "pde", "screen_then_pde")),
+    Field_("optimise.objective", "How layouts are scored", "enum", "", "canal_rise is quick and needs few inputs. pde uses a groundwater model and needs the physical inputs below. screen_then_pde searches with canal rise and re-scores the winners with the groundwater model.", ("canal_rise", "pde", "screen_then_pde"),
+           ("Canal level rise (quick)", "Groundwater model (slow)", "Quick search, then groundwater model")),
     Field_("optimise.n_blocks", "Number of new blocks", "int", "blocks", "How many of the proposed sekat you can build."),
     Field_("optimise.max_evaluations", "Search budget per algorithm", "int", "layouts", "How many different layouts each algorithm may score. More is better but slower."),
     Field_("optimise.canal_drawdown_m", "Canal water level below the land", "float", "m", "Dry-season level of the canal water below the surrounding land."),
@@ -164,6 +172,45 @@ FIELDS: dict[str, Field_] = {f.key: f for f in [
     Field_("pumping.specific_yield", "Specific yield", "float", "", "Needed in specific-yield demand mode, and when there is no water deficit (neraca air)."),
     Field_("pumping.design_period_days", "Design period", "float", "days", "The days over which the water must be delivered. Needed when the priority table does not give it."),
     Field_("pumping.water_table_rise_m", "Required water-table rise", "float", "m", "Needed in specific-yield demand mode, and when there is no water deficit (neraca air)."),
+    # ---- settings with a default (listed under "Advanced settings"; empty means the engine default applies)
+    Field_("run.crs", "Coordinate system", "text", "", "Taken from the DTM when the run is created. Every layer must use it, or be reprojected."),
+    Field_("run.auto_reproject", "Reproject layers that use another coordinate system", "bool", "", "Off: a layer in another system stops the run. On: the engine reprojects it and logs that it did."),
+    Field_("run.memory_budget_gb", "Memory budget", "float", "GB", "Large rasters are read in windows so the run stays within this budget."),
+    Field_("run.subkhg_selection.mode", "Which sub-KHGs to analyse", "enum", "", "Highest priority needs the priority table; without it every sub-KHG is analysed.", ("top_n", "ids", "all"),
+           ("Highest-priority sub-KHGs", "Chosen sub-KHGs", "All sub-KHGs")),
+    Field_("run.subkhg_selection.n", "How many sub-KHGs", "int", "", "Used by the highest-priority choice."),
+    Field_("run.subkhg_selection.ids", "Chosen sub-KHG ids", "idlist", "", "Separate the ids with commas. Used by the chosen-sub-KHGs choice."),
+    Field_("topology.overshoot_max_m", "Trim canal overshoots up to", "float", "m", "Leave empty to keep overshoots."),
+    Field_("hydro.burn_depth_default_m", "Default canal burn depth", "float", "m", "Used only where a canal has no depth of its own."),
+    Field_("hydro.flow_algorithm", "Flow direction method", "enum", "", "How water is routed across the DTM.", ("dinf", "mfd", "d8"),
+           ("D-infinity (default)", "Multiple flow direction", "D8 (single direction)")),
+    Field_("segments.max_length_m", "Longest segment", "float", "m", "Canals are cut into pieces no longer than this."),
+    Field_("segments.min_length_m", "Shortest scored segment", "float", "m", "Shorter pieces stay in the network but are not scored."),
+    Field_("profiles.bank_offsets_m", "Bank sampling distances", "floatlist", "m", "Distances beyond the canal edge where land height is read, on both sides. Separate them with a semicolon, for example 6; 10."),
+    Field_("profiles.sample_step_m", "Profile step", "float", "m", "Distance between height samples along a canal."),
+    Field_("profiles.smoothing_window_m", "Smoothing window", "float", "m", "Median filter length along the profile."),
+    Field_("prioritise.ring_buffer_m", "Moisture ring (inner, outer)", "floatlist", "m", "Two distances: the ring around a segment where dryness is read, without the canal water. For example 15; 100."),
+    Field_("prioritise.top_fraction", "Share of segments selected", "float", "0-1", "The highest-scoring share of feasible segments becomes the target."),
+    Field_("prioritise.upstream_method", "Upstream contribution from", "enum", "", "Flow accumulation reads the conditioned DTM; the network method adds up canal length upstream.", ("flow_acc", "graph"),
+           ("Flow accumulation raster", "Canal network (upstream length)")),
+    Field_("sekat.dA_m", "Head step between sekat (dA)", "float", "m", "Maximum water-table depth below the surface. PP 57/2016 uses 0.4 m."),
+    Field_("sekat.slope_reinforced_pct", "Slope for reinforced blocks", "float", "%", "From this land slope a block is flagged leaky or reinforced instead of standard."),
+    Field_("pumping.routing", "How routes are built", "enum", "", "One shared network connects all targets to the sources at the least cost; the other mode routes each target alone (the old method, for comparison).", ("steiner", "per_target"),
+           ("One shared network (Steiner tree)", "Each target on its own (old method)")),
+    Field_("pumping.allow_gate_addition", "Allow adding gates to ungated sekat", "bool", "", "Off: a sekat without a gate blocks pumped water. On: the engine lists the gates that would have to be added."),
+    Field_("pumping.demand_mode", "Water demand from", "enum", "", "The water-deficit table (neraca air), or specific yield and the water-table rise you give.", ("deficit", "specific_yield"),
+           ("Water deficit table", "Specific yield and water-table rise")),
+    Field_("pumping.max_units_per_station", "Most pump units per station", "int", "units", "Leave empty for no limit."),
+    Field_("optimise.algorithms", "Search methods", "multi", "", "Each method gets the same budget of layouts.", ("ga", "sa", "greedy"),
+           ("Genetic algorithm", "Simulated annealing", "Greedy")),
+    Field_("optimise.seed", "Random seed", "int", "", "The same seed gives the same result."),
+    Field_("optimise.random_baseline_draws", "Random layouts for comparison", "int", "", "The result is compared with the mean of this many random layouts."),
+    Field_("optimise.ga.population", "Genetic algorithm: population", "int", "", "Layouts kept per generation."),
+    Field_("optimise.ga.mutation", "Genetic algorithm: mutation rate", "float", "0-1", ""),
+    Field_("optimise.ga.elite", "Genetic algorithm: elite layouts", "int", "", "Best layouts copied unchanged into the next generation."),
+    Field_("optimise.ga.tournament", "Genetic algorithm: tournament size", "int", "", ""),
+    Field_("optimise.sa.t0_fraction", "Simulated annealing: start temperature", "float", "", "As a fraction of the first layout's score."),
+    Field_("optimise.sa.cooling", "Simulated annealing: cooling factor", "float", "", "Closer to 1 cools more slowly."),
 ]}
 
 
@@ -177,7 +224,8 @@ def field_for(key: str) -> Field_:
     if key.startswith("prioritise.criteria.") and key.endswith(".weight"):
         name = key.split(".")[2]
         label = tr("Weight: {name}").format(name=tr(CRITERIA.get(name, name.replace("_", " "))))
-    return Field_(f.key, label, f.kind, tr(f.unit) if f.unit else "", tr(f.help) if f.help else "", f.options)
+    return Field_(f.key, label, f.kind, tr(f.unit) if f.unit else "", tr(f.help) if f.help else "", f.options,
+                  tuple(tr(x) for x in f.labels))
 
 
 def _field_en(key: str) -> Field_:
@@ -194,6 +242,40 @@ def _field_en(key: str) -> Field_:
 
 # ----------------------------------------------------------------------------- model
 STATUSES = ("locked", "ready", "running", "needs_review", "done", "failed", "stale", "skipped")
+
+
+# ----------------------------------------------------------------------------- list-valued settings (pure Python)
+def parse_floatlist(text: str, count: Optional[int] = None) -> Optional[list[float]]:
+    """``"6, 10"`` or ``"6;10"`` -> [6.0, 10.0]; None when empty or not numbers, or when ``count`` is given and does not match."""
+    parts = [p.strip().replace(",", ".") for p in text.replace(";", " ").replace("  ", " ").split()] if ";" in text or " " in text.strip() \
+        else [p.strip().replace(",", ".") for p in text.split(",")]
+    if not text.strip():
+        return None
+    try:
+        out = [float(p) for p in parts if p]
+    except ValueError:
+        return None
+    return out if out and (count is None or len(out) == count) else None
+
+
+def format_list(values) -> str:
+    """[6.0, 10.0] -> ``6, 10``."""
+    return ", ".join(str(int(v)) if isinstance(v, float) and v == int(v) else str(v) for v in (values or []))
+
+
+def parse_idlist(text: str) -> list:
+    """``"1, 4, KHG-7"`` -> [1, 4, "KHG-7"]: whole numbers become numbers so they match numeric id columns."""
+    out = []
+    for p in text.replace(";", ",").split(","):
+        p = p.strip()
+        if p:
+            out.append(int(p) if p.lstrip("-").isdigit() else p)
+    return out
+
+
+def option_labels(fld: "Field_") -> list[str]:
+    """Readable names for an enum or multi field's codes (the code itself when there is no label)."""
+    return list(fld.labels) if len(fld.labels) == len(fld.options) else list(fld.options)
 
 
 # ----------------------------------------------------------------------------- AHP pairwise matrix (pure Python)
@@ -287,6 +369,7 @@ class Param:
     value: Any
     recommended: bool = False
     from_preset: bool = False     # value comes from the proposed-defaults preset, not from a team decision
+    option: bool = False          # a setting with a default (advanced), not a decision the stage waits for
 
     @property
     def missing(self) -> bool:
@@ -307,6 +390,7 @@ class StageView:
     missing: list[str] = field(default_factory=list)
     recommended: list[str] = field(default_factory=list)
     params: list[Param] = field(default_factory=list)
+    options: list[Param] = field(default_factory=list)
     tiles: list[Tile] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     error: str = ""
@@ -417,6 +501,14 @@ class WizardModel:
             preset_keys = set((self.check.get("preset") or {}).get("keys", []))
             v.params = [Param(e["key"], e["value"], from_preset=e["key"] in preset_keys) for e in s.get("needs", [])] + \
                        [Param(e["key"], e["value"], True) for e in s.get("recommended", [])]
+            v.options = [Param(e["key"], e["value"], from_preset=e["key"] in preset_keys, option=True) for e in s.get("options", [])]
+            keys = {p.key for p in v.params}
+            if "run.vertical_datum" in keys and "inputs.rivers.vertical_datum" in keys:
+                # the engine needs the two to be equal, so the person types one datum and the wizard writes both
+                v.params = [p for p in v.params if p.key != "inputs.rivers.vertical_datum"]
+                v.missing = [k for k in v.missing if k != "inputs.rivers.vertical_datum" or "run.vertical_datum" not in v.missing]
+                if "run.vertical_datum" in v.missing and "inputs.rivers.vertical_datum" in v.missing:
+                    v.missing.remove("inputs.rivers.vertical_datum")
             if status == "locked" and s["review"]:
                 v.sub = tr("Locked, review stage")
             tcfg = STAGE_TILES.get(sid, [])

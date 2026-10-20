@@ -9,111 +9,24 @@ from typing import Optional
 
 from qgis.core import QgsProject
 from qgis.gui import QgsFileWidget, QgsMapLayerComboBox
-from qgis.PyQt.QtCore import QByteArray, QSize, Qt, QUrl
+from qgis.PyQt.QtCore import QByteArray, QSize, Qt, QTimer, QUrl
 from qgis.PyQt.QtGui import QDesktopServices, QPainter, QPixmap
 from qgis.PyQt.QtWidgets import (QCheckBox, QComboBox, QDockWidget, QFileDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
-                                 QMessageBox, QPlainTextEdit, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget)
+                                 QMessageBox, QPlainTextEdit, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget)
 
 from ..runconfig import attach_preset, build_run_config
 from ..runner import split_source
 from . import i18n, styling, theme
 from .i18n import tr
-from . import viewmodel as vm
+from . import maptools, viewmodel as vm
 from .controller import PRESET_RESOURCE, WizardController
+from .setup_form import SetupExtras
 
 COMPACT_BELOW = 760
 RAIL_W, RAIL_COMPACT_W = 296, 76
 
 
-# ----------------------------------------------------------------------------- small helpers
-def svg_pixmap(svg: str, color: str, size: int) -> QPixmap:
-    """Render an inline SVG (``{c}`` is replaced by ``color``) to a pixmap; an empty pixmap if QtSvg is unavailable."""
-    pm = QPixmap(size * 2, size * 2)
-    pm.fill(Qt.GlobalColor.transparent)
-    try:
-        from qgis.PyQt.QtSvg import QSvgRenderer
-        r = QSvgRenderer(QByteArray(svg.format(c=color).encode("utf8")))
-        p = QPainter(pm)
-        r.render(p)
-        p.end()
-    except Exception:
-        pass
-    pm.setDevicePixelRatio(2.0)
-    return pm
-
-
-def label(text: str = "", name: str = "", wrap: bool = True) -> QLabel:
-    w = QLabel(tr(text))
-    w.setProperty("src", text)
-    if name:
-        w.setObjectName(name)
-    w.setWordWrap(wrap)
-    w.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-    return w
-
-
-def button(text: str, name: str, slot=None, enabled: bool = True) -> QPushButton:
-    b = QPushButton(tr(text))
-    b.setProperty("src", text)
-    b.setObjectName(name)
-    b.setCursor(Qt.CursorShape.PointingHandCursor)
-    b.setEnabled(enabled)
-    if slot:
-        b.clicked.connect(lambda _=False: slot())
-    return b
-
-
-def prop(w: QWidget, **props) -> QWidget:
-    for k, v in props.items():
-        w.setProperty(k, v)
-    w.style().unpolish(w)
-    w.style().polish(w)
-    return w
-
-
-def clear(layout, keep=()) -> None:
-    while layout.count():
-        item = layout.takeAt(0)
-        w = item.widget()
-        if w is None:
-            if item.layout() is not None:
-                clear(item.layout(), keep)
-            continue
-        if w in keep:
-            w.setParent(None)
-        else:
-            w.setParent(None)
-            w.deleteLater()
-
-
-def card(name: str = "card") -> tuple[QFrame, QVBoxLayout]:
-    f = QFrame()
-    f.setObjectName(name)
-    lay = QVBoxLayout(f)
-    lay.setContentsMargins(18, 16, 18, 16)
-    lay.setSpacing(10)
-    return f, lay
-
-
-def layer_filter(kind: str):
-    """Combo-box layer filter that works on QGIS 3.34 and 4."""
-    try:
-        from qgis.core import Qgis
-        F = Qgis.LayerFilter
-        return {"raster": F.RasterLayer, "polygon": F.PolygonLayer, "line": F.LineLayer, "point": F.PointLayer,
-                "vector": F.VectorLayer}[kind]
-    except Exception:
-        from qgis.core import QgsMapLayerProxyModel as M
-        return {"raster": M.RasterLayer, "polygon": M.PolygonLayer, "line": M.LineLayer, "point": M.PointLayer, "vector": M.VectorLayer}[kind]
-
-
-def file_widget(mode: str, flt: str = "") -> QgsFileWidget:
-    w = QgsFileWidget()
-    sm = getattr(QgsFileWidget, "StorageMode", QgsFileWidget)
-    w.setStorageMode(getattr(sm, {"open": "GetFile", "save": "SaveFile"}[mode]))
-    if flt:
-        w.setFilter(flt)
-    return w
+from .widgets import button, card, clear, file_widget, label, layer_filter, prop, svg_pixmap  # noqa: F401  (re-exported for the other modules)
 
 
 # ----------------------------------------------------------------------------- AHP pairwise matrix editor
@@ -260,6 +173,9 @@ class WizardPanel(QWidget):
         self._editors: dict[str, QWidget] = {}
         self._last_sig = None
         self._setup_open: Optional[bool] = None
+        self._options_open: set[int] = set()
+        self._run_started: Optional[float] = None
+        self._progress: tuple = (0, 0.0, "")
 
         self._build_skeleton()
         self._make_setup_card()
@@ -268,6 +184,10 @@ class WizardPanel(QWidget):
         self.controller.notice.connect(self._notice)
         self.controller.stage_finished.connect(self._on_stage_finished)
         self.controller.log_line.connect(self._on_log_line)
+        self.controller.progress_changed.connect(self._on_progress)
+        self._ticker = QTimer(self)
+        self._ticker.setInterval(1000)
+        self._ticker.timeout.connect(self._update_progress)
         self.render()
         self.controller.start()
 
@@ -331,6 +251,21 @@ class WizardPanel(QWidget):
         self.body.setSpacing(16)
         self.scroll.setWidget(inner)
         main.addWidget(self.scroll, 1)
+
+        self.progress_frame = QFrame()
+        self.progress_frame.setObjectName("progressFrame")
+        pl = QVBoxLayout(self.progress_frame)
+        pl.setContentsMargins(28, 8, 28, 8)
+        pl.setSpacing(4)
+        self.progress_text = label("", "paramHelp")
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setFixedHeight(8)
+        self.progress_overall = label("", "paramHelp")
+        for w in (self.progress_text, self.progress_bar, self.progress_overall):
+            pl.addWidget(w)
+        self.progress_frame.setVisible(False)
+        main.addWidget(self.progress_frame)
 
         self.footer = QFrame()
         self.footer.setObjectName("footer")
@@ -406,7 +341,9 @@ class WizardPanel(QWidget):
                 ("subkhg", "Sub-KHG polygons", "polygon", False), ("canals", "Canal lines", "line", False),
                 ("canal_edits", "Canal edits (optional)", "line", True), ("sekat_existing", "Existing sekat (optional)", "point", True),
                 ("rivers", "River polygons or lines, the water sources (optional)", "vector", True),
-                ("burn_area", "Burn-scar polygons", "polygon", False), ("peat_depth", "Peat-depth polygons", "polygon", False)]
+                ("burn_area", "Burn-scar polygons", "polygon", False), ("peat_depth", "Peat-depth polygons", "polygon", False),
+                ("concession", "Concession polygons (optional, a feasibility filter)", "polygon", True),
+                ("tma_obs", "Water-level observations (optional, for validation)", "point", True)]
         for key, text, kind, optional in spec:
             form.addWidget(label(text, "paramLabel"))
             cb = QgsMapLayerComboBox()
@@ -415,11 +352,17 @@ class WizardPanel(QWidget):
             cb.setLayer(None)
             self.combos[key] = (cb, optional, text)
             form.addWidget(cb)
+        self.extras = SetupExtras(lambda: {k: c.currentLayer() for k, (c, _o, _t) in self.combos.items()})
+        for cb, _o, _t in self.combos.values():
+            cb.layerChanged.connect(lambda _l: self.extras.refresh())
+        form.addWidget(self.extras)
         self.setup_msg = label("", "hint")
         form.addWidget(self.setup_msg)
         row = QHBoxLayout()
         row.addWidget(button("Create run", "primary", self._create_run))
         row.addWidget(button("Open an existing run...", "secondary", self._open_run))
+        self.start_over = button("Start over...", "ghost", self._start_over)
+        row.addWidget(self.start_over)
         row.addStretch(1)
         form.addLayout(row)
         lay.addWidget(self.setup_body)
@@ -434,6 +377,7 @@ class WizardPanel(QWidget):
         self.setup_body.setVisible(show)
         self.setup_toggle.setText(tr("Hide setup") if show else tr("Edit setup"))
         self.setup_summary.setVisible(has_run and not show)
+        self.start_over.setVisible(has_run)
         self.setup_summary.setText(tr("Run folder: {path}").format(path=self.controller.config_path.parent) if has_run else "")
 
     def _create_run(self) -> None:
@@ -463,22 +407,39 @@ class WizardPanel(QWidget):
                     moisture = path
                 else:
                     vectors[key] = (path, name)
+            self.extras.refresh()
+            problems = self.extras.errors()
+            if problems:
+                raise ValueError("\n".join(problems))
+            extra_moisture = [split_source(l.source())[0] for l in self.extras.moisture_layers()]
+            params = self.extras.params()
+            if "rivers" not in vectors:
+                params.pop("inputs.rivers.vertical_datum", None)      # no rivers layer: there is nothing to put a datum on
             cfg_path = Path(out).parent / "run_config.yaml"
             base = cfg_path if cfg_path.exists() else Path(tpl)
-            data = build_run_config(base, output_gpkg=str(Path(out)), dtm=dtm, moisture=moisture,
-                                    priority=priority or None, vectors=vectors, drop=drop)
+            data = build_run_config(base, output_gpkg=str(Path(out)), dtm=dtm, moisture=[moisture] + extra_moisture,
+                                    priority=priority or None, vectors=vectors, drop=drop, params=params)
             if self.use_preset.isChecked():
                 try:
                     attach_preset(data, cfg_path.parent, PRESET_RESOURCE)
                 except OSError as e:
                     raise ValueError(tr("Could not turn on the proposed defaults: {err}").format(err=e))
         except Exception as e:
-            self.setup_msg.setText(f"<span style='color:{theme.RED_TEXT}'>{e}</span>")
+            self.setup_msg.setText(f"<span style='color:{theme.RED_TEXT}'>{e}</span>".replace("\n", "<br>"))
             return
         self.setup_msg.setText("")
         self._setup_open = False
         self.selected = 1
         self.controller.write_config(data, cfg_path)
+
+    def _start_over(self) -> None:
+        if self.controller.config_path is None or self.controller.running is not None:
+            return
+        ok = QMessageBox.question(self, tr("Start over"), tr("This deletes the results of this run (the GeoPackage, the work folder and the report) "
+                                                              "and takes its layers off the map. Your settings and your data are kept. Continue?"))
+        if ok == QMessageBox.StandardButton.Yes:
+            self.selected = 1
+            self.controller.reset_run()
 
     def _toggle_preset(self, on: bool) -> None:
         if self.controller.config_path is not None:          # a run is open: apply at once (a new run reads it on Create)
@@ -525,6 +486,7 @@ class WizardPanel(QWidget):
             b.setChecked(c == code)
         self.learn_box.setText(tr("Learn mode"))
         self.use_preset.setText(tr(self.use_preset.property("src")))
+        self.extras.retranslate()
         for w in self.setup_frame.findChildren(QLabel) + self.setup_frame.findChildren(QPushButton):
             src = w.property("src")
             if src:
@@ -556,15 +518,14 @@ class WizardPanel(QWidget):
         if model is None:
             return
         view = model.stage(stage)
-        if code in (0, 2) and view.layers and self.controller.output_gpkg:
-            names = styling.load_layers(self.controller.output_gpkg, view.layers, model.check["run_name"])
-            if names and stage == 2 and self.iface is not None:
-                try:
-                    lyr = QgsProject.instance().mapLayersByName(names[0])[0]
-                    self.iface.mapCanvas().setExtent(lyr.extent())
-                    self.iface.mapCanvas().refresh()
-                except Exception:
-                    pass
+        run = model.check["run_name"]
+        if code in (0, 2) and self.controller.output_gpkg:
+            names = styling.load_layers(self.controller.output_gpkg, view.layers, run) if view.layers else []
+            rasters = styling.load_rasters(model.state.get("report", {}).get("inputs", {}), run, vm.STAGE_RASTERS.get(stage)) \
+                if stage in vm.STAGE_RASTERS else []
+            if names or rasters:
+                maptools.show_stage(run, stage)
+                maptools.zoom_to_stage(self.iface, run)
         self.selected = model.current
         self._last_sig = None
         self.render()
@@ -602,7 +563,8 @@ class WizardPanel(QWidget):
         self._apply_setup_visibility()
         self._sync_preset_box(model)
 
-        sig = (view.id, view.status, tuple((p.key, p.from_preset) for p in view.params), len(view.tiles), view.error, self.learn, c.engine_ready,
+        sig = (view.id, view.status, tuple((p.key, p.from_preset) for p in view.params), tuple(p.key for p in view.options),
+               view.id in self._options_open, len(view.tiles), view.error, self.learn, c.engine_ready,
                bool(c.busy), c.running is not None, has_run, self.compact, tuple(view.warnings), view.sub)
         if sig != self._last_sig:
             self._last_sig = sig
@@ -615,6 +577,7 @@ class WizardPanel(QWidget):
         else:
             self._refresh_editors(view)
         self._render_footer(model, view, has_run)
+        self._sync_progress(model)
 
     def _same_stage(self, sid: int) -> bool:
         return getattr(self, "_body_stage", None) == sid
@@ -692,6 +655,10 @@ class WizardPanel(QWidget):
             b.addWidget(self._callout("warn", "Worth a look", "\n".join(shown) + ("\n" + tr("...and {n} more in the run report.").format(n=more) if more > 0 else "")))
         if view.params:
             b.addWidget(self._params_card(view))
+        if view.options:
+            b.addWidget(self._options_card(view))
+        if view.status in ("done", "needs_review", "stale") and (view.layers or view.id in maptools.STAGE_VISIBLE) and self.controller.output_gpkg:
+            b.addWidget(self._map_bar(view, model))
         if view.id == 11 and view.status == "done" and self.controller.output_gpkg:
             rp = self.controller.output_gpkg.parent / "run_report.md"
             b.addWidget(button("Open run report", "secondary", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(rp)))))
@@ -780,13 +747,8 @@ class WizardPanel(QWidget):
             g.setColumnStretch(k, 1)
         return w
 
-    def _params_card(self, view: vm.StageView) -> QWidget:
-        f, lay = card()
-        n_missing = sum(1 for p in view.params if p.missing and not p.recommended)
-        head = "Decisions for this stage" if n_missing == 0 else tr("Decisions needed ({n})").format(n=n_missing)
-        lay.addWidget(label(head, "cardTitle"))
-        lay.addWidget(label("These values are policy choices for your team. The wizard never fills them in for you. They are saved in the run config.", "hint"))
-        for p in view.params:
+    def _param_rows(self, lay: QVBoxLayout, params: list) -> None:
+        for p in params:
             fld = vm.field_for(p.key)
             lay.addWidget(label(fld.label + ("  " + tr("(needed if river water levels are used)") if p.recommended else ""), "paramLabel"))
             if fld.help:
@@ -797,49 +759,198 @@ class WizardPanel(QWidget):
             ed = self._editor(p, fld)
             self._editors[p.key] = ed
             row.addWidget(ed, 1)
-            if fld.unit and fld.kind in ("float", "int"):
+            if fld.unit and fld.kind in ("float", "int", "floatlist"):
                 row.addWidget(label(fld.unit, "paramUnit", wrap=False))
             lay.addLayout(row)
+
+    def _params_card(self, view: vm.StageView) -> QWidget:
+        f, lay = card()
+        n_missing = sum(1 for p in view.params if p.missing and not p.recommended)
+        head = "Decisions for this stage" if n_missing == 0 else tr("Decisions needed ({n})").format(n=n_missing)
+        lay.addWidget(label(head, "cardTitle"))
+        lay.addWidget(label("These values are policy choices for your team. The wizard never fills them in for you. They are saved in the run config.", "hint"))
+        self._param_rows(lay, view.params)
         return f
+
+    def _options_card(self, view: vm.StageView) -> QWidget:
+        """Settings that already have a default. Folded away so a first-time trainee is not asked about them."""
+        f, lay = card()
+        is_open = view.id in self._options_open
+        head = QHBoxLayout()
+        head.addWidget(label(tr("Advanced settings ({n})").format(n=len(view.options)), "cardTitle"), 1)
+        head.addWidget(button("Hide" if is_open else "Show", "link", lambda sid=view.id: self._toggle_options(sid)))
+        lay.addLayout(head)
+        if is_open:
+            lay.addWidget(label("These have sensible defaults. Change one only when you know why. Leave a field empty to go back to the default.", "hint"))
+            self._param_rows(lay, view.options)
+        return f
+
+    def _toggle_options(self, sid: int) -> None:
+        self._options_open.symmetric_difference_update({sid})
+        self._last_sig = None
+        self.render()
 
     def _editor(self, p: vm.Param, fld: vm.Field_) -> QWidget:
         if fld.kind == "matrix":
             ed = AhpEditor(p.value, lambda m, k=p.key: self._commit(k, m))
             prop(ed, missing=p.missing, paramKey=p.key)
             return ed
+        if fld.kind == "multi":
+            return self._multi_editor(p, fld)
         if fld.kind in ("bool", "enum"):
             cb = QComboBox()
-            items = [tr("Not decided")] + ([tr("Yes"), tr("No")] if fld.kind == "bool" else list(fld.options))
+            names = vm.option_labels(fld) if fld.kind == "enum" else [tr("Yes"), tr("No")]
+            codes = list(fld.options) if fld.kind == "enum" else [True, False]
+            undecided = not p.option                      # a setting with a default always has a value; a decision may still be open
+            items = ([tr("Not decided")] if undecided else []) + names
             cb.addItems(items)
-            cur = p.value
-            idx = 0 if cur is None else ((1 if cur else 2) if fld.kind == "bool" else (items.index(cur) if cur in items else 0))
-            cb.setCurrentIndex(idx)
+            if p.value in codes:
+                cb.setCurrentIndex(codes.index(p.value) + (1 if undecided else 0))
+            else:
+                cb.setCurrentIndex(0)
             prop(cb, missing=p.missing, paramKey=p.key)
-            cb.currentIndexChanged.connect(lambda i, k=p.key, kind=fld.kind, o=fld.options: self._commit(
-                k, None if i == 0 else ((i == 1) if kind == "bool" else o[i - 1])))
+            cb.currentIndexChanged.connect(lambda i, k=p.key, cs=codes, u=undecided, o=p.option: self._commit(
+                k, None if (u and i == 0) else cs[i - (1 if u else 0)], o))
             return cb
-        le = QLineEdit("" if p.value is None else str(p.value))
-        le.setPlaceholderText(tr("Not decided yet"))
-        le.setProperty("saved", "" if p.value is None or p.from_preset else str(p.value))   # typing a proposed value again pins it
+        text = "" if p.value is None else (vm.format_list(p.value) if fld.kind == "floatlist" else
+                                            ", ".join(str(x) for x in p.value) if fld.kind == "idlist" and p.value else str(p.value))
+        le = QLineEdit(text)
+        le.setPlaceholderText(tr("Engine default") if p.option else tr("Not decided yet"))
+        le.setProperty("saved", "" if p.value is None or p.from_preset else text)   # typing a proposed value again pins it
         prop(le, missing=p.missing, invalid=False, paramKey=p.key)
-        le.editingFinished.connect(lambda k=p.key, kind=fld.kind, w=le: self._commit_text(k, kind, w))
+        le.editingFinished.connect(lambda k=p.key, kind=fld.kind, w=le, o=p.option: self._commit_text(k, kind, w, o))
         return le
 
-    def _commit_text(self, key: str, kind: str, w: QLineEdit) -> None:
+    def _multi_editor(self, p: vm.Param, fld: vm.Field_) -> QWidget:
+        box = QWidget()
+        col = QVBoxLayout(box)
+        col.setContentsMargins(0, 0, 0, 0)
+        col.setSpacing(4)
+        boxes = []
+        chosen = list(p.value or [])
+
+        def changed(_state, boxes=boxes, key=p.key, codes=list(fld.options), option=p.option):
+            picked = [c for c, b in zip(codes, boxes) if b.isChecked()]
+            if not picked:                                 # at least one method must stay on
+                boxes[0].blockSignals(True)
+                boxes[0].setChecked(True)
+                boxes[0].blockSignals(False)
+                picked = [codes[0]]
+            self._commit(key, picked, option)
+        for code, name in zip(fld.options, vm.option_labels(fld)):
+            cb = QCheckBox(name)
+            cb.setChecked(code in chosen)
+            cb.stateChanged.connect(changed)
+            boxes.append(cb)
+            col.addWidget(cb)
+        prop(box, missing=p.missing, paramKey=p.key)
+        return box
+
+    def _commit_text(self, key: str, kind: str, w: QLineEdit, option: bool = False) -> None:
         text = w.text().strip()
         if text == w.property("saved"):
             return
         try:
-            value = None if not text else (float(text.replace(",", ".")) if kind == "float" else int(text) if kind == "int" else text)
+            if not text:
+                value = None
+            elif kind == "float":
+                value = float(text.replace(",", "."))
+            elif kind == "int":
+                value = int(text)
+            elif kind == "floatlist":
+                value = vm.parse_floatlist(text, 2 if key == "prioritise.ring_buffer_m" else None)
+                if value is None:
+                    raise ValueError(text)
+            elif kind == "idlist":
+                value = vm.parse_idlist(text) or None
+            else:
+                value = text
         except ValueError:
             prop(w, invalid=True)
             return
         prop(w, invalid=False)
         w.setProperty("saved", text)
-        self._commit(key, value)
+        self._commit(key, value, option)
 
-    def _commit(self, key: str, value) -> None:
-        self.controller.set_param(key, value)
+    def _commit(self, key: str, value, option: bool = False) -> None:
+        (self.controller.set_option if option else self.controller.set_param)(key, value)
+
+    # ---- map toolbar
+    def _map_bar(self, view: vm.StageView, model: vm.WizardModel) -> QWidget:
+        f, lay = card()
+        lay.addWidget(label("Map", "cardTitle"))
+        row = QHBoxLayout()
+        row.addWidget(button("Show this stage on the map", "secondary", lambda sid=view.id: self._show_on_map(sid)))
+        row.addWidget(button("Show every layer", "ghost", lambda: self._show_all()))
+        if view.id == 11:
+            row.addWidget(button("Export the map...", "secondary", self._export_map))
+        row.addStretch(1)
+        lay.addLayout(row)
+        return f
+
+    def _run_name(self) -> str:
+        m = self.controller.model
+        return (m.check.get("run_name") if m else "") or ""
+
+    def _show_on_map(self, sid: int) -> None:
+        maptools.show_stage(self._run_name(), sid)
+        maptools.zoom_to_stage(self.iface, self._run_name())
+
+    def _show_all(self) -> None:
+        maptools.show_all(self._run_name())
+        maptools.zoom_to_stage(self.iface, self._run_name())
+
+    def _export_map(self) -> None:
+        run = self._run_name()
+        layers = maptools.visible_layers(run)
+        if not layers:
+            self._notice("warning", tr("There is nothing on the map to export. Use Show this stage on the map first."))
+            return
+        path, _ = QFileDialog.getSaveFileName(self, tr("Export the map"), f"{run}_map.pdf", "PDF (*.pdf);;PNG (*.png)")
+        if not path:
+            return
+        note = tr("Includes values from the proposed defaults (not team decisions).") if self.controller.model and self.controller.model.preset_path else ""
+        try:
+            maptools.export_map(run, self.selected or 11, path, layers[0].crs(), note)
+            self._notice("success", tr("Map saved to {path}.").format(path=path))
+        except Exception as e:
+            self._notice("error", tr("The map could not be exported: {err}").format(err=e))
+
+    # ---- progress
+    def _on_progress(self, stage: int, fraction: float, text: str) -> None:
+        self._progress = (stage, fraction, text)
+        self._update_progress()
+
+    def _sync_progress(self, model: vm.WizardModel) -> None:
+        running = self.controller.running
+        if running is not None and self._run_started is None:
+            import time
+            self._run_started = time.monotonic()
+            self._progress = (running, 0.0, "")
+            self._ticker.start()
+        elif running is None and self._run_started is not None:
+            self._run_started = None
+            self._ticker.stop()
+        self.progress_frame.setVisible(running is not None)
+        self._update_progress()
+
+    def _update_progress(self) -> None:
+        c = self.controller
+        if c.running is None or self._run_started is None or c.model is None:
+            return
+        import time
+        stage, frac, text = self._progress
+        elapsed = int(time.monotonic() - self._run_started)
+        view = c.model.stage(c.running)
+        self.progress_text.setText(f"{tr('Stage {n}').format(n=c.running)}: {tr(view.title)}"
+                                   + (f" · {text}" if text else "") + f" · {elapsed // 60}:{elapsed % 60:02d}")
+        if frac > 0:
+            self.progress_bar.setRange(0, 1000)
+            self.progress_bar.setValue(int(frac * 1000))
+        else:
+            self.progress_bar.setRange(0, 0)               # busy, no figure yet
+        done = sum(1 for v in c.model.stages if v.status in ("done", "skipped"))
+        self.progress_overall.setText(tr("{done} of {total} stages done").format(done=done, total=len(c.model.stages)))
 
     def _refresh_editors(self, view: vm.StageView) -> None:
         """Update highlighting of existing editors without rebuilding them (keeps keyboard focus while typing)."""
