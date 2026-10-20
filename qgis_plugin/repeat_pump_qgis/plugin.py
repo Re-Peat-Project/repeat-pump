@@ -13,6 +13,8 @@ class RepeatPumpPlugin:
         self.provider = None
         self.action = None
         self.setup_action = None
+        self.wizard_action = None
+        self.dock = None
 
     def initProcessing(self):
         """Called alone by headless qgis_process (no GUI interface available)."""
@@ -22,6 +24,13 @@ class RepeatPumpPlugin:
 
     def initGui(self):
         self.initProcessing()
+        from qgis.PyQt.QtGui import QIcon
+        from .wizard import theme
+        from .wizard.ui import svg_pixmap
+        self.wizard_action = QAction(QIcon(svg_pixmap(theme.DROP_SVG, theme.TEAL_DARK, 24)), "Guided wizard (stage by stage)", self.iface.mainWindow())
+        self.wizard_action.triggered.connect(self.show_wizard)
+        self.iface.addPluginToMenu("RE-PEAT Pompanisasi", self.wizard_action)
+        self.iface.addToolBarIcon(self.wizard_action)
         self.action = QAction("Set Python environment (advanced)...", self.iface.mainWindow())
         self.action.triggered.connect(self.choose_python)
         self.iface.addPluginToMenu("RE-PEAT Pompanisasi", self.action)
@@ -32,9 +41,26 @@ class RepeatPumpPlugin:
     def unload(self):
         if self.provider is not None:
             QgsApplication.processingRegistry().removeProvider(self.provider)
-        for a in (self.action, self.setup_action):
+        if self.dock is not None:
+            self.iface.removeDockWidget(self.dock)
+            self.dock.deleteLater()
+            self.dock = None
+        if self.wizard_action is not None:
+            self.iface.removeToolBarIcon(self.wizard_action)
+        for a in (self.action, self.setup_action, self.wizard_action):
             if a is not None:
                 self.iface.removePluginMenu("RE-PEAT Pompanisasi", a)
+
+    def show_wizard(self):
+        if self.dock is None:
+            from qgis.PyQt.QtCore import Qt
+            from .wizard.ui import WizardDock
+            self.dock = WizardDock(self.iface, self.iface.mainWindow())
+            self.iface.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.dock)
+            self.dock.setFloating(True)          # roomy by default; dock it to the side if you prefer (the rail collapses)
+            self.dock.resize(1120, 760)
+        self.dock.show()
+        self.dock.raise_()
 
     def choose_python(self):
         path, _ = QFileDialog.getOpenFileName(self.iface.mainWindow(), "python.exe of the environment where repeat-pump is installed",

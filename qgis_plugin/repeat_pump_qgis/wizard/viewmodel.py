@@ -166,6 +166,18 @@ class Tile:
 
 
 @dataclass
+class Param:
+    """One decision on a stage card: its current value (None = still to be decided by a human)."""
+    key: str
+    value: Any
+    recommended: bool = False
+
+    @property
+    def missing(self) -> bool:
+        return self.value is None
+
+
+@dataclass
 class StageView:
     id: int
     title: str
@@ -178,7 +190,9 @@ class StageView:
     sub: str
     missing: list[str] = field(default_factory=list)
     recommended: list[str] = field(default_factory=list)
+    params: list[Param] = field(default_factory=list)
     tiles: list[Tile] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
     error: str = ""
     review_hint: str = ""
     layers: list[str] = field(default_factory=list)
@@ -195,6 +209,28 @@ class RunPlan:
     last: int
     accept: tuple = ()
     rerun: bool = False
+
+
+def placeholder_check() -> dict:
+    """Stage list shown before any run is set up (all locked, nothing to decide yet)."""
+    return {"run_name": "", "output_gpkg": "", "stages": [
+        {"id": sid, "name": "", "review": sid in (2, 6, 9), "needs": [], "missing": [], "recommended": [], "recommended_missing": []}
+        for sid in STAGE_TEXT]}
+
+
+def warnings_for(stage: int, warnings: list[str], n_stages: int = 11) -> list[str]:
+    """Engine warnings relevant to a stage. Stage-specific ones start with ``Stage N:``; unprefixed ones come from
+    input validation (stage 1); the DTM accuracy warning also matters for sekat placement (stage 7); the report shows all."""
+    if stage == n_stages:
+        return list(warnings)
+    out = []
+    for w in warnings:
+        if w.startswith("Stage "):
+            if w.startswith(f"Stage {stage}:"):
+                out.append(w)
+        elif stage == 1 or (stage == 7 and w.startswith("ACCURACY")):
+            out.append(w)
+    return out
 
 
 def load_state(output_gpkg: str | Path) -> dict:
@@ -248,6 +284,8 @@ class WizardModel:
             status, sub, err = self._status(sid, prev_ok)
             v = StageView(sid, title, purpose, what, why, ref, s["review"], status, sub, list(s["missing"]),
                           list(s.get("recommended_missing", [])), error=err)
+            v.params = [Param(e["key"], e["value"]) for e in s.get("needs", [])] + \
+                       [Param(e["key"], e["value"], True) for e in s.get("recommended", [])]
             if status == "locked" and s["review"]:
                 v.sub = "Locked, review stage"
             tcfg = STAGE_TILES.get(sid, [])
@@ -255,6 +293,8 @@ class WizardModel:
             if status in ("done", "needs_review"):
                 v.tiles = [Tile(label, _fmt(c[k]), note, bool(warn and c[k]))
                            for k, label, note, warn in tcfg if k in c]
+            if status in ("done", "needs_review", "failed"):
+                v.warnings = warnings_for(sid, self.warnings, len(self.check["stages"]))
             v.review_hint = REVIEW_HINT.get(sid, "") if status == "needs_review" else ""
             v.layers = STAGE_LAYERS.get(sid, [])
             busy = self.running is not None

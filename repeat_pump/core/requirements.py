@@ -1,60 +1,71 @@
 """Which TODO(human) parameters each stage needs, without running it (for ``repeat-pump check``).
 
-Mirrors the ``require(...)`` calls inside the stages (the stages stay the authority; a test compares both).
-Only config-decidable requirements are listed. Data-dependent ones (e.g. vertical datums, needed only when
-``rivers.dry_season_wl_m`` exists) are reported as ``recommended``.
+Mirrors the ``require(...)`` calls inside the stages (the stages stay the authority). Only config-decidable
+requirements are listed. Data-dependent ones (e.g. vertical datums, needed only when ``rivers.dry_season_wl_m``
+exists) are reported as ``recommended``.
 """
 from __future__ import annotations
+
+from typing import Any
 
 from .config import Config
 from .pipeline import STAGES
 
 
-def _null(section, keys: list[str], prefix: str) -> list[str]:
-    return [f"{prefix}.{k}" for k in keys if getattr(section, k) is None]
+def get_value(cfg: Config, key: str) -> Any:
+    """Value of a dotted config key such as ``prioritise.criteria.burn_freq.weight``."""
+    node: Any = cfg
+    for part in key.split("."):
+        node = node[part] if isinstance(node, dict) else getattr(node, part)
+    return node
+
+
+def needs_by_stage(cfg: Config) -> dict[int, list[str]]:
+    """Every parameter each stage needs, filled or not (given the current conveyance / demand / weights modes)."""
+    pc, pr = cfg.pumping, cfg.prioritise
+    need: dict[int, list[str]] = {sid: [] for sid, *_ in STAGES}
+    need[1] = ["run.clip_margin_m", "inputs.dtm.vertical_rmse_m", "inputs.moisture.higher_is_wetter"]
+    need[2] = ["topology.snap_tolerance_m"]
+    need[3] = ["hydro.breach_max_dist_cells"]
+    need[6] = ["prioritise.ahp_matrix"] if pr.weights_mode == "ahp" else [f"prioritise.criteria.{k}.weight" for k in pr.criteria]
+    if pr.upstream_method == "flow_acc":
+        need[6].append("prioritise.upstream_buffer_m")
+    if cfg.inputs.concession is not None:
+        need[6].append("prioritise.feasibility.concession_mode")
+    need[7] = ["sekat.max_spacing_m", "sekat.snap_tolerance_m", "sekat.min_spacing_m"]
+    need[9] = ["pumping.uphill_penalty_lambda"]
+    p = ["conveyance", "pump_efficiency", "max_head_per_station_m", "pump_capacity_m3s", "influence_distance_m"]
+    if pc.conveyance == "canal":
+        p.append("manning_n")
+    elif pc.conveyance == "pipe":
+        p += ["hazen_williams_c", "pipe_diameter_m"]
+    if pc.demand_mode == "specific_yield":
+        p += ["specific_yield", "water_table_rise_m"]
+    need[10] = [f"pumping.{k}" for k in p]
+    return need
 
 
 def required_by_stage(cfg: Config) -> dict[int, list[str]]:
-    pc, pr = cfg.pumping, cfg.prioritise
-    req: dict[int, list[str]] = {sid: [] for sid, *_ in STAGES}
-    req[1] = _null(cfg.run, ["clip_margin_m"], "run") + _null(cfg.inputs.dtm, ["vertical_rmse_m"], "inputs.dtm") \
-        + _null(cfg.inputs.moisture, ["higher_is_wetter"], "inputs.moisture")
-    req[2] = _null(cfg.topology, ["snap_tolerance_m"], "topology")
-    req[3] = _null(cfg.hydro, ["breach_max_dist_cells"], "hydro")
-    if pr.weights_mode == "ahp":
-        req[6] += _null(pr, ["ahp_matrix"], "prioritise")
-    else:
-        req[6] += [f"prioritise.criteria.{k}.weight" for k, c in pr.criteria.items() if c.weight is None]
-    if pr.upstream_method == "flow_acc":
-        req[6] += _null(pr, ["upstream_buffer_m"], "prioritise")
-    if cfg.inputs.concession is not None:
-        req[6] += _null(pr.feasibility, ["concession_mode"], "prioritise.feasibility")
-    req[7] = _null(cfg.sekat, ["max_spacing_m", "snap_tolerance_m", "min_spacing_m"], "sekat")
-    req[9] = _null(pc, ["uphill_penalty_lambda"], "pumping")
-    need = ["conveyance", "pump_efficiency", "max_head_per_station_m", "pump_capacity_m3s", "influence_distance_m"]
-    if pc.conveyance == "canal":
-        need.append("manning_n")
-    elif pc.conveyance == "pipe":
-        need += ["hazen_williams_c", "pipe_diameter_m"]
-    if pc.demand_mode == "specific_yield":
-        need += ["specific_yield", "water_table_rise_m"]
-    req[10] = _null(pc, need, "pumping")
-    return req
+    """The subset of :func:`needs_by_stage` that is still null."""
+    return {sid: [k for k in keys if get_value(cfg, k) is None] for sid, keys in needs_by_stage(cfg).items()}
 
 
-def recommended(cfg: Config) -> dict[int, list[str]]:
+def recommended_by_stage(cfg: Config) -> dict[int, list[str]]:
     rec: dict[int, list[str]] = {}
     if cfg.inputs.rivers is not None:
-        rec[1] = _null(cfg.run, ["vertical_datum"], "run") + _null(cfg.inputs.rivers, ["vertical_datum"], "inputs.rivers")
+        rec[1] = ["run.vertical_datum", "inputs.rivers.vertical_datum"]
     return rec
 
 
 def check(cfg: Config) -> dict:
-    """JSON-ready summary: stage list, review flags and missing parameters per stage."""
-    req, rec = required_by_stage(cfg), recommended(cfg)
-    return {
-        "run_name": cfg.run.name,
-        "output_gpkg": cfg.run.output_gpkg,
-        "stages": [{"id": sid, "name": name, "review": review, "missing": req[sid], "recommended_missing": rec.get(sid, [])}
-                   for sid, name, _, review in STAGES],
-    }
+    """JSON-ready summary: stage list, review flags, the parameters each stage needs (with current values) and which are null."""
+    needs, rec = needs_by_stage(cfg), recommended_by_stage(cfg)
+    def entries(keys):
+        return [{"key": k, "value": get_value(cfg, k)} for k in keys]
+    stages = []
+    for sid, name, _, review in STAGES:
+        stages.append({"id": sid, "name": name, "review": review,
+                       "needs": entries(needs[sid]), "missing": [k for k in needs[sid] if get_value(cfg, k) is None],
+                       "recommended": entries(rec.get(sid, [])),
+                       "recommended_missing": [k for k in rec.get(sid, []) if get_value(cfg, k) is None]})
+    return {"run_name": cfg.run.name, "output_gpkg": cfg.run.output_gpkg, "stages": stages}

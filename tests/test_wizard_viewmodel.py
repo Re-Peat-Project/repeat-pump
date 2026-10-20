@@ -96,6 +96,17 @@ def test_accept_and_rerun_available_on_complete_config(world):
     assert m.stage(1).can_rerun and not m.stage(1).can_accept
 
 
+def test_params_list_every_decision_filled_or_not(world):
+    cfg, tmp = world
+    cfg["pumping"]["allow_gate_addition"] = True
+    m = model(cfg_path=write_cfg(tmp / "c.yaml", cfg))
+    p = {x.key: x for x in m.stage(10).params}
+    assert p["pumping.manning_n"].value == 0.035 and not p["pumping.manning_n"].missing   # filled values stay visible and editable
+    assert {x.key for x in m.stage(6).params} >= {"prioritise.criteria.burn_freq.weight", "prioritise.upstream_buffer_m"}
+    ex = model().stage(1)
+    assert all(x.missing for x in ex.params if x.key == "run.clip_margin_m")
+
+
 def test_fields_have_metadata_and_never_prefill():
     for key in ("pumping.pump_efficiency", "prioritise.criteria.burn_freq.weight", "prioritise.feasibility.concession_mode"):
         f = vm.field_for(key)
@@ -121,6 +132,17 @@ def test_tiles_come_from_report_counts_and_flag_warnings():
     by = {t.label: t for t in v.tiles}
     assert by["Canal features in"].value == "412" and by["Dangles found"].warn and not by["Gaps snapped"].warn
     assert v.sub == "Needs your review" and v.review_hint
+
+
+def test_warnings_are_routed_to_the_stage_they_belong_to():
+    ws = ["dtm covers only 84% of the analysis extent (< 90%)", "Stage 2: 3 endpoint(s) snapped", "Stage 9: 1 target(s) unreachable",
+          "ACCURACY: sekat.dA_m (0.4 m) < 2 x DTM vertical RMSE (0.3 m)"]
+    assert vm.warnings_for(1, ws) == [ws[0], ws[3]]
+    assert vm.warnings_for(2, ws) == [ws[1]]
+    assert vm.warnings_for(7, ws) == [ws[3]]
+    assert vm.warnings_for(9, ws) == [ws[2]]
+    assert vm.warnings_for(11, ws) == ws                      # the report shows everything
+    assert vm.warnings_for(5, ws) == []
 
 
 def test_tiles_empty_until_stage_has_run():

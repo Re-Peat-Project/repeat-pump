@@ -61,7 +61,8 @@ The plugin never imports the engine: it writes a run config and starts the comma
 1. Install the plugin: `python scripts/install_plugin.py` (QGIS 4 default profile), or `--profile-dir <profile>`, or `--zip` and use *Plugins > Install from ZIP* with `dist/repeat_pump_qgis.zip`.
 2. Enable **RE-PEAT Pompanisasi** in the Plugin Manager.
 3. Run any of its Processing algorithms. The first run builds a private Python environment in the QGIS profile and installs the engine bundled in the plugin (needs internet once, a few minutes, and a system Python 3.11+ with pip). *Set up engine environment* in the Processing Toolbox does the same on demand. You do not need to do step 1 of "Install the engine" for QGIS use.
-4. Processing Toolbox > **RE-PEAT Pompanisasi** > *Run full pipeline* (or a stage group). Choose the YAML config, then the layers; layers must be saved files, not temporary layers. At a review stop the algorithm ends with a warning: inspect the QA layers, tick the stage under *Review stages to accept*, run again.
+4. **Guided wizard** (best for training): toolbar water-drop button, or *Plugins > RE-PEAT Pompanisasi > Guided wizard*. It walks through the 11 stages one at a time, shows what each does, blocks a stage until its required decisions are filled, and stops at the review stages for you to accept. See [docs/qgis_plugin.md](docs/qgis_plugin.md).
+5. Or use Processing Toolbox > **RE-PEAT Pompanisasi** > *Run full pipeline* (or a stage group). Choose the YAML config, then the layers; layers must be saved files, not temporary layers. At a review stop the algorithm ends with a warning: inspect the QA layers, tick the stage under *Review stages to accept*, run again.
 
 Advanced: to use your own interpreter instead, set `REPEAT_PUMP_PYTHON` or use *Plugins > RE-PEAT Pompanisasi > Set Python environment (advanced)*.
 

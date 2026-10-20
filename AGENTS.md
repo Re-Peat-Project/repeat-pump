@@ -73,9 +73,10 @@ repeat_pump/
   cli.py             # `repeat-pump run --config khg.yaml [--stop-after S] [--resume-from S]`
 qgis_plugin/repeat_pump_qgis/   # QGIS plugin (outside the engine package; never imports repeat_pump)
   plugin.py, provider.py, runner.py   # Processing provider + external runner (M8a, done)
-  wizard/            # stage-by-stage wizard (§7b): viewmodel.py (pure Python), ui.py (Qt), theme.qss
-  styles/            # QML layer styles for QA and output layers
-  resources/         # SVG icons
+  runconfig.py       # shared run-YAML builder (provider and wizard), no qgis imports
+  wizard/            # stage-by-stage wizard (§7b): viewmodel.py (pure Python), controller.py (QgsTask + runner),
+                     #   ui.py (Qt widgets), theme.py (QSS), styling.py (layer symbology in code)
+  resources/         # example_khg.yaml (copied in by scripts/install_plugin.py)
 tests/
   fixtures/          # small synthetic + one pilot sub-KHG
 legacy/              # original console scripts (read-only reference)
@@ -334,7 +335,7 @@ Purpose: train KLH staff. The plugin registers the §7 provider and adds a dock-
 **Implementation rules**
 - Run stages off the UI thread (`QgsTask`, or a subprocess if `core` runs in a separate environment). QGIS must not freeze during Stage 3, 5 or 9.
 - Native Qt widgets styled with one QSS theme; follow the QGIS light/dark theme; one accent colour; SVG icons. **Do not embed a web view** (WebEngine is not reliable in QGIS builds).
-- QML styles are applied to every output and QA layer on load (see the `qgis-cartography` skill for design principles).
+- Output and QA layers are styled in code when loaded (`wizard/styling.py`; see the `qgis-cartography` skill for design principles).
 - Dependencies: the existing private-venv mechanism in `runner.py` (`ensure_environment`) is reused; the wizard shows its status and offers "Set up / repair".
 - Shared code: the provider's config builder lives in a shared module used by both the provider and the wizard.
 - Tests: the view-model (status transitions, disabled Run on null params, command construction) is pure Python and tested in `.venv`; the Qt layer is smoke-tested with QGIS's own Python under `QT_QPA_PLATFORM=offscreen`.
