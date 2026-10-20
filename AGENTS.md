@@ -71,7 +71,12 @@ repeat_pump/
     report.py        # run report, QA layers
     pipeline.py      # stage orchestration, checkpoints, resume
   cli.py             # `repeat-pump run --config khg.yaml [--stop-after S] [--resume-from S]`
-  qgis_provider/     # QgsProcessingProvider wrapping core stages
+qgis_plugin/repeat_pump_qgis/   # QGIS plugin (outside the engine package; never imports repeat_pump)
+  plugin.py, provider.py, runner.py   # Processing provider + external runner (M8a, done)
+  runconfig.py       # shared run-YAML builder (provider and wizard), no qgis imports
+  wizard/            # stage-by-stage wizard (§7b): viewmodel.py (pure Python), controller.py (QgsTask + runner),
+                     #   ui.py (Qt widgets), theme.py (QSS), styling.py (layer symbology in code)
+  resources/         # example_khg.yaml (copied in by scripts/install_plugin.py)
 tests/
   fixtures/          # small synthetic + one pilot sub-KHG
 legacy/              # original console scripts (read-only reference)
@@ -82,8 +87,9 @@ configs/
 ```
 
 **Rules**
-- `core/` must **not import `qgis`**. It uses: Python ≥3.11, numpy, scipy, rasterio, geopandas, shapely ≥2, pyogrio, networkx, whitebox (WhiteboxTools), pydantic, pyyaml. Add others only with justification.
-- `qgis_provider/` only declares typed parameters and calls `core`. Target QGIS version: see §11.
+- `core/` must **not import `qgis`**. It uses: Python ≥3.11, numpy, scipy, rasterio, geopandas, shapely ≥2, pyogrio, networkx, pydantic, pyyaml, plus **one hydro backend** (see below). Add others only with justification.
+- **Hydro backend (deferred):** Stage 3 uses WhiteboxTools (`whitebox`). Whitebox Workflows (WbW) is a possible later alternative behind a backend interface; it would be installed in the engine's venv, never in QGIS's Python. Before adopting it, check that the free tier has the needed tools (least-cost breaching, D-inf/MFD accumulation, flat resolution) and its licence, and run the Stage 3 tests against both. Do not add a `hydro.backend` config key until then (the config models forbid unknown keys).
+- The QGIS plugin only declares typed parameters / UI and talks to the engine **as an external process** (`runner.run_cli`) and through files. **Target QGIS 4.x** (Qt6); write UI imports through `qgis.PyQt` so QGIS 3.x LTR is not ruled out later.
 - All outputs go to a single GeoPackage per run plus `run_report.md` and `run_report.json`.
 - Every stage writes its output layer and a stage log, and records completion in `run_state.json` so runs can resume.
 - Large rasters (1 m LiDAR over a full KHG): use windowed reads and tiling. Never load a full KHG raster into memory unless it fits the configured memory budget.
@@ -308,6 +314,33 @@ Every layer includes `run_name` and `stage` fields. Field names are lower_snake_
 - The provider writes a temporary YAML from the dialog values and calls `core.pipeline`. No logic in the provider.
 - Must work with `qgis_process run` headless.
 
+## 7b. QGIS plugin: stage-by-stage wizard (training UI)
+
+Purpose: train KLH staff. The plugin registers the §7 provider and adds a dock-widget wizard. **The wizard contains no analysis logic and never imports `repeat_pump`.** It reaches the engine only through (a) `runner.run_cli` (one stage at a time) and (b) files: `run_state.json`, `<name>_work/logs/`, the output GPKG and `run_report.json`; plus `repeat-pump check --config X` (JSON: stages, review flags, null parameters each stage still needs).
+
+**Engine contract (tested in `tests/test_wizard_engine.py`)**
+- Stage status in `run_state.json`: `running | awaiting_review | done | failed` (+ `error`); absent = not run. Re-running a stage deletes the state of all later stages and the warnings that stage or later ones raised.
+- On completion each stage stores a `fingerprint` (the config sections that determine its results, `core/requirements.py`). `repeat-pump check` returns the current fingerprints; if they differ the wizard marks the stage and every later one **out of date**: Accept is disabled and the primary action is "Re-run to apply your change".
+- Run next = `last=N`; Accept = `last=N, accept=[N]` (no `first`); Re-run / Back = `first=N`.
+- Tiles read `report.counts[stage]`; callouts read `warnings`.
+
+**Structure**
+- **Stepper rail** (left): the 11 stages, each with status `locked | ready | running | done | needs_review | failed`, taken from `run_state.json`. [REVIEW] stages have a distinct "your turn" accent.
+- **Stage card** (main): one-line purpose; "What this does" and "Why it matters" text (plain language; English and Bahasa Indonesia, switched with the EN/ID buttons, default from the QGIS locale; every string goes through `tr()` in `wizard/i18n.py` and `tests/test_wizard_i18n.py` fails when a string has no Indonesian text; messages written by the engine stay English); a typed, named input form; Run button with Cancel (kills the engine process tree, works even when the engine is silent). A small diagram for key ideas (sekat head rule, ring buffer, head-aware cost) is not built yet.
+- **Result tiles** after each run: key counts and totals from the stage log (e.g. segments, dangles, sekat needed, unreachable targets, total lift). Warnings (DTM accuracy, defaults used, unparsed attributes) appear as friendly callouts, never buried in a log.
+- **Review panel** for [REVIEW] stages: auto-load the QA layers with bundled QML styles, then offer *Accept*, *Re-run with changes*, *Back*. Accept writes to `review.auto_accept`/`--accept` equivalent in the state file.
+- **Learn toggle:** expands explanations, formulas and §12 references per stage.
+- **Null parameters (§0 rule 2):** missing keys come from `repeat-pump check`, shown as required, highlighted fields. The wizard writes them into the run YAML; Run stays disabled until filled; never prefill physical values.
+- **Final screen:** run report preview and links to outputs.
+
+**Implementation rules**
+- Run stages off the UI thread (`QgsTask`, or a subprocess if `core` runs in a separate environment). QGIS must not freeze during Stage 3, 5 or 9.
+- Native Qt widgets styled with one QSS theme that paints its own backgrounds (same look in QGIS light and dark themes); one accent colour; inline SVG icons. **Do not embed a web view** (WebEngine is not reliable in QGIS builds).
+- Output and QA layers are styled in code when loaded (`wizard/styling.py`; see the `qgis-cartography` skill for design principles).
+- Dependencies: the existing private-venv mechanism in `runner.py` (`ensure_environment`) is reused; the wizard shows its status and offers "Set up / repair".
+- Shared code: the provider's config builder lives in a shared module used by both the provider and the wizard.
+- Tests: the view-model (status transitions, disabled Run on null params, command construction) is pure Python and tested in `.venv`; the Qt layer is smoke-tested with QGIS's own Python under `QT_QPA_PLATFORM=offscreen`.
+
 ---
 
 ## 8. Testing
@@ -351,7 +384,8 @@ Use pytest. Required tests:
 5. **M5:** Stage 6 prioritisation + sensitivity + tests 2, 3, 8.
 6. **M6:** Stages 8–9 network and routing + tests 6–7, 10.
 7. **M7:** Stage 10 pumps + test 9; Stage 11 report.
-8. **M8:** QGIS provider + headless `qgis_process` run.
+8. **M8a (done):** QGIS Processing provider + headless `qgis_process` run.
+9. **M8b:** QGIS plugin wizard (§7b): engine contract and tests, then view-model, UI, QML styles. Design reference: `docs/ui_prototype/Main.dc.html` (approved prototype).
 
 At the end of each milestone: a short summary, a list of assumptions, and open TODOs.
 
@@ -368,7 +402,8 @@ At the end of each milestone: a short summary, a list of assumptions, and open T
 7. Criterion weights, or the AHP matrix, and who signs off on them.
 8. Concession handling: exclude, flag, or ignore?
 9. Breach max distance and min/max sekat spacing.
-10. Target QGIS version (LTR?), and licence for the repository.
+10. ~~Target QGIS version~~ Decided: QGIS 4.x for training (LTR 3.x optional later). Still open: licence for the repository; whether KLH machines may `pip install` into QGIS's Python.
+12. Hydro backend (deferred): is Whitebox Workflows' free tier sufficient (tools and licence), or do we keep WhiteboxTools?
 11. Format and units of the neraca air output (confirm `deficit_mm` per sub-KHG and design period).
 
 ---

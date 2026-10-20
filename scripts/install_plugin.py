@@ -22,6 +22,11 @@ def engine_files():
             yield p, Path("engine") / p.relative_to(ROOT)
 
 
+def extra_files():
+    """The example config the wizard offers as a starting point."""
+    yield ROOT / "configs" / "example_khg.yaml", Path("resources/example_khg.yaml")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--profile-dir")
@@ -34,7 +39,7 @@ def main():
             for p in SRC.rglob("*"):
                 if p.is_file() and "__pycache__" not in p.parts:
                     z.write(p, Path("repeat_pump_qgis") / p.relative_to(SRC))
-            for src, rel in engine_files():
+            for src, rel in list(engine_files()) + list(extra_files()):
                 z.write(src, Path("repeat_pump_qgis") / rel)
         print(out)
         return
@@ -43,7 +48,7 @@ def main():
     if dst.exists():
         shutil.rmtree(dst)
     shutil.copytree(SRC, dst, ignore=shutil.ignore_patterns("__pycache__", "engine"))
-    for src, rel in engine_files():
+    for src, rel in list(engine_files()) + list(extra_files()):
         (dst / rel).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst / rel)
     print("installed to", dst)

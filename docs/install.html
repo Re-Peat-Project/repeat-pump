@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Installing RE-PEAT Pompanisasi / Memasang RE-PEAT Pompanisasi</title>
+<meta name="description" content="How to install the RE-PEAT Pompanisasi QGIS plugin and set up its engine. Cara memasang plugin QGIS RE-PEAT Pompanisasi dan menyiapkan mesinnya.">
+<style>
+:root {
+  --ground: #f4f1ea; --card: #ffffff; --ink: #17261f; --muted: #4c5e57; --line: #e3decf;
+  --teal: #1f6f6f; --teal-tint: #e4f1ee; --amber-tint: #fff1dc; --amber-line: #ebc689; --amber-ink: #5e3500;
+  --code-bg: #101c19; --code-ink: #d7e5df;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0f1a17; --card: #16241f; --ink: #e8f0ec; --muted: #a9bcb4; --line: #2a3b35;
+    --teal: #6fcfc0; --teal-tint: #173530; --amber-tint: #3a2a10; --amber-line: #7a5a22; --amber-ink: #f3d9a8;
+    --code-bg: #0a1210; --code-ink: #d7e5df;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.6 "Segoe UI", "Noto Sans", "Helvetica Neue", Arial, sans-serif; }
+a { color: var(--teal); }
+a:focus-visible, button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
+
+.bar { position: sticky; top: 0; z-index: 5; background: var(--ground); border-bottom: 1px solid var(--line); }
+.bar-inner { max-width: 780px; margin: 0 auto; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+.brand svg { width: 28px; height: 28px; padding: 5px; border-radius: 8px; background: #1f8a8a; }
+.lang { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.lang button { font: inherit; font-size: 14px; font-weight: 700; padding: 5px 14px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.lang button[aria-pressed="true"] { background: var(--teal); color: var(--ground); }
+
+main { max-width: 780px; margin: 0 auto; padding: 28px 20px 72px; }
+h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 8px; letter-spacing: -0.01em; }
+h2 { font-size: 1.35rem; margin: 2.4rem 0 0.6rem; padding-top: 0.4rem; }
+h3 { font-size: 1.05rem; margin: 1.6rem 0 0.3rem; }
+p { margin: 0.6rem 0; }
+.lead { font-size: 1.1rem; color: var(--muted); }
+ul, ol { padding-left: 1.3rem; }
+li { margin: 0.35rem 0; }
+
+.t-id { display: none; }
+html[data-lang="id"] .t-id { display: block; }
+html[data-lang="id"] .t-en { display: none; }
+
+.toc { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 20px; margin: 22px 0 0; }
+.toc ol { margin: 0; columns: 2; column-gap: 28px; }
+@media (max-width: 600px) { .toc ol { columns: 1; } }
+
+.steps { counter-reset: step; list-style: none; padding: 0; }
+.steps > li { counter-increment: step; position: relative; padding-left: 44px; margin: 1rem 0; }
+.steps > li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%; background: var(--teal); color: var(--ground); font-weight: 700; display: flex; align-items: center; justify-content: center; }
+
+pre { background: var(--code-bg); color: var(--code-ink); border-radius: 10px; padding: 12px 14px; overflow-x: auto; font: 0.88rem/1.5 Consolas, "DejaVu Sans Mono", monospace; margin: 0.7rem 0; }
+code { font-family: Consolas, "DejaVu Sans Mono", monospace; font-size: 0.9em; background: var(--teal-tint); padding: 1px 5px; border-radius: 5px; }
+pre code { background: none; padding: 0; font-size: inherit; }
+.callout { background: var(--amber-tint); border: 1px solid var(--amber-line); color: var(--amber-ink); border-radius: 12px; padding: 12px 16px; margin: 1rem 0; }
+.callout p { margin: 0; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 4px 18px 8px; margin: 1rem 0; }
+table { width: 100%; border-collapse: collapse; margin: 0.8rem 0; font-size: 0.95rem; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; }
+footer { max-width: 780px; margin: 0 auto; padding: 0 20px 40px; color: var(--muted); font-size: 0.9rem; }
+
+@media print {
+  .bar { position: static; } .lang { display: none; }
+  body { background: #fff; color: #000; } pre { background: #f2f2f2; color: #000; border: 1px solid #ccc; }
+}
+</style>
+<noscript><style>.t-id { display: block !important; } .lang { display: none; }</style></noscript>
+</head>
+<body>
+
+<div class="bar">
+  <div class="bar-inner">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#e8fbf7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c3.5 4.2 6 7.2 6 10.5a6 6 0 0 1-12 0C6 10.2 8.5 7.2 12 3z"/><path d="M9 14.5a3 3 0 0 0 3 2.5"/></svg>
+      <span>RE-PEAT</span>
+    </div>
+    <div class="lang" role="group" aria-label="Language / Bahasa">
+      <button type="button" data-set="en" aria-pressed="true">English</button>
+      <button type="button" data-set="id" aria-pressed="false">Indonesia</button>
+    </div>
+  </div>
+</div>
+
+<main>
+
+<!-- ============================================================ ENGLISH -->
+<div class="t-en" lang="en">
+<h1>Installing the RE-PEAT Pompanisasi plugin</h1>
+<p class="lead">This page covers installing the plugin in QGIS, setting up the Python engine behind it, and checking that it works. Most of the time goes to the first engine setup, which takes a few minutes.</p>
+
+<nav class="toc" aria-label="Contents">
+<ol>
+<li><a href="#e-need">What you need</a></li>
+<li><a href="#e-install">Install the plugin</a></li>
+<li><a href="#e-engine">Set up the engine</a></li>
+<li><a href="#e-check">Check that it works</a></li>
+<li><a href="#e-update">Update or remove</a></li>
+<li><a href="#e-trouble">Troubleshooting</a></li>
+<li><a href="#e-cli">Without QGIS</a></li>
+</ol>
+</nav>
+
+<h2 id="e-need">What you need</h2>
+<ul>
+<li>QGIS 4. The plugin was tested on QGIS 4.2.2 for Windows (the OSGeo4W installer). Its metadata allows QGIS 3.34 and later, but nobody has tried the wizard there yet.</li>
+<li>Python 3.11 or newer on the same computer, with pip, venv and SSL included. The installer from python.org has them. The plugin uses this Python once, to build its own private environment.</li>
+<li>An internet connection for the first engine setup. You need it again the first time stage 3 runs, because that stage downloads the WhiteboxTools program.</li>
+<li>The plugin file <code>repeat_pump_qgis.zip</code>. It sits in the <code>dist</code> folder of the repository. To rebuild it, run <code>python scripts/install_plugin.py --zip</code> from the repository root.</li>
+</ul>
+
+<h2 id="e-install">Install the plugin</h2>
+<p>Pick one of the two ways.</p>
+
+<h3>From the zip file in QGIS</h3>
+<ol class="steps">
+<li>In QGIS, open <em>Plugins</em>, then <em>Manage and Install Plugins</em>.</li>
+<li>Choose the <em>Install from ZIP</em> tab, select <code>repeat_pump_qgis.zip</code>, and click <em>Install Plugin</em>.</li>
+<li>Open the <em>Installed</em> tab and tick <em>RE-PEAT Pompanisasi</em> so it is enabled.</li>
+</ol>
+
+<h3>From a command line</h3>
+<p>This copies the plugin straight into the QGIS 4 default profile on Windows. Close QGIS first.</p>
+<pre><code>python scripts/install_plugin.py</code></pre>
+<p>For a different QGIS profile, pass its folder (the one that contains <code>python/plugins</code>):</p>
+<pre><code>python scripts/install_plugin.py --profile-dir "C:\path\to\profile"</code></pre>
+<p>Start QGIS and enable <em>RE-PEAT Pompanisasi</em> in the Plugin Manager, as in step 3 above.</p>
+
+<h2 id="e-engine">Set up the engine</h2>
+<p>The analysis does not run inside QGIS. The plugin starts it in a separate Python environment, so its libraries cannot clash with the ones QGIS ships. The plugin builds that environment for you.</p>
+<ol class="steps">
+<li>Open the wizard with the water-drop button on the toolbar, or from <em>Plugins</em>, <em>RE-PEAT Pompanisasi</em>, <em>Guided wizard</em>.</li>
+<li>If the engine is missing, the wizard says so and the left side shows a <em>Set up engine</em> button. Click it.</li>
+<li>Wait. The plugin creates a folder named <code>repeat_pump_env</code> inside your QGIS profile and installs the engine into it. This needs internet and takes a few minutes. The same setup also runs by itself the first time you start a Processing algorithm, and you can start it from <em>Processing Toolbox</em>, <em>RE-PEAT Pompanisasi</em>, <em>Set up engine environment</em>.</li>
+</ol>
+<div class="callout"><p>If you use your own Python environment where <code>repeat-pump</code> is already installed, skip this step. Point the plugin at it with <em>Plugins</em>, <em>RE-PEAT Pompanisasi</em>, <em>Set Python environment (advanced)</em>, or set the <code>REPEAT_PUMP_PYTHON</code> environment variable to the full path of its <code>python.exe</code>.</p></div>
+
+<h2 id="e-check">Check that it works</h2>
+<ul>
+<li>The wizard opens as a floating panel with the 11 stages listed on the left.</li>
+<li>At the bottom of the stage list it says <em>Engine ready</em>.</li>
+<li>The <em>EN</em> and <em>ID</em> buttons at the top right switch the wizard between English and Bahasa Indonesia. The wizard starts in Indonesian when QGIS itself is set to Indonesian, and in English otherwise. Messages written by the engine, such as warnings and the log, stay in English.</li>
+</ul>
+<p>Then start your first run. On stage 1, open <em>Run setup</em>, choose where the output GeoPackage goes, pick your layers and click <em>Create run</em>. All layers must be saved files, not temporary layers. The guide <code>docs/qgis_plugin.md</code> walks through the rest.</p>
+
+<h2 id="e-update">Update or remove</h2>
+<p>To update, install the new zip over the old one, or run the install script again. When the engine inside the plugin is newer than the one in your environment, the wizard shows the <em>Set up engine</em> button again. Click it to refresh the environment. The Processing algorithms refresh it on their own.</p>
+<p>To remove it, switch the plugin off and uninstall it in the Plugin Manager. The private environment stays behind. Delete the <code>repeat_pump_env</code> folder in your profile to reclaim the space. QGIS shows you the profile folder under <em>Settings</em>, <em>User Profiles</em>, <em>Open Active Profile Folder</em>.</p>
+<p>Your results are not stored in the plugin. They live in the GeoPackage you chose for the run, next to <code>run_config.yaml</code>, <code>run_state.json</code>, <code>run_report.md</code> and <code>run_report.json</code>, plus a <code>&lt;name&gt;_work</code> folder for rasters and stage logs.</p>
+
+<h2 id="e-trouble">Troubleshooting</h2>
+
+<h3>"No Python 3.11+ with venv/pip found"</h3>
+<p>The plugin needs a normal Python on the computer to build its environment. QGIS's own Python is not enough because it often lacks SSL. Install Python 3.11 or newer (for example from python.org), then click <em>Set up engine</em> again.</p>
+
+<h3>Engine setup fails or hangs</h3>
+<p>Setup downloads packages, so it needs a working internet connection. Behind a restrictive proxy or without internet it will fail. Run it again once you are online. Cancelling a stage kills the engine and anything it started, so a stuck run can always be stopped.</p>
+
+<h3>Stage 3 takes long the first time</h3>
+<p>It downloads the WhiteboxTools program on first use. Let it finish, or cancel and run it again when the connection is better.</p>
+
+<h3>"The layer must be saved to a file"</h3>
+<p>The engine reads layers from disk, so it cannot use a temporary (scratch) layer. Export the layer to a GeoPackage or shapefile, load that file, and choose it again.</p>
+
+<h3>A stage will not run and a field is highlighted</h3>
+<p>The stage needs a decision from you, such as a tolerance or a weight. The wizard never fills those in. Type the value in the highlighted field and the Run button turns on.</p>
+
+<h3>The plugin does not show up in QGIS</h3>
+<p>Check that QGIS is version 4 and that the plugin is ticked in the <em>Installed</em> tab. If you installed with the script, make sure it targeted the profile QGIS actually uses.</p>
+
+<h2 id="e-cli">Without QGIS</h2>
+<p>The engine also runs on its own from a command line, with Python 3.11 or newer. Run this from the repository root in PowerShell:</p>
+<pre><code>py -3.13 -m venv .venv
+.venv\Scripts\python -m pip install -e ".[dev]"
+.venv\Scripts\python -m repeat_pump.cli --version
+.venv\Scripts\python -m repeat_pump.cli run --config my_khg.yaml</code></pre>
+<p>Use any Python 3.11 or newer in place of <code>py -3.13</code>. Stages 2, 6 and 9 stop for review and exit with code 2. Continue with <code>--accept 2</code>, <code>--accept 6</code> and <code>--accept 9</code>. The README has the full list of options.</p>
+</div>
+
+<!-- ============================================================ INDONESIA -->
+<div class="t-id" lang="id">
+<h1>Memasang plugin RE-PEAT Pompanisasi</h1>
+<p class="lead">Halaman ini menjelaskan cara memasang plugin di QGIS, menyiapkan mesin Python di baliknya, dan memeriksa bahwa semuanya berjalan. Waktu terlama terpakai untuk penyiapan mesin pertama, yang memakan beberapa menit.</p>
+
+<nav class="toc" aria-label="Daftar isi">
+<ol>
+<li><a href="#i-need">Yang Anda butuhkan</a></li>
+<li><a href="#i-install">Pasang plugin</a></li>
+<li><a href="#i-engine">Siapkan mesin</a></li>
+<li><a href="#i-check">Periksa hasilnya</a></li>
+<li><a href="#i-update">Perbarui atau hapus</a></li>
+<li><a href="#i-trouble">Pemecahan masalah</a></li>
+<li><a href="#i-cli">Tanpa QGIS</a></li>
+</ol>
+</nav>
+
+<h2 id="i-need">Yang Anda butuhkan</h2>
+<ul>
+<li>QGIS 4. Plugin ini diuji pada QGIS 4.2.2 untuk Windows (pemasang OSGeo4W). Metadatanya mengizinkan QGIS 3.34 ke atas, tetapi wizard belum pernah dicoba di sana.</li>
+<li>Python 3.11 atau lebih baru di komputer yang sama, lengkap dengan pip, venv, dan SSL. Pemasang dari python.org sudah memuat ketiganya. Plugin memakai Python ini satu kali untuk membangun lingkungan pribadinya.</li>
+<li>Koneksi internet untuk penyiapan mesin pertama. Anda memerlukannya lagi saat tahap 3 dijalankan pertama kali, karena tahap itu mengunduh program WhiteboxTools.</li>
+<li>Berkas plugin <code>repeat_pump_qgis.zip</code>. Berkas ini ada di folder <code>dist</code> pada repositori. Untuk membuatnya ulang, jalankan <code>python scripts/install_plugin.py --zip</code> dari folder utama repositori.</li>
+</ul>
+
+<h2 id="i-install">Pasang plugin</h2>
+<p>Pilih salah satu dari dua cara.</p>
+
+<h3>Dari berkas zip di QGIS</h3>
+<ol class="steps">
+<li>Di QGIS, buka <em>Plugins</em>, lalu <em>Manage and Install Plugins</em>.</li>
+<li>Pilih tab <em>Install from ZIP</em>, pilih <code>repeat_pump_qgis.zip</code>, lalu klik <em>Install Plugin</em>.</li>
+<li>Buka tab <em>Installed</em> dan centang <em>RE-PEAT Pompanisasi</em> agar plugin aktif.</li>
+</ol>
+
+<h3>Dari command line</h3>
+<p>Perintah ini menyalin plugin langsung ke profil bawaan QGIS 4 di Windows. Tutup QGIS terlebih dahulu.</p>
+<pre><code>python scripts/install_plugin.py</code></pre>
+<p>Untuk profil QGIS lain, berikan foldernya (folder yang berisi <code>python/plugins</code>):</p>
+<pre><code>python scripts/install_plugin.py --profile-dir "C:\path\to\profile"</code></pre>
+<p>Jalankan QGIS dan aktifkan <em>RE-PEAT Pompanisasi</em> di Plugin Manager, seperti pada langkah 3 di atas.</p>
+
+<h2 id="i-engine">Siapkan mesin</h2>
+<p>Analisis tidak berjalan di dalam QGIS. Plugin menjalankannya di lingkungan Python terpisah, sehingga pustakanya tidak bentrok dengan pustaka bawaan QGIS. Lingkungan itu dibangun otomatis oleh plugin.</p>
+<ol class="steps">
+<li>Buka wizard dengan tombol tetesan air di toolbar, atau lewat <em>Plugins</em>, <em>RE-PEAT Pompanisasi</em>, <em>Guided wizard</em>.</li>
+<li>Jika mesin belum ada, wizard memberi tahu dan di sisi kiri muncul tombol <em>Siapkan mesin</em>. Klik tombol itu.</li>
+<li>Tunggu. Plugin membuat folder bernama <code>repeat_pump_env</code> di dalam profil QGIS Anda dan memasang mesin ke dalamnya. Proses ini perlu internet dan memakan beberapa menit. Penyiapan yang sama juga berjalan sendiri saat Anda pertama kali menjalankan algoritma Processing, dan bisa dimulai dari <em>Processing Toolbox</em>, <em>RE-PEAT Pompanisasi</em>, <em>Set up engine environment</em>.</li>
+</ol>
+<div class="callout"><p>Jika Anda memakai lingkungan Python sendiri yang sudah berisi <code>repeat-pump</code>, lewati langkah ini. Arahkan plugin ke lingkungan itu lewat <em>Plugins</em>, <em>RE-PEAT Pompanisasi</em>, <em>Set Python environment (advanced)</em>, atau atur variabel lingkungan <code>REPEAT_PUMP_PYTHON</code> ke jalur lengkap <code>python.exe</code>-nya.</p></div>
+
+<h2 id="i-check">Periksa hasilnya</h2>
+<ul>
+<li>Wizard terbuka sebagai panel mengambang dengan 11 tahap tercantum di sisi kiri.</li>
+<li>Di bagian bawah daftar tahap tertulis <em>Mesin siap</em>.</li>
+<li>Tombol <em>EN</em> dan <em>ID</em> di kanan atas mengganti bahasa wizard antara English dan Bahasa Indonesia. Wizard dimulai dalam bahasa Indonesia jika QGIS sendiri diatur ke bahasa Indonesia, dan dalam bahasa Inggris jika tidak. Pesan yang ditulis oleh mesin, seperti peringatan dan log, tetap berbahasa Inggris.</li>
+</ul>
+<p>Setelah itu mulailah proses pertama Anda. Di tahap 1, buka <em>Pengaturan proses</em>, pilih lokasi GeoPackage keluaran, pilih layer Anda, lalu klik <em>Buat proses</em>. Semua layer harus berupa berkas yang tersimpan, bukan layer sementara. Panduan <code>docs/qgis_plugin.md</code> menjelaskan langkah selanjutnya.</p>
+
+<h2 id="i-update">Perbarui atau hapus</h2>
+<p>Untuk memperbarui, pasang zip yang baru di atas yang lama, atau jalankan lagi skrip pemasangan. Saat mesin di dalam plugin lebih baru daripada mesin di lingkungan Anda, wizard menampilkan lagi tombol <em>Siapkan mesin</em>. Klik tombol itu untuk menyegarkan lingkungan. Algoritma Processing menyegarkannya sendiri.</p>
+<p>Untuk menghapus, nonaktifkan plugin lalu copot di Plugin Manager. Lingkungan pribadinya tertinggal. Hapus folder <code>repeat_pump_env</code> di profil Anda untuk mengosongkan ruang. QGIS menampilkan folder profil di <em>Settings</em>, <em>User Profiles</em>, <em>Open Active Profile Folder</em>.</p>
+<p>Hasil kerja Anda tidak disimpan di dalam plugin. Hasilnya ada di GeoPackage yang Anda pilih untuk proses tersebut, bersama <code>run_config.yaml</code>, <code>run_state.json</code>, <code>run_report.md</code>, dan <code>run_report.json</code>, ditambah folder <code>&lt;nama&gt;_work</code> untuk raster dan log tahap.</p>
+
+<h2 id="i-trouble">Pemecahan masalah</h2>
+
+<h3>"No Python 3.11+ with venv/pip found"</h3>
+<p>Plugin memerlukan Python biasa di komputer untuk membangun lingkungannya. Python bawaan QGIS tidak cukup karena sering tidak memiliki SSL. Pasang Python 3.11 atau lebih baru (misalnya dari python.org), lalu klik <em>Siapkan mesin</em> lagi.</p>
+
+<h3>Penyiapan mesin gagal atau macet</h3>
+<p>Penyiapan mengunduh paket, jadi koneksi internet harus berfungsi. Di balik proxy yang ketat atau tanpa internet, penyiapan akan gagal. Jalankan lagi setelah Anda daring. Membatalkan sebuah tahap menghentikan mesin beserta semua proses yang dimulainya, sehingga proses yang macet selalu bisa dihentikan.</p>
+
+<h3>Tahap 3 lama pada kali pertama</h3>
+<p>Tahap ini mengunduh program WhiteboxTools saat pertama dipakai. Biarkan sampai selesai, atau batalkan dan jalankan lagi saat koneksi lebih baik.</p>
+
+<h3>"The layer must be saved to a file"</h3>
+<p>Mesin membaca layer dari disk, jadi tidak bisa memakai layer sementara (scratch). Ekspor layer ke GeoPackage atau shapefile, muat berkas itu, lalu pilih lagi.</p>
+
+<h3>Tahap tidak mau berjalan dan ada kolom yang disorot</h3>
+<p>Tahap itu memerlukan keputusan dari Anda, misalnya toleransi atau bobot. Wizard tidak pernah mengisinya. Ketik nilainya di kolom yang disorot, maka tombol Jalankan menyala.</p>
+
+<h3>Plugin tidak muncul di QGIS</h3>
+<p>Pastikan QGIS versi 4 dan plugin dicentang di tab <em>Installed</em>. Jika Anda memasang dengan skrip, pastikan skrip menuju profil yang benar-benar dipakai QGIS.</p>
+
+<h2 id="i-cli">Tanpa QGIS</h2>
+<p>Mesin juga bisa berjalan sendiri dari command line, dengan Python 3.11 atau lebih baru. Jalankan ini dari folder utama repositori di PowerShell:</p>
+<pre><code>py -3.13 -m venv .venv
+.venv\Scripts\python -m pip install -e ".[dev]"
+.venv\Scripts\python -m repeat_pump.cli --version
+.venv\Scripts\python -m repeat_pump.cli run --config my_khg.yaml</code></pre>
+<p>Gunakan Python 3.11 atau lebih baru mana pun sebagai pengganti <code>py -3.13</code>. Tahap 2, 6, dan 9 berhenti untuk ditinjau dan keluar dengan kode 2. Lanjutkan dengan <code>--accept 2</code>, <code>--accept 6</code>, dan <code>--accept 9</code>. README memuat daftar lengkap opsi.</p>
+</div>
+
+</main>
+
+<footer>
+  <p class="t-en" lang="en">RE-PEAT, GIS workstream, Departemen Teknik Geodesi UGM. Version 0.1.0.</p>
+  <p class="t-id" lang="id">RE-PEAT, alur kerja GIS, Departemen Teknik Geodesi UGM. Versi 0.1.0.</p>
+</footer>
+
+<script>
+(function () {
+  var root = document.documentElement, buttons = document.querySelectorAll(".lang button");
+  function apply(code) {
+    root.setAttribute("data-lang", code);
+    root.lang = code;
+    for (var i = 0; i < buttons.length; i++) buttons[i].setAttribute("aria-pressed", String(buttons[i].getAttribute("data-set") === code));
+    try { localStorage.setItem("repeat_pump_doc_lang", code); } catch (e) {}
+  }
+  var start = "en";
+  try { start = localStorage.getItem("repeat_pump_doc_lang") || ""; } catch (e) {}
+  if (start !== "en" && start !== "id") start = (navigator.language || "").toLowerCase().indexOf("id") === 0 ? "id" : "en";
+  apply(start);
+  for (var i = 0; i < buttons.length; i++) buttons[i].addEventListener("click", function () { apply(this.getAttribute("data-set")); });
+})();
+</script>
+</body>
+</html>

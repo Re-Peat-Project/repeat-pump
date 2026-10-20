@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from typing import Optional
 
 from . import hydro, io, network, profiles, prioritise, pumps, report, routing, segments, sekat, topology
 from .config import Config
 from .context import RunContext
+from .requirements import fingerprint
 
 # (id, name, function, needs human review)
 STAGES = [
@@ -23,6 +25,12 @@ STAGES = [
     (10, "pumps", pumps.run, False),
     (11, "report", report.run, False),
 ]
+
+
+def warning_stage(w: str) -> int:
+    """Stage a warning belongs to: ``Stage N: ...`` messages to N; input-validation and ACCURACY warnings to stage 1."""
+    m = re.match(r"Stage (\d+):", w)
+    return int(m.group(1)) if m else 1
 
 
 class ReviewRequired(Exception):
@@ -47,6 +55,14 @@ def run_pipeline(cfg: Config, stop_after: Optional[int] = None, resume_from: Opt
                 break
             continue
         t0 = time.time()
+        # Re-running a stage invalidates everything downstream of it: later stages must not be skipped as "done"
+        # on the next run while their inputs have changed.
+        for later in [k for k in states if int(k) > sid]:
+            del states[later]
+        # warnings raised by this stage or later ones belong to results that are about to be replaced
+        ctx.warnings[:] = [w for w in ctx.warnings if warning_stage(w) < sid]
+        states[key] = {"name": name, "status": "running"}
+        ctx.save_state()
         (ctx.work / "logs").mkdir(exist_ok=True)
         fh = logging.FileHandler(ctx.work / "logs" / f"stage_{sid:02d}_{name}.log", mode="w", encoding="utf8")
         fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
@@ -58,12 +74,14 @@ def run_pipeline(cfg: Config, stop_after: Optional[int] = None, resume_from: Opt
             ctx.log.info("Stage %s (%s) finished: %s", sid, name, ctx.report.get("counts", {}).get(str(sid), {}))
         except Exception as e:
             ctx.log.error("Stage %s failed: %s", sid, e)
+            states[key] = {"name": name, "status": "failed", "error": str(e)}
             raise
         finally:
             ctx.log.removeHandler(fh); fh.close()
             ctx.save_state()
         states[key] = {"name": name, "seconds": round(time.time() - t0, 2),
-                       "status": "awaiting_review" if (review and sid not in accepted) else "done"}
+                       "status": "awaiting_review" if (review and sid not in accepted) else "done",
+                       "fingerprint": fingerprint(cfg, sid)}
         ctx.save_state()
         if states[key]["status"] == "awaiting_review":
             raise ReviewRequired(f"Stage {sid} ({name}) finished; inspect the QA layers in {ctx.gpkg} and re-run with --accept {sid}")

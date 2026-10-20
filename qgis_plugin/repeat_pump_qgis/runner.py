@@ -5,12 +5,15 @@ No ``repeat_pump`` import happens inside QGIS, so the engine's dependencies
 """
 from __future__ import annotations
 
+import json
 import os
+import queue
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 KEY = "repeat_pump/python"
@@ -78,29 +81,79 @@ def check_environment(python: str) -> tuple[bool, str]:
     return True, f"OK: {r.stdout.strip()} ({python})"
 
 
-def run_cli(python: str, config: str, cwd: str, first, last, accept, feedback) -> int:
-    """Stream the CLI output into the Processing feedback; return the exit code (0 ok, 1 error, 2 review stop)."""
+def run_check(python: str, config: str) -> dict:
+    """``repeat-pump check``: stages, review flags and the null parameters each stage still needs."""
+    r = subprocess.run([python, "-m", "repeat_pump.cli", "check", "--config", config], capture_output=True, text=True, timeout=180,
+                       creationflags=CREATE_NO_WINDOW, env=clean_env(), cwd=tempfile.gettempdir())
+    if r.returncode != 0:
+        raise RuntimeError((r.stderr or r.stdout).strip()[-600:] or f"check exited with {r.returncode}")
+    return json.loads(r.stdout.strip().splitlines()[-1])
+
+
+def run_cli(python: str, config: str, cwd: str, first, last, accept, feedback, rerun: bool = False) -> int:
+    """Stream the CLI output into the Processing feedback; return the exit code (0 ok, 1 error, 2 review stop).
+
+    ``rerun=True`` forces stage ``first`` (and everything after it up to ``last``) to run again, even stage 1.
+    """
     cmd = [python, "-u", "-m", "repeat_pump.cli", "run", "--config", config]
     if last:
         cmd += ["--stop-after", str(last)]
-    if first and first > 1:
+    if first and (first > 1 or rerun):
         cmd += ["--resume-from", str(first)]
     for a in accept:
         cmd += ["--accept", str(a)]
     feedback.pushInfo("Running: " + " ".join(cmd))
+    return stream_process(cmd, cwd, clean_env(), feedback)
+
+
+CANCELLED = 130
+
+
+def kill_tree(p: subprocess.Popen) -> None:
+    """Stop the process and everything it started (WhiteboxTools runs as a child and would otherwise keep files locked)."""
+    if sys.platform == "win32":
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], capture_output=True, creationflags=CREATE_NO_WINDOW)
+    else:
+        p.kill()
+
+
+def stream_process(cmd, cwd, env, feedback) -> int:
+    """Run ``cmd``, stream its output lines to ``feedback`` and return its exit code, or ``CANCELLED`` if the user cancelled.
+
+    Output is read on its own thread so cancelling works even when the process is silent (a long download, a hung tool).
+    """
     p = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
-                         creationflags=CREATE_NO_WINDOW, env=clean_env())
-    try:
-        for line in p.stdout:
+                         creationflags=CREATE_NO_WINDOW, env=env)
+    lines: queue.Queue = queue.Queue()
+
+    def pump():
+        try:
+            for line in p.stdout:
+                lines.put(line)
+        finally:
+            lines.put(None)
+
+    reader = threading.Thread(target=pump, daemon=True)
+    reader.start()
+    cancelled = False
+    while True:
+        try:
+            line = lines.get(timeout=0.2)
+        except queue.Empty:
+            line = ""
+        else:
+            if line is None:
+                break
             line = line.rstrip()
             if line:
                 (feedback.pushWarning if line.startswith(("WARNING", "ERROR")) else feedback.pushInfo)(line)
-            if feedback.isCanceled():
-                p.terminate()
-                break
-    finally:
-        p.stdout.close()
-    return p.wait()
+        if feedback.isCanceled():
+            cancelled = True
+            kill_tree(p)
+            break
+    code = p.wait()
+    reader.join(timeout=3)                 # the reader ends at EOF once the process (and its children) are gone
+    return CANCELLED if cancelled else code
 
 
 # ---------------------------------------------------------------------------- auto-managed environment
@@ -127,6 +180,16 @@ def env_dir() -> Path:
         return Path(QgsApplication.qgisSettingsDirPath()) / "repeat_pump_env"
     except Exception:
         return Path.home() / ".repeat_pump" / "env"
+
+
+def environment_outdated(python: str) -> bool:
+    """True if ``python`` is the plugin's own environment and the engine bundled in the plugin is newer than the installed one."""
+    ver = bundled_version()
+    d = env_dir()
+    if not ver or str(venv_python(d)) != str(python):
+        return False
+    stamp = d / "engine_version.txt"
+    return not (stamp.exists() and stamp.read_text().strip() == ver)
 
 
 def venv_python(d: Path) -> Path:

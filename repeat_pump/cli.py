@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 
 from . import __version__
 from .core.config import ConfigError, InputError, load_config
 from .core.pipeline import ReviewRequired, run_pipeline
+from .core.requirements import check
 
 
 def main(argv=None) -> int:
@@ -19,7 +21,16 @@ def main(argv=None) -> int:
     r.add_argument("--stop-after", type=int)
     r.add_argument("--resume-from", type=int)
     r.add_argument("--accept", type=int, action="append", default=[])
+    c = sub.add_parser("check", help="list stages, review flags and the null parameters each stage still needs (JSON on stdout)")
+    c.add_argument("--config", required=True)
     a = ap.parse_args(argv)
+    if a.cmd == "check":
+        try:
+            print(json.dumps(check(load_config(a.config))))
+        except Exception as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 1
+        return 0
     logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
     try:
         run_pipeline(load_config(a.config), a.stop_after, a.resume_from, a.accept)
