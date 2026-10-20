@@ -78,6 +78,7 @@ qgis_plugin/repeat_pump_qgis/   # QGIS plugin (outside the engine package; never
   wizard/            # stage-by-stage wizard (§7b): viewmodel.py (pure Python), controller.py (QgsTask + runner),
                      #   ui.py (Qt widgets), setup_form.py (run-setup parts that read the chosen layers), widgets.py (shared helpers),
                      #   preflight.py (early layer checks, pure core), maptools.py (which layers to show, zoom, map export),
+                     #   summary.py (final-screen results, pure), diagrams.py (Learn-card SVGs, pure),
                      #   theme.py (QSS), styling.py (layer symbology in code)
   resources/         # example_khg.yaml, proposed_defaults.yaml (copied in by scripts/install_plugin.py)
 tests/
@@ -360,7 +361,7 @@ Purpose: train KLH staff. The plugin registers the §7 provider and adds a dock-
 
 **Structure**
 - **Stepper rail** (left): the 12 stages (stage 12 is optional), each with status `locked | ready | running | done | needs_review | failed | stale | skipped`, taken from `run_state.json`. [REVIEW] stages have a distinct "your turn" accent.
-- **Stage card** (main): one-line purpose; "What this does" and "Why it matters" text (plain language; English and Bahasa Indonesia, switched with the EN/ID buttons, default from the QGIS locale; every string goes through `tr()` in `wizard/i18n.py` and `tests/test_wizard_i18n.py` fails when a string has no Indonesian text; messages written by the engine stay English); a typed, named input form; Run button with Cancel (kills the engine process tree, works even when the engine is silent). A small diagram for key ideas (sekat head rule, ring buffer, head-aware cost) is not built yet.
+- **Stage card** (main): one-line purpose; "What this does" and "Why it matters" text (plain language; English and Bahasa Indonesia, switched with the EN/ID buttons, default from the QGIS locale; every string goes through `tr()` in `wizard/i18n.py` and `tests/test_wizard_i18n.py` fails when a string has no Indonesian text; messages written by the engine stay English); a typed, named input form; Run button with Cancel (kills the engine process tree, works even when the engine is silent). A small diagram for key ideas (sekat head rule, ring buffer, head-aware cost) sits in the Learn card of stages 7, 6 and 9 (inline SVG, `wizard/diagrams.py`, translated).
 - **Result tiles** after each run: key counts and totals from the stage log (e.g. segments, dangles, sekat needed, unreachable targets, total lift). Warnings (DTM accuracy, defaults used, unparsed attributes) appear as friendly callouts, never buried in a log.
 - **Review panel** for [REVIEW] stages: auto-load the QA layers with bundled QML styles, then offer *Accept*, *Re-run with changes*, *Back*. Accept writes to `review.auto_accept`/`--accept` equivalent in the state file.
 - **Learn toggle:** expands explanations, formulas and §12 references per stage.
@@ -369,7 +370,7 @@ Purpose: train KLH staff. The plugin registers the §7 provider and adds a dock-
 - **Run setup reads the layers:** the run CRS comes from the DTM; a layer in another CRS blocks *Create run* unless reprojection is ticked; required columns, coverage and the DTM's vertical datum (when it names one) are checked early; sub-KHGs can be picked (including "use the features selected on the map"); concession and water-level layers and extra moisture tiles are chosen in the form. The engine still validates everything in stage 1.
 - **Map handling:** after a stage its layers load, the stage's own layers and their context are shown, the rest hidden, and the canvas zooms to them. Draw order is fixed (`styling.DRAW_ORDER`). Styling stays in code. Stage cards have *Show this stage on the map* and *Show every layer*; the final stage can export an A4 map (PDF or PNG) with legend, scale bar and notes. Logic that decides what to show is pure (`maptools.visibility_plan`); Qt calls do nothing without an `iface`.
 - **Progress and control:** a bar with the step, elapsed time and stages done while a stage runs; *Start over* clears a run after closing its layers.
-- **Final screen:** run report link and the map export. A report preview and a diagram of the key ideas (sekat head rule, ring buffer, head-aware cost) are not built yet.
+- **Final screen:** "Results at a glance" from `run_report.json` (segments, sekat and IPG, routes, pump table, honest notes about shortfalls, unreachable targets, preset values and warnings; `wizard/summary.py`, pure Python), links to the run folder and report, and the map export.
 
 **Implementation rules**
 - Run stages off the UI thread (`QgsTask`, or a subprocess if `core` runs in a separate environment). QGIS must not freeze during Stage 3, 5 or 9.

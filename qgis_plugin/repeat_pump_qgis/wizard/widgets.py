@@ -25,6 +25,22 @@ def svg_pixmap(svg: str, color: str, size: int) -> QPixmap:
     return pm
 
 
+def svg_picture(svg: str, width: int, height: int) -> QPixmap:
+    """A complete SVG document rendered at 2x for sharp text; an empty pixmap if QtSvg is unavailable."""
+    pm = QPixmap(width * 2, height * 2)
+    pm.fill(Qt.GlobalColor.transparent)
+    try:
+        from qgis.PyQt.QtSvg import QSvgRenderer
+        r = QSvgRenderer(QByteArray(svg.encode("utf8")))
+        p = QPainter(pm)
+        r.render(p)
+        p.end()
+    except Exception:
+        pass
+    pm.setDevicePixelRatio(2.0)
+    return pm
+
+
 def label(text: str = "", name: str = "", wrap: bool = True) -> QLabel:
     w = QLabel(tr(text))
     w.setProperty("src", text)

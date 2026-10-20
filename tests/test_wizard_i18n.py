@@ -41,7 +41,7 @@ def _source_strings() -> set[str]:
     out |= {"Weight: {name}", "burn frequency", "peat depth", "dryness", "upstream contribution", "AHP pairwise matrix",
             "Relative importance of this criterion. Decided with the team; weights are normalised.",
             "Edit this in the YAML file (a matrix cannot be typed here)."}
-    for fname in ("ui.py", "controller.py", "setup_form.py", "preflight.py", "maptools.py", "widgets.py"):
+    for fname in ("ui.py", "controller.py", "setup_form.py", "preflight.py", "maptools.py", "widgets.py", "summary.py", "diagrams.py"):
         tree = ast.parse((PLUGIN / "wizard" / fname).read_text(encoding="utf8"))
         skip = {id(c) for n in ast.walk(tree) if isinstance(n, ast.JoinedStr) for c in ast.walk(n)}
         skip |= {id(n.value) for n in ast.walk(tree) if isinstance(n, ast.Expr)}          # docstrings

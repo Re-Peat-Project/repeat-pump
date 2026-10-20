@@ -157,3 +157,45 @@ def test_the_two_datums_are_one_field_in_the_wizard(world):
     keys = [p.key for p in v.params]
     assert "run.vertical_datum" in keys and "inputs.rivers.vertical_datum" not in keys
     assert v.missing.count("run.vertical_datum") == 1 and "inputs.rivers.vertical_datum" not in v.missing
+
+
+# ---------------------------------------------------------------- final screen and diagrams
+REPORT = {"counts": {"4": {"short_flagged": 1}, "6": {"scored": 5, "selected": 1}, "7": {"existing": 2, "proposed": 2}, "10": {"gates_required": 3}},
+          "ipg": [{"ipg": 0.33}, {"ipg": 1.5}, {"ipg": None}],
+          "routing": {"n_targets": 1, "n_unreachable": 1, "total_length_m": 1780.0, "total_lift_m": 1.78},
+          "pumps": [{"station_id": "PS001", "q_m3s": 0.0288, "h_m": 1.4, "p_kw": 0.61, "units_needed": 1, "shortfall_m3s": 0.01}],
+          "files": {"flow_acc": "x/flow_acc.tif"}, "warnings": ["a", "b"], "preset": {"keys": ["pumping.manning_n"]}}
+
+
+def test_summary_restates_the_report_and_flags_what_needs_attention():
+    from repeat_pump_qgis.wizard import summary
+    s = summary.summarise(REPORT)
+    rows = {name: dict(sec.rows) for name, sec in ((x.title, x) for x in s.sections)}
+    assert rows["Canal segments"]["Selected as targets"] == "1" and rows["Sekat"]["Canals with too few sekat (IPG below 1)"] == "1 / 2"
+    assert rows["Routes"]["Total lift"] == "1.78 m" and rows["Pumps"]["Total flow"] == "28.8 L/s"
+    assert s.pump_table[0][0] == "Station" and s.pump_table[1] == ["PS001", "28.8", "1.40", "0.61", "1"]
+    text = " ".join(s.notes)
+    assert "cannot deliver" in text and "cannot be reached" in text and "1 values came from the proposed defaults" in text and "2 warnings" in text
+    assert s.files == [("Flow accumulation", "x/flow_acc.tif")]
+
+
+def test_summary_of_an_empty_report_does_not_fail(tmp_path):
+    from repeat_pump_qgis.wizard import summary
+    assert summary.summarise({}).sections == [] and summary.load_report(tmp_path / "none.gpkg") is None
+    (tmp_path / "run_report.json").write_text("not json", encoding="utf8")
+    assert summary.load_report(tmp_path / "x.gpkg") is None
+
+
+def test_diagrams_are_well_formed_in_both_languages_and_follow_the_language():
+    import xml.etree.ElementTree as ET
+    from repeat_pump_qgis.wizard import diagrams
+    assert set(diagrams.DIAGRAMS) == {6, 7, 9} and diagrams.svg_for(3) is None
+    for stage in diagrams.DIAGRAMS:
+        en = diagrams.svg_for(stage)
+        ET.fromstring(en)
+        i18n.set_language("id")
+        id_ = diagrams.svg_for(stage)
+        ET.fromstring(id_)
+        i18n.set_language("en")
+        assert en != id_, stage
+    assert "jarak = dA / kemiringan" not in diagrams.svg_for(7)

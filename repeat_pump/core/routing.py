@@ -148,7 +148,8 @@ def run(ctx) -> None:
     cc = ctx.read_layer("canals_clean")
     disc_canals = set(cc.loc[~cc["reaches_river"].astype(bool), "canal_id"]) if "reaches_river" in cc else set()
     route_rows, routes, unreachable = [], {}, []
-    for tid, node in targets.items():
+    for k, (tid, node) in enumerate(targets.items()):
+        ctx.progress(k / max(len(targets), 1), f"target {k + 1} of {len(targets)}")
         if node not in paths_by_node:
             Rf = routing_graph(G, pc.uphill_penalty_lambda, True)
             Rf.add_edges_from((SUPER, s, dict(cost=0.0, length_m=0.0, dz_m=0.0)) for s in sources)

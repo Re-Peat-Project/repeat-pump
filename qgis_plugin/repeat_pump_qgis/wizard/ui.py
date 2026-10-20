@@ -18,7 +18,7 @@ from ..runconfig import attach_preset, build_run_config
 from ..runner import split_source
 from . import i18n, styling, theme
 from .i18n import tr
-from . import maptools, viewmodel as vm
+from . import diagrams, maptools, summary, viewmodel as vm
 from .controller import PRESET_RESOURCE, WizardController
 from .setup_form import SetupExtras
 
@@ -26,7 +26,7 @@ COMPACT_BELOW = 760
 RAIL_W, RAIL_COMPACT_W = 296, 76
 
 
-from .widgets import button, card, clear, file_widget, label, layer_filter, prop, svg_pixmap  # noqa: F401  (re-exported for the other modules)
+from .widgets import button, card, clear, file_widget, label, layer_filter, prop, svg_picture, svg_pixmap  # noqa: F401  (re-exported for the other modules)
 
 
 # ----------------------------------------------------------------------------- AHP pairwise matrix editor
@@ -660,8 +660,7 @@ class WizardPanel(QWidget):
         if view.status in ("done", "needs_review", "stale") and (view.layers or view.id in maptools.STAGE_VISIBLE) and self.controller.output_gpkg:
             b.addWidget(self._map_bar(view, model))
         if view.id == 11 and view.status == "done" and self.controller.output_gpkg:
-            rp = self.controller.output_gpkg.parent / "run_report.md"
-            b.addWidget(button("Open run report", "secondary", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(rp)))))
+            b.addWidget(self._results_card())
         if has_run or c.log:
             b.addWidget(self.log_toggle)
             b.addWidget(self.log_view)
@@ -703,7 +702,53 @@ class WizardPanel(QWidget):
             if ref:
                 fl.addWidget(label(tr("Reference:") + " " + ref, "learnRef"))
             lay.addWidget(f, 0 if not self.compact else i, i if not self.compact else 0)
+        svg = diagrams.svg_for(view.id)
+        if svg:                                           # the key idea of the stage as one small picture
+            pic = QLabel()
+            pic.setPixmap(svg_picture(svg, diagrams.W, diagrams.H))
+            pic.setAccessibleName(tr("Diagram of the key idea of this stage"))
+            lay.addWidget(pic, 1, 0, 1, 2 if not self.compact else 1)
         return w
+
+    def _results_card(self) -> QWidget:
+        """The final screen: the run's key results in one place, and where the outputs are."""
+        gpkg = self.controller.output_gpkg
+        rep = summary.load_report(gpkg)
+        f, lay = card()
+        lay.addWidget(label("Results at a glance", "cardTitle"))
+        if rep is None:
+            lay.addWidget(label("The run report could not be read.", "hint"))
+        else:
+            s = summary.summarise(rep)
+            grid = QGridLayout()
+            grid.setHorizontalSpacing(24)
+            grid.setVerticalSpacing(10)
+            for col, sec in enumerate(s.sections):
+                box = QVBoxLayout()
+                box.setSpacing(2)
+                box.addWidget(label(sec.title, "paramLabel"))
+                for name, value in sec.rows:
+                    box.addWidget(label(f"{name}: {value}", "paramHelp"))
+                grid.addLayout(box, col // 2, col % 2)
+            lay.addLayout(grid)
+            if s.pump_table:
+                lay.addWidget(label("Pump stations", "paramLabel"))
+                table = QGridLayout()
+                table.setHorizontalSpacing(18)
+                for r, row in enumerate(s.pump_table):
+                    for c, cell in enumerate(row):
+                        table.addWidget(label(cell, "paramLabel" if r == 0 else "paramHelp", wrap=False) if r == 0 else
+                                        QLabel(cell), r, c)
+                lay.addLayout(table)
+            for note in s.notes:
+                lay.addWidget(label(note, "hint"))
+        row = QHBoxLayout()
+        folder = gpkg.parent
+        row.addWidget(button("Open the run folder", "secondary", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))))
+        row.addWidget(button("Open run report", "secondary", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder / "run_report.md")))))
+        row.addStretch(1)
+        lay.addLayout(row)
+        return f
 
     def _callout(self, tone: str, title: str, text: str) -> QWidget:
         f = QFrame()
