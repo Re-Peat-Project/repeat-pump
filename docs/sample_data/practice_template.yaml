@@ -1,0 +1,100 @@
+# Practice starting config. Every `null` is a decision the wizard asks you for. Dummy data only.
+run:
+  name: practice_run
+  output_gpkg: out/practice.gpkg
+  crs: EPSG:32749
+  auto_reproject: false
+  vertical_datum: null
+  memory_budget_gb: 8
+  subkhg_selection:
+    mode: top_n
+    n: 1
+  clip_margin_m: null
+inputs:
+  dtm:
+    path: data/dtm.tif
+    surface_type: DTM
+    vertical_rmse_m: null
+  subkhg:
+    path: data/subkhg.gpkg
+  subkhg_priority:
+    path: data/subkhg_priority.csv
+  canals:
+    path: data/canals.gpkg
+  sekat_existing:
+    path: data/sekat_existing.gpkg
+  rivers:
+    path: data/rivers.gpkg
+    vertical_datum: null
+  burn_area:
+    path: data/burn_area.gpkg
+  peat_depth:
+    path: data/peat_depth.gpkg
+  moisture:
+    paths:
+    - data/moisture.tif
+    higher_is_wetter: null
+topology:
+  snap_tolerance_m: null
+  overshoot_max_m: null
+hydro:
+  breach_max_dist_cells: null
+  burn_depth_default_m: 2.0
+  flow_algorithm: dinf
+segments:
+  max_length_m: 500
+  min_length_m: 25
+profiles:
+  bank_offsets_m:
+  - 6
+  - 10
+  sample_step_m: 5
+  smoothing_window_m: 50
+sekat:
+  dA_m: 0.4
+  max_spacing_m: null
+  slope_reinforced_pct: 5.0
+  snap_tolerance_m: null
+  min_spacing_m: null
+prioritise:
+  ring_buffer_m:
+  - 15
+  - 100
+  criteria:
+    burn_freq:
+      weight: null
+      direction: higher_is_worse
+    peat_depth:
+      weight: null
+      direction: higher_is_worse
+    dryness:
+      weight: null
+      direction: higher_is_worse
+    upstream_contrib:
+      weight: null
+      direction: higher_is_worse
+  weights_mode: direct
+  ahp_matrix: null
+  feasibility:
+    concession_mode: null
+  top_fraction: 0.2
+  upstream_method: flow_acc
+  upstream_buffer_m: null
+pumping:
+  conveyance: null
+  manning_n: null
+  hazen_williams_c: null
+  pipe_diameter_m: null
+  pump_efficiency: null
+  max_head_per_station_m: null
+  pump_capacity_m3s: null
+  max_units_per_station: null
+  uphill_penalty_lambda: null
+  demand_mode: deficit
+  specific_yield: null
+  water_table_rise_m: null
+  influence_distance_m: null
+  routing: steiner
+  allow_gate_addition: true
+review:
+  auto_accept: []

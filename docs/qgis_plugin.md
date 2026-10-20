@@ -17,7 +17,8 @@ If no suitable Python is found (Python 3.11+ with pip and SSL, e.g. from python.
 the setup again. Advanced: pick your own interpreter with *Plugins > RE-PEAT Pompanisasi > Set Python environment (advanced)*, or
 set `REPEAT_PUMP_PYTHON`. Precedence: `REPEAT_PUMP_PYTHON`, then the chosen interpreter, then the auto-managed environment.
 
-Installation step by step, in English and Bahasa Indonesia: [install.html](install.html).
+Installation step by step, in English and Bahasa Indonesia: [install.html](install.html). Hands-on walkthrough with dummy data and
+screenshots: [wizard.html](wizard.html). Operator guide: [index.html](index.html).
 
 ## Guided wizard (recommended for training)
 The wizard speaks English and Bahasa Indonesia. Use the **EN** and **ID** buttons at the top right; it starts in Indonesian when

@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wizard guide with practice data / Panduan wizard dengan data latihan</title>
+<meta name="description" content="A hands-on walkthrough of the RE-PEAT Pompanisasi wizard in QGIS using a small set of dummy data. Panduan praktik wizard RE-PEAT Pompanisasi di QGIS dengan data tiruan kecil.">
+<style>
+:root {
+  --ground: #f4f1ea; --card: #ffffff; --ink: #17261f; --muted: #4c5e57; --line: #e3decf;
+  --teal: #1f6f6f; --teal-tint: #e4f1ee; --amber-tint: #fff1dc; --amber-line: #ebc689; --amber-ink: #5e3500;
+  --red-tint: #fbe5e1; --red-ink: #7b1f15;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #0f1a17; --card: #16241f; --ink: #e8f0ec; --muted: #a9bcb4; --line: #2a3b35;
+    --teal: #6fcfc0; --teal-tint: #173530; --amber-tint: #3a2a10; --amber-line: #7a5a22; --amber-ink: #f3d9a8;
+    --red-tint: #3a1d1a; --red-ink: #f5b5ab;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.6 "Segoe UI", "Noto Sans", "Helvetica Neue", Arial, sans-serif; }
+a { color: var(--teal); }
+a:focus-visible, button:focus-visible { outline: 3px solid var(--teal); outline-offset: 2px; }
+html:not([data-lang="id"]) .t-id { display: none !important; }
+html[data-lang="id"] .t-en { display: none !important; }
+
+.bar { position: sticky; top: 0; z-index: 5; background: var(--ground); border-bottom: 1px solid var(--line); }
+.bar-inner { max-width: 860px; margin: 0 auto; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 14px; font-weight: 700; }
+.brand a { font-weight: 600; font-size: 0.92rem; }
+.lang { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.lang button { font: inherit; font-size: 14px; font-weight: 700; padding: 5px 14px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.lang button[aria-pressed="true"] { background: var(--teal); color: var(--ground); }
+
+main { max-width: 860px; margin: 0 auto; padding: 28px 20px 72px; }
+h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 8px; letter-spacing: -0.01em; }
+h2 { font-size: 1.35rem; margin: 2.6rem 0 0.6rem; }
+h3 { font-size: 1.05rem; margin: 1.6rem 0 0.3rem; }
+p { margin: 0.6rem 0; }
+.lead { font-size: 1.1rem; color: var(--muted); }
+ul, ol { padding-left: 1.3rem; }
+li { margin: 0.35rem 0; }
+code { font-family: Consolas, "DejaVu Sans Mono", monospace; font-size: 0.9em; background: var(--teal-tint); padding: 1px 5px; border-radius: 5px; }
+.toc { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 20px; margin: 22px 0 0; }
+.toc ol { margin: 0; columns: 2; column-gap: 28px; }
+@media (max-width: 640px) { .toc ol { columns: 1; } }
+
+figure { margin: 1.1rem 0; }
+figure img { width: 100%; height: auto; display: block; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+figcaption { color: var(--muted); font-size: 0.9rem; margin-top: 0.4rem; }
+.callout { background: var(--amber-tint); border: 1px solid var(--amber-line); color: var(--amber-ink); border-radius: 12px; padding: 12px 16px; margin: 1rem 0; }
+.callout p { margin: 0; }
+.dummy { background: var(--red-tint); border-color: #e8a59d; color: var(--red-ink); }
+.step { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 4px 20px 14px; margin: 1.2rem 0; }
+.step h3 { display: flex; align-items: center; gap: 10px; margin-top: 1rem; }
+.step h3 .n { background: var(--teal); color: var(--ground); width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.9rem; flex-shrink: 0; }
+table { width: 100%; border-collapse: collapse; margin: 0.8rem 0; font-size: 0.95rem; background: var(--card); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--muted); font-weight: 600; background: var(--teal-tint); }
+tr:last-child td { border-bottom: 0; }
+footer { max-width: 860px; margin: 0 auto; padding: 0 20px 40px; color: var(--muted); font-size: 0.9rem; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.9rem; color: var(--muted); margin: 0.4rem 0 0; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+@media print { .bar { position: static; } .lang { display: none; } }
+</style>
+<noscript><style>html .t-id { display: block !important; } span.t-id, a.t-id { display: inline !important; } .lang { display: none; }</style></noscript>
+</head>
+<body>
+
+<div class="bar"><div class="bar-inner">
+  <div class="brand"><span>RE-PEAT</span>
+    <a href="index.html"><span class="t-en">Operator guide</span><span class="t-id">Panduan operator</span></a>
+    <a href="install.html"><span class="t-en">Installation</span><span class="t-id">Pemasangan</span></a></div>
+  <div class="lang" role="group" aria-label="Language / Bahasa"><button type="button" data-set="en" aria-pressed="true">English</button><button type="button" data-set="id" aria-pressed="false">Indonesia</button></div>
+</div></div>
+
+<main>
+
+<!-- ================================================================== ENGLISH -->
+<div class="t-en">
+<h1>Wizard guide with practice data</h1>
+<p class="lead">A hands-on walkthrough of the guided wizard in QGIS. You run all 11 stages on a tiny made-up landscape, so you can see every screen, every decision and every review stop before you touch real data.</p>
+
+<nav class="toc" aria-label="Contents"><ol>
+<li><a href="#e-prep">What you need</a></li>
+<li><a href="#e-tour">A tour of the window</a></li>
+<li><a href="#e-run">The walkthrough</a></li>
+<li><a href="#e-fast">The fast path</a></li>
+<li><a href="#e-more">Good to know</a></li>
+<li><a href="#e-values">Dummy values</a></li>
+</ol></nav>
+
+<div class="callout dummy"><p>Everything here uses <b>dummy data and dummy numbers</b>. The values were picked only so the small practice landscape finishes a run. They are not recommendations. For a real KHG, your team decides every value.</p></div>
+
+<h2 id="e-prep">What you need</h2>
+<ul>
+<li>QGIS 4 with the plugin installed and its engine set up. See <a href="install.html">install.html</a>.</li>
+<li>The practice data: <a href="practice_data.zip">practice_data.zip</a> (a small download, under 100 KB). Unzip it into a folder you can find again. You get a <code>data</code> folder with the layers, a starting config <code>practice_template.yaml</code>, and a ready-made run in <code>practice_run</code>.</li>
+<li>About 15 minutes. The wizard itself runs each stage in a few seconds on this tiny landscape.</li>
+</ul>
+<p>The practice landscape is a plane that rises eastwards from a river on the west edge. It has two canals, two sub-KHGs (only the top-priority one is used), two existing sekat, and simple peat and burn maps.</p>
+
+<h2 id="e-tour">A tour of the window</h2>
+<p>Open the wizard with the water-drop button on the QGIS toolbar. This is stage 2, waiting for you to review it, with <i>Learn mode</i> on.</p>
+<figure><img src="img/review_learn_en.png" alt="The wizard at stage 2 waiting for review" loading="lazy"><figcaption>The stage list on the left, the result tiles and the decisions on the card, and the actions along the bottom.</figcaption></figure>
+<ul>
+<li>The <b>stage list</b> on the left shows all 11 stages and where you are. Click a stage to look at it.</li>
+<li>The <b>card</b> in the middle shows what the stage does, its result numbers once it has run, warnings worth a look, and the <b>decisions</b> it needs from you.</li>
+<li>The <b>buttons</b> at the bottom change with the stage: run it, accept it, re-run it, or go back.</li>
+<li>At the top right, <b>EN</b> and <b>ID</b> switch the wizard between English and Bahasa Indonesia. <b>Learn mode</b> adds a short explanation and a reference to each stage.</li>
+</ul>
+<table>
+<thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>Ready to run</td><td>The stage before it is done. You can run it, once its decisions are filled in.</td></tr>
+<tr><td>Running</td><td>It is working. QGIS stays usable and you can cancel.</td></tr>
+<tr><td>Needs your review</td><td>A review stop (stages 2, 6 and 9). Check the layers, then accept or re-run.</td></tr>
+<tr><td>Done</td><td>Finished and accepted.</td></tr>
+<tr><td>Out of date</td><td>You changed a setting after it ran. Re-run it to apply the change.</td></tr>
+<tr><td>Failed or Interrupted</td><td>It stopped with an error or was cancelled. The card shows why. Run it again.</td></tr>
+<tr><td>Locked</td><td>An earlier stage is not finished yet. You can still prepare its decisions.</td></tr>
+</tbody></table>
+
+<h2 id="e-run">The walkthrough</h2>
+
+<div class="step">
+<h3><span class="n">1</span> Load the practice layers</h3>
+<p>In QGIS, add these files from the <code>data</code> folder: <code>dtm.tif</code>, <code>moisture.tif</code>, <code>subkhg.gpkg</code>, <code>canals.gpkg</code>, <code>sekat_existing.gpkg</code>, <code>rivers.gpkg</code>, <code>burn_area.gpkg</code> and <code>peat_depth.gpkg</code>. The CSV is chosen in the wizard, not loaded. All layers must be saved files, which these are.</p>
+</div>
+
+<div class="step">
+<h3><span class="n">2</span> Set up the run (stage 1)</h3>
+<p>Open the wizard. On stage 1, <i>Run setup</i> is open. Fill it in as in the table, then click <i>Create run</i>.</p>
+<table>
+<thead><tr><th>Field</th><th>Choose</th></tr></thead>
+<tbody>
+<tr><td>Output GeoPackage</td><td>A new file in an empty folder, for example <code>practice_out\practice.gpkg</code>. The folder becomes the run folder.</td></tr>
+<tr><td>Starting config</td><td><code>practice_template.yaml</code></td></tr>
+<tr><td>Sub-KHG priority table</td><td><code>data\subkhg_priority.csv</code></td></tr>
+<tr><td>DTM, moisture, sub-KHG, canals, sekat, rivers, burn, peat</td><td>The layer with the matching name</td></tr>
+<tr><td>Canal edits</td><td>Leave empty (it is optional)</td></tr>
+</tbody></table>
+<figure><img src="img/setup_en.png" alt="The run setup form filled in" loading="lazy"><figcaption>Run setup with the practice layers chosen. Optional layers can stay empty.</figcaption></figure>
+</div>
+
+<div class="step">
+<h3><span class="n">3</span> Fill in the decisions, run stage 1</h3>
+<p>A stage will not run while a decision is missing. The empty fields are highlighted and the Run button stays off. The wizard never fills them in. Type the values from the <a href="#e-values">table at the end</a>. Commas work as decimal marks.</p>
+<figure><img src="img/decisions_blocked_en.png" alt="Stage 1 with highlighted empty decision fields and a disabled Run button" loading="lazy"><figcaption>Stage 1 before the decisions are filled in. The footer says how many values are missing.</figcaption></figure>
+<p>Click <i>Run stage 1</i>. The result tiles appear, and warnings that deserve a look are listed under them.</p>
+<figure><img src="img/stage1_done_en.png" alt="Stage 1 finished with result tiles and a warning" loading="lazy"><figcaption>Stage 1 done. The DTM accuracy and coverage warnings, if any, show here.</figcaption></figure>
+</div>
+
+<div class="step">
+<h3><span class="n">4</span> Stage 2: a decision, then a review stop</h3>
+<p>Stage 2 needs a snap tolerance. Without it the stage is blocked.</p>
+<figure><img src="img/stage2_blocked_en.png" alt="Stage 2 blocked because the snap tolerance is empty" loading="lazy"><figcaption>One empty decision blocks the stage. Type the value and the Run button turns on.</figcaption></figure>
+<p>After you run it, the card says <i>Review needed</i> and the canal layers are on the map. Open the dangles and gaps layers and look at the loose ends. Turn on <i>Learn mode</i> if you want the reasoning. When you are satisfied, click <i>Accept and continue</i>.</p>
+<figure><img src="img/review_learn_en.png" alt="Stage 2 review with Learn mode on" loading="lazy"><figcaption>A review stop. Accept it, or re-run it after changing a decision.</figcaption></figure>
+</div>
+
+<div class="step">
+<h3><span class="n">5</span> Try changing your mind</h3>
+<p>Before you accept stage 2, change the snap tolerance to a different value. The stage turns <b>Out of date</b> and Accept disappears: its results were made with the old value. Put the old value back and it returns to <i>Needs your review</i>. This also protects you later in a real run, because a stage cannot be accepted on results that no longer match its settings.</p>
+<figure><img src="img/stale_en.png" alt="Stage 2 marked out of date after a decision changed" loading="lazy"><figcaption>Out of date: the only action offered is to re-run.</figcaption></figure>
+<p>Re-running an earlier stage clears the results of every stage after it, because they depend on it. The wizard asks before it does that and takes those layers off the map.</p>
+</div>
+
+<div class="step">
+<h3><span class="n">6</span> Stages 3 to 5</h3>
+<p>Stage 3 needs one decision, the maximum breach distance. Stages 4 and 5 need none. Run them one after another. Each result is added to the map, and the stage list shows the progress.</p>
+</div>
+
+<div class="step">
+<h3><span class="n">7</span> Stage 6: the weights</h3>
+<p>Stage 6 ranks the canal segments, and it needs your weights and one buffer distance. These are the decisions a team should talk about.</p>
+<figure><img src="img/decisions_stage6_en.png" alt="Stage 6 with four empty weight fields and a buffer field" loading="lazy"><figcaption>Four weights and a buffer distance. Weights are normalised, so only their proportions matter.</figcaption></figure>
+<p>Run it, then at the review stop look at the ranking on the map and at the sensitivity table. If the top segments change a lot when the weights move a little, discuss the weights before you accept.</p>
+</div>
+
+<div class="step">
+<h3><span class="n">8</span> Stages 7 and 8: sekat</h3>
+<p>Stage 7 needs three distances. It compares the existing sekat with what the terrain needs and proposes new ones. Stage 8 builds the network and needs nothing.</p>
+<figure><img src="img/stage7_done_en.png" alt="Stage 7 finished with sekat counts" loading="lazy"><figcaption>Existing and proposed sekat. Proposed sekat are on the map, with their height and type.</figcaption></figure>
+</div>
+
+<div class="step">
+<h3><span class="n">9</span> Stage 9: routes (review stop)</h3>
+<p>Stage 9 needs the uphill penalty. It finds the cheapest routes from the river to the top of each priority reach. At the review stop, check that every target is connected to a source. An unreachable target usually means a sekat without a gate.</p>
+<figure><img src="img/review_stage9_en.png" alt="Stage 9 waiting for review" loading="lazy"><figcaption>The routing review stop.</figcaption></figure>
+<div class="callout"><p>The practice starting config lets the engine add gates to the proposed sekat (<code>pumping.allow_gate_addition</code> in the YAML). Without it the dummy sekat would block the pumped water and the practice run could not finish. In a real run, your team decides this.</p></div>
+</div>
+
+<div class="step">
+<h3><span class="n">10</span> Stages 10 and 11: pumps and report</h3>
+<p>Stage 10 needs the pump settings. Choosing <i>canal</i> as the conveyance makes a new field, Manning's n, appear. That is normal: the stage asks only for what the chosen option needs.</p>
+<figure><img src="img/stage10_done_en.png" alt="Stage 10 finished with pump station counts" loading="lazy"><figcaption>Pump stations, gates that must be added, and any capacity shortfall.</figcaption></figure>
+<p>Stage 11 writes <code>run_report.md</code> and <code>run_report.json</code> next to your GeoPackage, and the card has a button to open the report.</p>
+</div>
+
+<div class="step">
+<h3><span class="n">11</span> See the result</h3>
+<p>The layers of every stage are in the QGIS layer panel, in a group named after the run. Here they are on top of the practice landscape.</p>
+<figure><img src="img/map.png" alt="Map of the practice run: river, canals, proposed sekat, pump routes and stations" loading="lazy"><figcaption>The practice result. The river is on the west edge; the canal climbs eastwards.
+<span class="legend"><span><i style="background:#2b6fb5"></i>pump route</span><span><i style="background:#e0922f"></i>sekat (existing: dark, proposed: orange)</span><span><i style="background:#c0392b"></i>pump station</span><span><i style="background:#7d4fb5"></i>gate required</span><span><i style="background:#2e9e7b"></i>target</span></span></figcaption></figure>
+</div>
+
+<h2 id="e-fast">The fast path</h2>
+<p>To skip the typing, use the ready-made run. In the wizard, click <i>Open an existing run</i> and choose <code>practice_run\run_config.yaml</code>. Every decision is already filled in with the dummy values, so you can run and accept the stages straight through. The run folder is <code>practice_run</code>, and the output appears in its <code>out</code> subfolder.</p>
+
+<h2 id="e-more">Good to know</h2>
+<ul>
+<li><b>Docked layout.</b> If you dock the wizard to the side of QGIS, the stage list shrinks to icons and the cards stack in one column.
+<figure><img src="img/compact_en.png" alt="The wizard docked narrow, with the stage list as icons" loading="lazy" style="max-width:260px"><figcaption>Narrow layout.</figcaption></figure></li>
+<li><b>Cancel.</b> While a stage runs, <i>Cancel run</i> stops the engine and anything it started, even when it is silent. Run the stage again afterwards.</li>
+<li><b>Come back later.</b> Everything is saved in the run folder. Use <i>Open an existing run</i> to continue where you stopped.</li>
+<li><b>Layers the form does not have.</b> The concession layer and water-level observations are not in the setup form yet. Add them to <code>run_config.yaml</code> by hand and re-run from stage 1.</li>
+<li><b>Language.</b> The wizard follows QGIS: it starts in Indonesian when QGIS is set to Indonesian. Messages written by the engine, such as warnings and the log, stay in English.</li>
+</ul>
+
+<h2 id="e-values">Dummy values for the practice run</h2>
+<div class="callout dummy"><p>Practice values only. Do not copy them into a real run.</p></div>
+<table>
+<thead><tr><th>Stage</th><th>Decision</th><th>Dummy value</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Clip margin around sub-KHGs</td><td>100 m</td></tr>
+<tr><td>1</td><td>DTM vertical accuracy (RMSE)</td><td>0.1 m</td></tr>
+<tr><td>1</td><td>Moisture index: higher means wetter</td><td>Yes</td></tr>
+<tr><td>1</td><td>Vertical datum of the DTM, and of river water levels</td><td>DUMMY-DATUM (both)</td></tr>
+<tr><td>2</td><td>Snap tolerance</td><td>2.0 m</td></tr>
+<tr><td>3</td><td>Maximum breach distance</td><td>20 cells</td></tr>
+<tr><td>6</td><td>Four criterion weights</td><td>0.25 each</td></tr>
+<tr><td>6</td><td>Upstream buffer</td><td>15 m</td></tr>
+<tr><td>7</td><td>Maximum sekat spacing / snap tolerance for existing sekat / minimum sekat spacing</td><td>1000 m / 10 m / 50 m</td></tr>
+<tr><td>9</td><td>Uphill penalty (lambda)</td><td>10</td></tr>
+<tr><td>10</td><td>Conveyance</td><td>canal</td></tr>
+<tr><td>10</td><td>Manning roughness n</td><td>0.035</td></tr>
+<tr><td>10</td><td>Pump efficiency</td><td>0.6</td></tr>
+<tr><td>10</td><td>Maximum head per station</td><td>1.0 m</td></tr>
+<tr><td>10</td><td>Capacity per pump unit</td><td>0.5 m3/s</td></tr>
+<tr><td>10</td><td>Canal influence distance</td><td>200 m</td></tr>
+</tbody></table>
+</div>
+
+<!-- ================================================================== INDONESIA -->
+<div class="t-id">
+<h1>Panduan wizard dengan data latihan</h1>
+<p class="lead">Panduan praktik wizard terpandu di QGIS. Anda menjalankan semua 11 tahap pada lanskap tiruan yang sangat kecil, sehingga Anda bisa melihat setiap layar, setiap keputusan, dan setiap titik tinjauan sebelum menyentuh data sungguhan.</p>
+
+<nav class="toc" aria-label="Daftar isi"><ol>
+<li><a href="#i-prep">Yang Anda butuhkan</a></li>
+<li><a href="#i-tour">Mengenal jendelanya</a></li>
+<li><a href="#i-run">Langkah demi langkah</a></li>
+<li><a href="#i-fast">Jalur cepat</a></li>
+<li><a href="#i-more">Baik diketahui</a></li>
+<li><a href="#i-values">Nilai tiruan</a></li>
+</ol></nav>
+
+<div class="callout dummy"><p>Semua yang ada di sini memakai <b>data dan angka tiruan</b>. Nilainya dipilih hanya agar lanskap latihan yang kecil dapat menyelesaikan satu proses. Nilai itu bukan rekomendasi. Untuk KHG sungguhan, tim Anda yang memutuskan setiap nilai.</p></div>
+
+<h2 id="i-prep">Yang Anda butuhkan</h2>
+<ul>
+<li>QGIS 4 dengan plugin terpasang dan mesinnya sudah disiapkan. Lihat <a href="install.html">install.html</a>.</li>
+<li>Data latihan: <a href="practice_data.zip">practice_data.zip</a> (unduhan kecil, kurang dari 100 KB). Ekstrak ke folder yang mudah Anda temukan lagi. Isinya folder <code>data</code> berisi layer, konfigurasi awal <code>practice_template.yaml</code>, dan satu proses siap pakai di <code>practice_run</code>.</li>
+<li>Sekitar 15 menit. Wizard sendiri menjalankan setiap tahap dalam beberapa detik pada lanskap kecil ini.</li>
+</ul>
+<p>Lanskap latihan berupa bidang yang naik ke arah timur dari sebuah sungai di tepi barat. Ada dua kanal, dua sub-KHG (hanya yang prioritas tertinggi dipakai), dua sekat yang sudah ada, serta peta gambut dan kebakaran sederhana.</p>
+
+<h2 id="i-tour">Mengenal jendelanya</h2>
+<p>Buka wizard dengan tombol tetesan air di toolbar QGIS. Ini adalah tahap 2 yang menunggu tinjauan Anda, dengan <i>Mode belajar</i> aktif.</p>
+<figure><img src="img/review_learn_id.png" alt="Wizard pada tahap 2 yang menunggu tinjauan" loading="lazy"><figcaption>Daftar tahap di kiri, kotak hasil dan keputusan di kartu, dan tombol aksi di bagian bawah.</figcaption></figure>
+<ul>
+<li><b>Daftar tahap</b> di kiri menampilkan semua 11 tahap dan posisi Anda. Klik sebuah tahap untuk melihatnya.</li>
+<li><b>Kartu</b> di tengah menampilkan apa yang dilakukan tahap itu, angka hasilnya setelah dijalankan, peringatan yang perlu dilihat, dan <b>keputusan</b> yang dibutuhkan dari Anda.</li>
+<li><b>Tombol</b> di bawah berubah menurut tahap: jalankan, terima, jalankan ulang, atau kembali.</li>
+<li>Di kanan atas, <b>EN</b> dan <b>ID</b> berpindah antara bahasa Inggris dan Bahasa Indonesia. <b>Mode belajar</b> menambahkan penjelasan singkat dan referensi pada setiap tahap.</li>
+</ul>
+<table>
+<thead><tr><th>Status</th><th>Artinya</th></tr></thead>
+<tbody>
+<tr><td>Siap dijalankan</td><td>Tahap sebelumnya selesai. Anda bisa menjalankannya setelah keputusannya terisi.</td></tr>
+<tr><td>Sedang berjalan</td><td>Sedang bekerja. QGIS tetap bisa dipakai dan Anda bisa membatalkan.</td></tr>
+<tr><td>Perlu tinjauan Anda</td><td>Titik tinjauan (tahap 2, 6, dan 9). Periksa layernya, lalu terima atau jalankan ulang.</td></tr>
+<tr><td>Selesai</td><td>Sudah selesai dan diterima.</td></tr>
+<tr><td>Usang</td><td>Anda mengubah pengaturan setelah tahap dijalankan. Jalankan ulang untuk menerapkan perubahan.</td></tr>
+<tr><td>Gagal atau Terhenti</td><td>Berhenti karena galat atau dibatalkan. Kartu menunjukkan sebabnya. Jalankan lagi.</td></tr>
+<tr><td>Terkunci</td><td>Tahap sebelumnya belum selesai. Keputusannya sudah bisa Anda siapkan.</td></tr>
+</tbody></table>
+
+<h2 id="i-run">Langkah demi langkah</h2>
+
+<div class="step">
+<h3><span class="n">1</span> Muat layer latihan</h3>
+<p>Di QGIS, tambahkan berkas ini dari folder <code>data</code>: <code>dtm.tif</code>, <code>moisture.tif</code>, <code>subkhg.gpkg</code>, <code>canals.gpkg</code>, <code>sekat_existing.gpkg</code>, <code>rivers.gpkg</code>, <code>burn_area.gpkg</code>, dan <code>peat_depth.gpkg</code>. Berkas CSV dipilih di wizard, tidak dimuat. Semua layer harus berupa berkas tersimpan, dan memang demikian.</p>
+</div>
+
+<div class="step">
+<h3><span class="n">2</span> Siapkan proses (tahap 1)</h3>
+<p>Buka wizard. Di tahap 1, <i>Pengaturan proses</i> terbuka. Isi seperti pada tabel, lalu klik <i>Buat proses</i>.</p>
+<table>
+<thead><tr><th>Kolom</th><th>Pilih</th></tr></thead>
+<tbody>
+<tr><td>GeoPackage keluaran</td><td>Berkas baru di folder kosong, misalnya <code>practice_out\practice.gpkg</code>. Folder itu menjadi folder proses.</td></tr>
+<tr><td>Konfigurasi awal</td><td><code>practice_template.yaml</code></td></tr>
+<tr><td>Tabel prioritas sub-KHG</td><td><code>data\subkhg_priority.csv</code></td></tr>
+<tr><td>DTM, kelembapan, sub-KHG, kanal, sekat, sungai, kebakaran, gambut</td><td>Layer dengan nama yang sesuai</td></tr>
+<tr><td>Suntingan kanal</td><td>Biarkan kosong (opsional)</td></tr>
+</tbody></table>
+<figure><img src="img/setup_id.png" alt="Formulir pengaturan proses yang sudah terisi" loading="lazy"><figcaption>Pengaturan proses dengan layer latihan terpilih. Layer opsional boleh dikosongkan.</figcaption></figure>
+</div>
+
+<div class="step">
+<h3><span class="n">3</span> Isi keputusan, jalankan tahap 1</h3>
+<p>Sebuah tahap tidak akan berjalan selama masih ada keputusan yang kosong. Kolom yang kosong disorot dan tombol Jalankan tetap mati. Wizard tidak pernah mengisinya. Ketik nilai dari <a href="#i-values">tabel di bagian akhir</a>. Koma dapat dipakai sebagai tanda desimal.</p>
+<figure><img src="img/decisions_blocked_id.png" alt="Tahap 1 dengan kolom keputusan kosong yang disorot dan tombol Jalankan mati" loading="lazy"><figcaption>Tahap 1 sebelum keputusan diisi. Bagian bawah menyebut berapa nilai yang masih kurang.</figcaption></figure>
+<p>Klik <i>Jalankan tahap 1</i>. Kotak hasil muncul, dan peringatan yang perlu dilihat dicantumkan di bawahnya.</p>
+<figure><img src="img/stage1_done_id.png" alt="Tahap 1 selesai dengan kotak hasil dan peringatan" loading="lazy"><figcaption>Tahap 1 selesai. Peringatan akurasi DTM dan cakupan, jika ada, tampil di sini.</figcaption></figure>
+</div>
+
+<div class="step">
+<h3><span class="n">4</span> Tahap 2: satu keputusan, lalu titik tinjauan</h3>
+<p>Tahap 2 membutuhkan toleransi penyambungan. Tanpanya, tahap ini terhalang.</p>
+<figure><img src="img/stage2_blocked_id.png" alt="Tahap 2 terhalang karena toleransi penyambungan kosong" loading="lazy"><figcaption>Satu keputusan yang kosong menghalangi tahap. Ketik nilainya dan tombol Jalankan menyala.</figcaption></figure>
+<p>Setelah dijalankan, kartu menampilkan <i>Perlu tinjauan Anda</i> dan layer kanal sudah ada di peta. Buka layer dangle dan celah, lalu lihat ujung-ujung yang terlepas. Aktifkan <i>Mode belajar</i> jika Anda ingin penalarannya. Jika sudah puas, klik <i>Terima dan lanjutkan</i>.</p>
+<figure><img src="img/review_learn_id.png" alt="Tinjauan tahap 2 dengan Mode belajar aktif" loading="lazy"><figcaption>Titik tinjauan. Terima, atau jalankan ulang setelah mengubah sebuah keputusan.</figcaption></figure>
+</div>
+
+<div class="step">
+<h3><span class="n">5</span> Coba ubah pikiran</h3>
+<p>Sebelum menerima tahap 2, ubah toleransi penyambungan ke nilai lain. Tahap berubah menjadi <b>Usang</b> dan tombol Terima hilang: hasilnya dibuat dengan nilai yang lama. Kembalikan nilai lama dan tahap kembali ke <i>Perlu tinjauan Anda</i>. Ini juga melindungi Anda nanti pada proses sungguhan, karena sebuah tahap tidak bisa diterima atas hasil yang sudah tidak cocok dengan pengaturannya.</p>
+<figure><img src="img/stale_id.png" alt="Tahap 2 ditandai usang setelah sebuah keputusan berubah" loading="lazy"><figcaption>Usang: satu-satunya aksi yang ditawarkan adalah menjalankan ulang.</figcaption></figure>
+<p>Menjalankan ulang tahap yang lebih awal menghapus hasil semua tahap sesudahnya, karena mereka bergantung padanya. Wizard bertanya dulu sebelum melakukannya dan mencabut layer-layer itu dari peta.</p>
+</div>
+
+<div class="step">
+<h3><span class="n">6</span> Tahap 3 sampai 5</h3>
+<p>Tahap 3 membutuhkan satu keputusan, jarak penembusan maksimum. Tahap 4 dan 5 tidak membutuhkan apa pun. Jalankan satu per satu. Setiap hasil ditambahkan ke peta, dan daftar tahap menunjukkan kemajuannya.</p>
+</div>
+
+<div class="step">
+<h3><span class="n">7</span> Tahap 6: bobot</h3>
+<p>Tahap 6 mengurutkan segmen kanal, dan membutuhkan bobot Anda serta satu jarak penyangga. Inilah keputusan yang sebaiknya dibicarakan oleh tim.</p>
+<figure><img src="img/decisions_stage6_id.png" alt="Tahap 6 dengan empat kolom bobot kosong dan satu kolom penyangga" loading="lazy"><figcaption>Empat bobot dan satu jarak penyangga. Bobot dinormalisasi, jadi hanya perbandingannya yang penting.</figcaption></figure>
+<p>Jalankan, lalu di titik tinjauan lihat peringkat di peta dan tabel sensitivitas. Jika segmen teratas banyak berubah saat bobot digeser sedikit, bahaslah bobotnya sebelum menerima.</p>
+</div>
+
+<div class="step">
+<h3><span class="n">8</span> Tahap 7 dan 8: sekat</h3>
+<p>Tahap 7 membutuhkan tiga jarak. Tahap ini membandingkan sekat yang ada dengan kebutuhan medan dan mengusulkan sekat baru. Tahap 8 menyusun jaringan dan tidak membutuhkan apa pun.</p>
+<figure><img src="img/stage7_done_id.png" alt="Tahap 7 selesai dengan jumlah sekat" loading="lazy"><figcaption>Sekat yang ada dan sekat usulan. Sekat usulan ada di peta, lengkap dengan tinggi dan tipenya.</figcaption></figure>
+</div>
+
+<div class="step">
+<h3><span class="n">9</span> Tahap 9: rute (titik tinjauan)</h3>
+<p>Tahap 9 membutuhkan penalti tanjakan. Tahap ini mencari rute termurah dari sungai ke bagian atas setiap ruas prioritas. Di titik tinjauan, periksa bahwa setiap sasaran tersambung ke sumber. Sasaran yang tak terjangkau biasanya berarti ada sekat tanpa pintu air.</p>
+<figure><img src="img/review_stage9_id.png" alt="Tahap 9 menunggu tinjauan" loading="lazy"><figcaption>Titik tinjauan penentuan rute.</figcaption></figure>
+<div class="callout"><p>Konfigurasi awal latihan mengizinkan mesin menambahkan pintu air pada sekat usulan (<code>pumping.allow_gate_addition</code> di YAML). Tanpa itu, sekat tiruan akan menghalangi air pompa dan proses latihan tidak dapat selesai. Pada proses sungguhan, tim Anda yang memutuskannya.</p></div>
+</div>
+
+<div class="step">
+<h3><span class="n">10</span> Tahap 10 dan 11: pompa dan laporan</h3>
+<p>Tahap 10 membutuhkan pengaturan pompa. Memilih <i>canal</i> sebagai penyaluran memunculkan kolom baru, n Manning. Itu normal: tahap hanya meminta apa yang dibutuhkan pilihan Anda.</p>
+<figure><img src="img/stage10_done_id.png" alt="Tahap 10 selesai dengan jumlah stasiun pompa" loading="lazy"><figcaption>Stasiun pompa, pintu air yang harus ditambah, dan kekurangan kapasitas jika ada.</figcaption></figure>
+<p>Tahap 11 menulis <code>run_report.md</code> dan <code>run_report.json</code> di samping GeoPackage Anda, dan kartunya memiliki tombol untuk membuka laporan.</p>
+</div>
+
+<div class="step">
+<h3><span class="n">11</span> Lihat hasilnya</h3>
+<p>Layer setiap tahap ada di panel layer QGIS, dalam grup yang diberi nama sesuai proses. Berikut tampilannya di atas lanskap latihan.</p>
+<figure><img src="img/map.png" alt="Peta hasil latihan: sungai, kanal, sekat usulan, rute pompa, dan stasiun" loading="lazy"><figcaption>Hasil latihan. Sungai ada di tepi barat; kanal naik ke arah timur.
+<span class="legend"><span><i style="background:#2b6fb5"></i>rute pompa</span><span><i style="background:#e0922f"></i>sekat (yang ada: gelap, usulan: oranye)</span><span><i style="background:#c0392b"></i>stasiun pompa</span><span><i style="background:#7d4fb5"></i>pintu air dibutuhkan</span><span><i style="background:#2e9e7b"></i>sasaran</span></span></figcaption></figure>
+</div>
+
+<h2 id="i-fast">Jalur cepat</h2>
+<p>Untuk melewati pengetikan, pakai proses yang sudah jadi. Di wizard, klik <i>Buka proses yang ada</i> dan pilih <code>practice_run\run_config.yaml</code>. Semua keputusan sudah terisi dengan nilai tiruan, jadi Anda dapat langsung menjalankan dan menerima tahap demi tahap. Folder prosesnya adalah <code>practice_run</code>, dan keluarannya muncul di subfolder <code>out</code>.</p>
+
+<h2 id="i-more">Baik diketahui</h2>
+<ul>
+<li><b>Tata letak dok.</b> Jika Anda memasang wizard di sisi QGIS, daftar tahap mengecil menjadi ikon dan kartu tersusun dalam satu kolom.
+<figure><img src="img/compact_id.png" alt="Wizard yang dipasang sempit, dengan daftar tahap berupa ikon" loading="lazy" style="max-width:260px"><figcaption>Tata letak sempit.</figcaption></figure></li>
+<li><b>Batalkan.</b> Saat sebuah tahap berjalan, <i>Batalkan proses</i> menghentikan mesin dan semua yang dimulainya, bahkan ketika mesin diam saja. Jalankan tahapnya lagi sesudahnya.</li>
+<li><b>Kembali lagi nanti.</b> Semuanya tersimpan di folder proses. Pakai <i>Buka proses yang ada</i> untuk melanjutkan dari tempat Anda berhenti.</li>
+<li><b>Layer yang belum ada di formulir.</b> Layer konsesi dan pengamatan tinggi muka air belum ada di formulir pengaturan. Tambahkan secara manual ke <code>run_config.yaml</code> lalu jalankan ulang dari tahap 1.</li>
+<li><b>Bahasa.</b> Wizard mengikuti QGIS: wizard dimulai dalam bahasa Indonesia jika QGIS diatur ke bahasa Indonesia. Pesan yang ditulis mesin, seperti peringatan dan log, tetap berbahasa Inggris.</li>
+</ul>
+
+<h2 id="i-values">Nilai tiruan untuk proses latihan</h2>
+<div class="callout dummy"><p>Hanya nilai latihan. Jangan salin ke proses sungguhan.</p></div>
+<table>
+<thead><tr><th>Tahap</th><th>Keputusan</th><th>Nilai tiruan</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Margin pemotongan di sekitar sub-KHG</td><td>100 m</td></tr>
+<tr><td>1</td><td>Akurasi vertikal DTM (RMSE)</td><td>0,1 m</td></tr>
+<tr><td>1</td><td>Indeks kelembapan: nilai lebih tinggi berarti lebih basah</td><td>Ya</td></tr>
+<tr><td>1</td><td>Datum vertikal DTM, dan tinggi muka air sungai</td><td>DUMMY-DATUM (keduanya)</td></tr>
+<tr><td>2</td><td>Toleransi penyambungan</td><td>2,0 m</td></tr>
+<tr><td>3</td><td>Jarak penembusan maksimum</td><td>20 sel</td></tr>
+<tr><td>6</td><td>Empat bobot kriteria</td><td>0,25 masing-masing</td></tr>
+<tr><td>6</td><td>Penyangga hulu</td><td>15 m</td></tr>
+<tr><td>7</td><td>Jarak antarsekat maksimum / toleransi penyambungan sekat yang ada / jarak antarsekat minimum</td><td>1000 m / 10 m / 50 m</td></tr>
+<tr><td>9</td><td>Penalti tanjakan (lambda)</td><td>10</td></tr>
+<tr><td>10</td><td>Penyaluran</td><td>canal</td></tr>
+<tr><td>10</td><td>Kekasaran Manning n</td><td>0,035</td></tr>
+<tr><td>10</td><td>Efisiensi pompa</td><td>0,6</td></tr>
+<tr><td>10</td><td>Tinggi tekan maksimum per stasiun</td><td>1,0 m</td></tr>
+<tr><td>10</td><td>Kapasitas per unit pompa</td><td>0,5 m3/s</td></tr>
+<tr><td>10</td><td>Jarak pengaruh kanal</td><td>200 m</td></tr>
+</tbody></table>
+</div>
+
+</main>
+
+<footer>
+  <p class="t-en">RE-PEAT, GIS workstream, Departemen Teknik Geodesi UGM. The practice data is synthetic and carries no real information. Rebuild it with <code>python scripts/make_sample_data.py</code>.</p>
+  <p class="t-id">RE-PEAT, alur kerja GIS, Departemen Teknik Geodesi UGM. Data latihan bersifat sintetis dan tidak memuat informasi nyata. Buat ulang dengan <code>python scripts/make_sample_data.py</code>.</p>
+</footer>
+
+<script>
+(function () {
+  var root = document.documentElement, buttons = document.querySelectorAll(".lang button");
+  function apply(code) {
+    root.setAttribute("data-lang", code); root.lang = code;
+    for (var i = 0; i < buttons.length; i++) buttons[i].setAttribute("aria-pressed", String(buttons[i].getAttribute("data-set") === code));
+    try { localStorage.setItem("repeat_pump_doc_lang", code); } catch (e) {}
+  }
+  var start = "";
+  try { start = localStorage.getItem("repeat_pump_doc_lang") || ""; } catch (e) {}
+  if (start !== "en" && start !== "id") start = (navigator.language || "").toLowerCase().indexOf("id") === 0 ? "id" : "en";
+  apply(start);
+  for (var i = 0; i < buttons.length; i++) buttons[i].addEventListener("click", function () { apply(this.getAttribute("data-set")); });
+})();
+</script>
+</body>
+</html>

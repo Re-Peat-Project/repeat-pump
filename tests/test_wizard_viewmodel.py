@@ -259,6 +259,18 @@ def test_build_run_config_overrides_and_params(tmp_path):
     load_config(rc.write_run_config(out, tmp_path / "run" / "run_config.yaml"))   # still a valid engine config
 
 
+def test_optional_layers_left_empty_are_dropped_from_the_config(tmp_path):
+    """The template lists optional inputs with placeholder paths; leaving one empty must not leave that path behind."""
+    cfg = tmp_path / "t.yaml"
+    cfg.write_text(EXAMPLE.read_text(encoding="utf8"), encoding="utf8")
+    kept = rc.build_run_config(cfg)
+    assert "canal_edits" in kept["inputs"]                         # the placeholder is there without the fix
+    out = rc.build_run_config(cfg, vectors={"rivers": ("D:/r.gpkg", None)}, drop=["canal_edits", "sekat_existing"])
+    assert "canal_edits" not in out["inputs"] and "sekat_existing" not in out["inputs"]
+    assert out["inputs"]["rivers"]["path"] == "D:/r.gpkg" and "canals" in out["inputs"]
+    load_config(rc.write_run_config(out, tmp_path / "r" / "run_config.yaml"))     # still a valid engine config
+
+
 def test_dotted_helpers():
     d = {}
     rc.set_dotted(d, "prioritise.criteria.burn_freq.weight", 0.3)

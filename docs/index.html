@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RE-PEAT Pompanisasi: Operator Guide / Panduan Operator</title>
+<meta name="description" content="How to go from canal, peat and elevation data to priority canals, sekat and pump stations for peatland rewetting. Dari data kanal, gambut, dan ketinggian ke kanal prioritas, sekat, dan stasiun pompa untuk pembasahan ulang gambut.">
+<style>
+:root{
+  --bg:#fafaf7; --card:#ffffff; --ink:#1f2a24; --muted:#5b6862; --line:#dde3dd;
+  --accent:#1d6b4f; --accent-soft:#e3f1ea; --warn:#9a5b00; --warn-soft:#fff3dc; --stop:#8a2b2b; --stop-soft:#fbe9e7;
+  --code:#f0f3ef;
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#141a17;--card:#1b2320;--ink:#e6ece8;--muted:#9fb0a7;--line:#2c3833;--accent:#6fcf9f;--accent-soft:#1d3329;
+        --warn:#f0b35a;--warn-soft:#33291a;--stop:#f08a80;--stop-soft:#362120;--code:#212b27;}
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--accent)}
+header{padding:2.5rem 1rem 1.5rem;border-bottom:1px solid var(--line);background:var(--card)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 1rem}
+header h1{margin:0 0 .4rem;font-size:1.9rem}
+header p{margin:0;color:var(--muted);max-width:60ch}
+.layout{display:grid;grid-template-columns:220px 1fr;gap:2rem;max-width:1080px;margin:0 auto;padding:1.5rem 1rem 4rem}
+nav{position:sticky;top:1rem;align-self:start;font-size:.92rem}
+nav a{display:block;padding:.25rem .6rem;border-left:2px solid var(--line);text-decoration:none;color:var(--muted)}
+nav a:hover{color:var(--accent);border-left-color:var(--accent)}
+@media (max-width:820px){.layout{grid-template-columns:1fr}nav{position:static;display:flex;flex-wrap:wrap;gap:.2rem .8rem}nav a{border:0;padding:.1rem 0}}
+section{margin-bottom:2.8rem;scroll-margin-top:1rem}
+h2{font-size:1.4rem;margin:0 0 .8rem;padding-bottom:.3rem;border-bottom:2px solid var(--accent-soft)}
+h3{font-size:1.05rem;margin:1.4rem 0 .4rem}
+p{margin:.5rem 0}
+ul,ol{padding-left:1.3rem;margin:.4rem 0}
+li{margin:.25rem 0}
+code{background:var(--code);padding:.08rem .35rem;border-radius:4px;font:.88em ui-monospace,Consolas,monospace}
+pre{background:var(--code);padding:.8rem 1rem;border-radius:8px;overflow:auto;font:.86rem/1.5 ui-monospace,Consolas,monospace}
+pre code{background:none;padding:0}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:.92rem;margin:.6rem 0}
+th,td{text-align:left;padding:.5rem .7rem;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--accent-soft);font-weight:600}
+tr:last-child td{border-bottom:0}
+.note,.warn,.stop{padding:.7rem 1rem;border-radius:8px;margin:.8rem 0;border-left:4px solid}
+.note{background:var(--accent-soft);border-color:var(--accent)}
+.warn{background:var(--warn-soft);border-color:var(--warn)}
+.stop{background:var(--stop-soft);border-color:var(--stop)}
+.note b,.warn b,.stop b{display:block;margin-bottom:.1rem}
+.flow{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin:1rem 0}
+.flow span{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:.25rem .8rem;font-size:.85rem}
+.flow span.review{border-color:var(--stop);color:var(--stop);font-weight:600}
+.flow i{color:var(--muted);font-style:normal}
+.stage{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:1rem 1.2rem;margin:1rem 0}
+.stage h3{margin:0 0 .3rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap}
+.num{background:var(--accent);color:var(--bg);border-radius:999px;min-width:1.7rem;height:1.7rem;display:inline-flex;align-items:center;justify-content:center;font-size:.9rem}
+.tag{font-size:.72rem;font-weight:600;padding:.1rem .5rem;border-radius:999px;background:var(--stop-soft);color:var(--stop);border:1px solid var(--stop)}
+dl{display:grid;grid-template-columns:7.5rem 1fr;gap:.25rem .8rem;margin:.6rem 0 0}
+dt{color:var(--muted);font-size:.85rem;text-transform:uppercase;letter-spacing:.03em;padding-top:.1rem}
+dd{margin:0}
+footer{color:var(--muted);font-size:.85rem;padding:1rem;text-align:center;border-top:1px solid var(--line)}
+
+/* DIAGRAMS */
+svg.diagram{width:100%;height:auto;display:block;margin:.8rem 0;background:var(--card);border:1px solid var(--line);border-radius:10px}
+.diagram text{fill:var(--ink);font:12.5px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.diagram .t{font-weight:600;font-size:13.5px}
+.diagram .m{fill:var(--muted);font-size:11.5px}
+.diagram .in{fill:var(--card);stroke:var(--line);stroke-width:1.5}
+.diagram .st{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5}
+.diagram .rv{fill:var(--accent-soft);stroke:var(--stop);stroke-width:2}
+.diagram .out{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5;stroke-dasharray:0}
+.diagram .cfg{fill:var(--warn-soft);stroke:var(--warn);stroke-width:1.5}
+.diagram .ln{stroke:var(--muted);stroke-width:1.4;fill:none}
+.diagram .ld{stroke:var(--warn);stroke-width:1.2;fill:none;stroke-dasharray:5 4}
+.diagram .lm{stroke:var(--accent);stroke-width:2.2;fill:none}
+.diagram .lg{fill:var(--muted)}
+.diagram .badge{fill:var(--accent)}
+.diagram .badgev{fill:var(--stop)}
+.diagram .bt{fill:var(--bg);font-weight:700;font-size:12px;text-anchor:middle}
+.legend{display:flex;flex-wrap:wrap;gap:.4rem 1.2rem;font-size:.85rem;color:var(--muted);margin:.2rem 0 1rem}
+.legend b{display:inline-block;width:1.6rem;height:.7rem;border-radius:3px;vertical-align:middle;margin-right:.35rem;border:1.5px solid}
+/* END DIAGRAMS */
+
+/* ---- language switch and figures ---- */
+html:not([data-lang="id"]) .t-id{display:none!important}
+html[data-lang="id"] .t-en{display:none!important}
+.hbar{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:.8rem}
+.brandname{font-weight:700;letter-spacing:.02em;color:var(--accent)}
+.lang{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.lang button{font:inherit;font-size:.85rem;font-weight:700;padding:.3rem .9rem;border:0;background:transparent;color:var(--muted);cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--accent);color:var(--bg)}
+.lang button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.toplinks{margin-top:.8rem;display:flex;flex-wrap:wrap;gap:.5rem 1.2rem;font-size:.92rem}
+figure.shot{margin:1rem 0}
+figure.shot img{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+figure.shot figcaption{color:var(--muted);font-size:.88rem;margin-top:.4rem}
+@media print{.lang{display:none}}
+</style>
+<noscript><style>html .t-id{display:block!important} nav .t-id{display:inline!important} span.t-id{display:inline!important} .lang{display:none}</style></noscript>
+</head>
+<body>
+<header><div class="wrap">
+  <div class="hbar"><span class="brandname">RE-PEAT Pompanisasi</span>
+    <div class="lang" role="group" aria-label="Language / Bahasa"><button type="button" data-set="en" aria-pressed="true">English</button><button type="button" data-set="id" aria-pressed="false">Indonesia</button></div></div>
+  <div class="t-en"><h1>RE-PEAT Pompanisasi: Operator Guide</h1>
+  <p>How to go from your canal, peat and elevation data to a map of priority canals, proposed canal blocks (sekat) and pump stations for peatland rewetting. No programming needed.</p>
+  <div class="toplinks"><a href="install.html">Install the plugin</a><a href="wizard.html">Wizard guide with practice data</a><a href="qgis_plugin.md">Plugin details</a></div></div>
+  <div class="t-id"><h1>RE-PEAT Pompanisasi: Panduan Operator</h1>
+  <p>Cara berjalan dari data kanal, gambut, dan ketinggian Anda menuju peta kanal prioritas, sekat (penahan kanal) usulan, dan stasiun pompa untuk pembasahan ulang lahan gambut. Tidak perlu pemrograman.</p>
+  <div class="toplinks"><a href="install.html">Pasang plugin</a><a href="wizard.html">Panduan wizard dengan data latihan</a><a href="qgis_plugin.md">Rincian plugin</a></div></div>
+</div></header>
+
+<div class="layout">
+<nav aria-label="Contents / Daftar isi">
+  <a href="#what"><span class="t-en">What it does</span><span class="t-id">Fungsi alat ini</span></a>
+  <a href="#map"><span class="t-en">How it fits together</span><span class="t-id">Cara kerjanya</span></a>
+  <a href="#before"><span class="t-en">Before you start</span><span class="t-id">Sebelum mulai</span></a>
+  <a href="#data"><span class="t-en">Input data</span><span class="t-id">Data masukan</span></a>
+  <a href="#config"><span class="t-en">The config file</span><span class="t-id">Berkas konfigurasi</span></a>
+  <a href="#run"><span class="t-en">Running it</span><span class="t-id">Menjalankannya</span></a>
+  <a href="#stages"><span class="t-en">The 11 stages</span><span class="t-id">11 tahap</span></a>
+  <a href="#review"><span class="t-en">Review stops</span><span class="t-id">Titik tinjauan</span></a>
+  <a href="#results"><span class="t-en">Reading the results</span><span class="t-id">Membaca hasil</span></a>
+  <a href="#problems"><span class="t-en">Troubleshooting</span><span class="t-id">Pemecahan masalah</span></a>
+  <a href="#glossary"><span class="t-en">Glossary</span><span class="t-id">Daftar istilah</span></a>
+  <a href="wizard.html"><span class="t-en">Wizard guide + practice</span><span class="t-id">Panduan wizard + latihan</span></a>
+  <a href="install.html"><span class="t-en">Installation</span><span class="t-id">Pemasangan</span></a>
+</nav>
+
+<main>
+
+<section id="what">
+<div class="t-en">
+<h2>What it does</h2>
+<p>You give it a bare-earth elevation model (DTM), the canal network, peat and burn maps, and the priority sub-KHGs. It then works in 11 stages, which the computer runs one after another:</p>
+<div class="flow">
+  <span>1 Load</span><i>›</i><span class="review">2 Clean canals</span><i>›</i><span>3 Flow</span><i>›</i><span>4 Segments</span><i>›</i><span>5 Land profiles</span><i>›</i>
+  <span class="review">6 Prioritise</span><i>›</i><span>7 Sekat</span><i>›</i><span>8 Network</span><i>›</i><span class="review">9 Routing</span><i>›</i><span>10 Pumps</span><i>›</i><span>11 Report</span>
+</div>
+<p>Red stages are <b>review stops</b>: the tool pauses so that you can look at the result and approve it before it continues (see <a href="#review">Review stops</a>).</p>
+<div class="note"><b>What you end up with</b>A GeoPackage (<code>.gpkg</code>) of map layers you open in QGIS, plus a written report (<code>run_report.md</code>). Canals ranked by need, proposed sekat locations and heights, water source points, pump routes, pump stations with their power, and the gates you must add.</div>
+</div>
+<div class="t-id">
+<h2>Fungsi alat ini</h2>
+<p>Anda memberikan model ketinggian permukaan tanah (DTM), jaringan kanal, peta gambut dan kebakaran, serta sub-KHG prioritas. Alat ini lalu bekerja dalam 11 tahap yang dijalankan komputer satu per satu:</p>
+<div class="flow">
+  <span>1 Muat</span><i>›</i><span class="review">2 Bersihkan kanal</span><i>›</i><span>3 Aliran</span><i>›</i><span>4 Segmen</span><i>›</i><span>5 Profil lahan</span><i>›</i>
+  <span class="review">6 Prioritasi</span><i>›</i><span>7 Sekat</span><i>›</i><span>8 Jaringan</span><i>›</i><span class="review">9 Rute</span><i>›</i><span>10 Pompa</span><i>›</i><span>11 Laporan</span>
+</div>
+<p>Tahap berwarna merah adalah <b>titik tinjauan</b>: alat berhenti agar Anda dapat memeriksa hasilnya dan menyetujuinya sebelum melanjutkan (lihat <a href="#review">Titik tinjauan</a>).</p>
+<div class="note"><b>Hasil akhir</b>Sebuah GeoPackage (<code>.gpkg</code>) berisi layer peta yang Anda buka di QGIS, ditambah laporan tertulis (<code>run_report.md</code>). Isinya kanal yang diurutkan menurut kebutuhan, lokasi dan tinggi sekat usulan, titik sumber air, rute pompa, stasiun pompa beserta dayanya, dan pintu air yang harus Anda tambahkan.</div>
+
+</div>
+</section>
+
+<section id="map">
+<div class="t-en">
+<h2>How it fits together</h2>
+<p>The big picture first: your data goes in on the left, three phases do the work, and the results come out on the right. Red numbered dots are the <b>review stops</b> (after stages 2, 6 and 9); dashed orange arrows show where your decisions in the config file are used.</p>
+<svg class="diagram" viewBox="0 0 1000 480" role="img" aria-label="Overview: input data feed three phases that produce the results"><defs><marker id="ah1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="lg"/></marker></defs><rect x="20" y="20" width="250" height="76" rx="9" class="in"/><text x="30" y="39" class="t">Terrain</text><text x="30" y="56" class="m">DTM (bare-earth elevation)</text><text x="30" y="71" class="m">Moisture index raster</text><rect x="20" y="110" width="250" height="76" rx="9" class="in"/><text x="30" y="129" class="t">Canals and fixes</text><text x="30" y="146" class="m">Canal lines</text><text x="30" y="161" class="m">Canal edits (optional)</text><text x="30" y="176" class="m">Existing sekat (optional)</text><rect x="20" y="200" width="250" height="76" rx="9" class="in"/><text x="30" y="219" class="t">Peat and fire</text><text x="30" y="236" class="m">Burn scars (frequency)</text><text x="30" y="251" class="m">Peat depth classes</text><rect x="20" y="290" width="250" height="76" rx="9" class="in"/><text x="30" y="309" class="t">Water and areas</text><text x="30" y="326" class="m">Sub-KHGs + priority table</text><text x="30" y="341" class="m">Rivers, concession (optional)</text><rect x="20" y="392" width="250" height="66" rx="9" class="cfg"/><text x="30" y="411" class="t">Your decisions (config file)</text><text x="30" y="428" class="m">weights, tolerances, pump settings</text><rect x="370" y="20" width="290" height="120" rx="9" class="st"/><text x="380" y="39" class="t">Prepare the network</text><text x="380" y="56" class="m">Load and check data, clean canals,</text><text x="380" y="71" class="m">flow analysis, segments, land profiles</text><text x="384" y="128" class="m">stages 1-5</text><circle cx="640" cy="40" r="12" class="badgev"/><text x="640" y="44.5" class="bt">2</text><text x="622" y="44" class="m" text-anchor="end">review stop</text><rect x="370" y="170" width="290" height="120" rx="9" class="st"/><text x="380" y="189" class="t">Decide where to act</text><text x="380" y="206" class="m">Rank segments by need,</text><text x="380" y="221" class="m">check and place sekat</text><text x="384" y="278" class="m">stages 6-7</text><circle cx="640" cy="190" r="12" class="badgev"/><text x="640" y="194.5" class="bt">6</text><text x="622" y="194" class="m" text-anchor="end">review stop</text><rect x="370" y="320" width="290" height="120" rx="9" class="st"/><text x="380" y="339" class="t">Route water and size pumps</text><text x="380" y="356" class="m">Network, sources and targets,</text><text x="380" y="371" class="m">routes, pump stations, gates</text><text x="384" y="428" class="m">stages 8-10</text><circle cx="640" cy="340" r="12" class="badgev"/><text x="640" y="344.5" class="bt">9</text><text x="622" y="344" class="m" text-anchor="end">review stop</text><rect x="740" y="120" width="240" height="230" rx="9" class="out"/><text x="750" y="139" class="t">What you get</text><text x="750" y="156" class="m">Canals ranked by need</text><text x="750" y="171" class="m">Proposed sekat: place, height,</text><text x="750" y="186" class="m">type, and IPG per canal</text><text x="750" y="201" class="m">Water source points</text><text x="750" y="216" class="m">Pump routes and stations</text><text x="750" y="231" class="m">(flow, head, power)</text><text x="750" y="246" class="m">Gates that must be added</text><text x="750" y="261" class="m">Problem layers (qa_*)</text><text x="750" y="276" class="m">run_report.md</text><text x="740" y="372" class="m">All saved in one GeoPackage + report</text><path d="M270 58 C320.0 58 320.0 70 370 70" class="ln" marker-end="url(#ah1)"/><path d="M270 58 C320.0 58 320.0 205 370 205" class="ln" marker-end="url(#ah1)"/><path d="M270 148 C320.0 148 320.0 90 370 90" class="ln" marker-end="url(#ah1)"/><path d="M270 148 C320.0 148 320.0 220 370 220" class="ln" marker-end="url(#ah1)"/><path d="M270 238 C320.0 238 320.0 235 370 235" class="ln" marker-end="url(#ah1)"/><path d="M270 238 C320.0 238 320.0 360 370 360" class="ln" marker-end="url(#ah1)"/><path d="M270 328 C320.0 328 320.0 110 370 110" class="ln" marker-end="url(#ah1)"/><path d="M270 328 C320.0 328 320.0 372 370 372" class="ln" marker-end="url(#ah1)"/><path d="M270 425 C320.0 425 320.0 80 370 80" class="ld" marker-end="url(#ah1)"/><path d="M270 425 C320.0 425 320.0 230 370 230" class="ld" marker-end="url(#ah1)"/><path d="M270 425 C320.0 425 320.0 395 370 395" class="ld" marker-end="url(#ah1)"/><path d="M515 140 L515 170" class="lm" marker-end="url(#ah1)"/><path d="M515 290 L515 320" class="lm" marker-end="url(#ah1)"/><path d="M660 230 C700.0 230 700.0 220 740 220" class="ln" marker-end="url(#ah1)"/><path d="M660 380 C700.0 380 700.0 300 740 300" class="ln" marker-end="url(#ah1)"/><text x="370" y="470" class="m"></text></svg>
+<div class="legend"><span><b style="border-color:var(--line);background:var(--card)"></b>Your input data</span><span><b style="border-color:var(--warn);background:var(--warn-soft)"></b>Your decisions</span><span><b style="border-color:var(--accent);background:var(--accent-soft)"></b>Automatic work / results</span><span><i style="display:inline-block;width:.8rem;height:.8rem;border-radius:50%;background:var(--stop);vertical-align:middle;margin-right:.35rem"></i>Review stop (you approve before it continues)</span></div>
+
+<h3>Stage by stage: what each one reads and produces</h3>
+<p>Read it from top to bottom. Each stage uses the layers produced by the stages above it, so a mistake early on carries down. Layer names are the ones you will see in the output GeoPackage.</p>
+<svg class="diagram" viewBox="0 0 1000 952" role="img" aria-label="Stage by stage: what each stage reads and produces"><defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="lg"/></marker></defs><text x="20" y="24" class="t">Reads</text><text x="380" y="24" class="t">Stage</text><text x="680" y="24" class="t">Produces</text><rect x="20" y="40" width="300" height="62" rx="9" class="in"/><text x="32" y="67.0" class="m">All your input layers</text><text x="32" y="82.0" class="m">+ config file</text><rect x="380" y="40" width="240" height="62" rx="9" class="st"/><circle cx="398" cy="71.0" r="12" class="badge"/><text x="398" y="75.5" class="bt">1</text><text x="418" y="59" class="t">Load and validate</text><rect x="680" y="40" width="300" height="62" rx="9" class="out"/><text x="692" y="59.5" class="m">subkhg_selected</text><text x="692" y="74.5" class="m">inputs_clipped_* layers</text><text x="692" y="89.5" class="m">clipped DTM and moisture</text><path d="M320 71.0 L380 71.0" class="ln" marker-end="url(#ah2)"/><path d="M620 71.0 L680 71.0" class="ln" marker-end="url(#ah2)"/><path d="M500.0 102 L500.0 122" class="lm" marker-end="url(#ah2)"/><rect x="20" y="122" width="300" height="62" rx="9" class="in"/><text x="32" y="149.0" class="m">inputs_clipped_canals</text><text x="32" y="164.0" class="m">canal edits, rivers</text><rect x="380" y="122" width="240" height="62" rx="9" class="rv"/><circle cx="398" cy="153.0" r="12" class="badgev"/><text x="398" y="157.5" class="bt">2</text><text x="418" y="141" class="t">Clean canal topology</text><text x="418" y="158" class="m">review stop</text><rect x="680" y="122" width="300" height="62" rx="9" class="out"/><text x="692" y="141.5" class="m">canals_clean</text><text x="692" y="156.5" class="m">qa_topology_gaps, _dangles,</text><text x="692" y="171.5" class="m">_disconnected, _issues</text><path d="M320 153.0 L380 153.0" class="ln" marker-end="url(#ah2)"/><path d="M620 153.0 L680 153.0" class="ln" marker-end="url(#ah2)"/><path d="M500.0 184 L500.0 204" class="lm" marker-end="url(#ah2)"/><rect x="20" y="204" width="300" height="62" rx="9" class="in"/><text x="32" y="231.0" class="m">clipped DTM</text><text x="32" y="246.0" class="m">canals_clean</text><rect x="380" y="204" width="240" height="62" rx="9" class="st"/><circle cx="398" cy="235.0" r="12" class="badge"/><text x="398" y="239.5" class="bt">3</text><text x="418" y="223" class="t">Flow analysis</text><rect x="680" y="204" width="300" height="62" rx="9" class="out"/><text x="692" y="231.0" class="m">dtm_conditioned.tif</text><text x="692" y="246.0" class="m">flow_acc.tif  (work folder)</text><path d="M320 235.0 L380 235.0" class="ln" marker-end="url(#ah2)"/><path d="M620 235.0 L680 235.0" class="ln" marker-end="url(#ah2)"/><path d="M500.0 266 L500.0 286" class="lm" marker-end="url(#ah2)"/><rect x="20" y="286" width="300" height="62" rx="9" class="in"/><text x="32" y="320.5" class="m">canals_clean</text><rect x="380" y="286" width="240" height="62" rx="9" class="st"/><circle cx="398" cy="317.0" r="12" class="badge"/><text x="398" y="321.5" class="bt">4</text><text x="418" y="305" class="t">Segments (max 500 m)</text><rect x="680" y="286" width="300" height="62" rx="9" class="out"/><text x="692" y="313.0" class="m">canal_segments</text><text x="692" y="328.0" class="m">(seg_id, length, status_mcda)</text><path d="M320 317.0 L380 317.0" class="ln" marker-end="url(#ah2)"/><path d="M620 317.0 L680 317.0" class="ln" marker-end="url(#ah2)"/><path d="M500.0 348 L500.0 368" class="lm" marker-end="url(#ah2)"/><rect x="20" y="368" width="300" height="62" rx="9" class="in"/><text x="32" y="395.0" class="m">clipped DTM (original, not burned)</text><text x="32" y="410.0" class="m">canals_clean, canal_segments, rivers</text><rect x="380" y="368" width="240" height="62" rx="9" class="st"/><circle cx="398" cy="399.0" r="12" class="badge"/><text x="398" y="403.5" class="bt">5</text><text x="418" y="387" class="t">Land profiles, flow direction</text><rect x="680" y="368" width="300" height="62" rx="9" class="out"/><text x="692" y="395.0" class="m">canal_profiles</text><text x="692" y="410.0" class="m">direction, slope, z_up / z_down</text><path d="M320 399.0 L380 399.0" class="ln" marker-end="url(#ah2)"/><path d="M620 399.0 L680 399.0" class="ln" marker-end="url(#ah2)"/><path d="M500.0 430 L500.0 450" class="lm" marker-end="url(#ah2)"/><rect x="20" y="450" width="300" height="62" rx="9" class="in"/><text x="32" y="469.5" class="m">canal_segments, burn scar, peat depth</text><text x="32" y="484.5" class="m">moisture raster, flow_acc.tif</text><text x="32" y="499.5" class="m">subkhg_selected</text><rect x="380" y="450" width="240" height="62" rx="9" class="rv"/><circle cx="398" cy="481.0" r="12" class="badgev"/><text x="398" y="485.5" class="bt">6</text><text x="418" y="469" class="t">Prioritise segments</text><text x="418" y="486" class="m">review stop</text><rect x="680" y="450" width="300" height="62" rx="9" class="out"/><text x="692" y="477.0" class="m">need_score, need_rank, selected</text><text x="692" y="492.0" class="m">qa_sensitivity</text><path d="M320 481.0 L380 481.0" class="ln" marker-end="url(#ah2)"/><path d="M620 481.0 L680 481.0" class="ln" marker-end="url(#ah2)"/><path d="M500.0 512 L500.0 532" class="lm" marker-end="url(#ah2)"/><rect x="20" y="532" width="300" height="62" rx="9" class="in"/><text x="32" y="559.0" class="m">canal_profiles, canals_clean</text><text x="32" y="574.0" class="m">existing sekat</text><rect x="380" y="532" width="240" height="62" rx="9" class="st"/><circle cx="398" cy="563.0" r="12" class="badge"/><text x="398" y="567.5" class="bt">7</text><text x="418" y="551" class="t">Sekat gap analysis + placement</text><rect x="680" y="532" width="300" height="62" rx="9" class="out"/><text x="692" y="559.0" class="m">sekat_proposed</text><text x="692" y="574.0" class="m">sekat_existing_assessed, IPG</text><path d="M320 563.0 L380 563.0" class="ln" marker-end="url(#ah2)"/><path d="M620 563.0 L680 563.0" class="ln" marker-end="url(#ah2)"/><path d="M500.0 594 L500.0 614" class="lm" marker-end="url(#ah2)"/><rect x="20" y="614" width="300" height="62" rx="9" class="in"/><text x="32" y="641.0" class="m">canal_segments, canal_profiles</text><text x="32" y="656.0" class="m">sekat layers, rivers</text><rect x="380" y="614" width="240" height="62" rx="9" class="st"/><circle cx="398" cy="645.0" r="12" class="badge"/><text x="398" y="649.5" class="bt">8</text><text x="418" y="633" class="t">Build network graph</text><rect x="680" y="614" width="300" height="62" rx="9" class="out"/><text x="692" y="641.0" class="m">network_nodes</text><text x="692" y="656.0" class="m">network_edges</text><path d="M320 645.0 L380 645.0" class="ln" marker-end="url(#ah2)"/><path d="M620 645.0 L680 645.0" class="ln" marker-end="url(#ah2)"/><path d="M500.0 676 L500.0 696" class="lm" marker-end="url(#ah2)"/><rect x="20" y="696" width="300" height="62" rx="9" class="in"/><text x="32" y="723.0" class="m">network graph</text><text x="32" y="738.0" class="m">selected segments (stage 6)</text><rect x="380" y="696" width="240" height="62" rx="9" class="rv"/><circle cx="398" cy="727.0" r="12" class="badgev"/><text x="398" y="731.5" class="bt">9</text><text x="418" y="715" class="t">Sources, targets, routes</text><text x="418" y="732" class="m">review stop</text><rect x="680" y="696" width="300" height="62" rx="9" class="out"/><text x="692" y="723.0" class="m">pump_sources, pump_targets</text><text x="692" y="738.0" class="m">pump_routes, qa_unreachable_targets</text><path d="M320 727.0 L380 727.0" class="ln" marker-end="url(#ah2)"/><path d="M620 727.0 L680 727.0" class="ln" marker-end="url(#ah2)"/><path d="M500.0 758 L500.0 778" class="lm" marker-end="url(#ah2)"/><rect x="20" y="778" width="300" height="62" rx="9" class="in"/><text x="32" y="805.0" class="m">pump_routes, targets, sources</text><text x="32" y="820.0" class="m">peat depth, sub-KHG deficit</text><rect x="380" y="778" width="240" height="62" rx="9" class="st"/><circle cx="398" cy="809.0" r="12" class="badge"/><text x="398" y="813.5" class="bt">10</text><text x="418" y="797" class="t">Demand, pump stations</text><rect x="680" y="778" width="300" height="62" rx="9" class="out"/><text x="692" y="805.0" class="m">pump_stations</text><text x="692" y="820.0" class="m">gates_required</text><path d="M320 809.0 L380 809.0" class="ln" marker-end="url(#ah2)"/><path d="M620 809.0 L680 809.0" class="ln" marker-end="url(#ah2)"/><path d="M500.0 840 L500.0 860" class="lm" marker-end="url(#ah2)"/><rect x="20" y="860" width="300" height="62" rx="9" class="in"/><text x="32" y="894.5" class="m">all layers and warnings</text><rect x="380" y="860" width="240" height="62" rx="9" class="st"/><circle cx="398" cy="891.0" r="12" class="badge"/><text x="398" y="895.5" class="bt">11</text><text x="418" y="879" class="t">Report</text><rect x="680" y="860" width="300" height="62" rx="9" class="out"/><text x="692" y="894.5" class="m">run_report.md / .json</text><path d="M320 891.0 L380 891.0" class="ln" marker-end="url(#ah2)"/><path d="M620 891.0 L680 891.0" class="ln" marker-end="url(#ah2)"/></svg>
+<div class="note"><b>Two things to notice</b>The original DTM is used for all heights and slopes (stages 5 and 7); the "burned" copy from stage 3 is used only for flow. And the canal layer you review in stage 2 (<code>canals_clean</code>) is the base of almost everything after it.</div>
+</div>
+<div class="t-id">
+<h2>Cara kerjanya secara keseluruhan</h2>
+<p>Gambaran besarnya dulu: data Anda masuk dari kiri, tiga fase mengerjakannya, dan hasilnya keluar di kanan. Titik merah bernomor adalah <b>titik tinjauan</b> (setelah tahap 2, 6, dan 9); panah oranye putus-putus menunjukkan di mana keputusan Anda di berkas konfigurasi dipakai.</p>
+<svg class="diagram" viewBox="0 0 1000 480" role="img" aria-label="Ikhtisar: data masukan masuk ke tiga fase yang menghasilkan hasil akhir"><defs><marker id="ah1i" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="lg"/></marker></defs><rect x="20" y="20" width="250" height="76" rx="9" class="in"/><text x="30" y="39" class="t">Medan</text><text x="30" y="56" class="m">DTM (ketinggian permukaan tanah)</text><text x="30" y="71" class="m">Raster indeks kelembapan</text><rect x="20" y="110" width="250" height="76" rx="9" class="in"/><text x="30" y="129" class="t">Kanal dan perbaikan</text><text x="30" y="146" class="m">Garis kanal</text><text x="30" y="161" class="m">Suntingan kanal (opsional)</text><text x="30" y="176" class="m">Sekat yang ada (opsional)</text><rect x="20" y="200" width="250" height="76" rx="9" class="in"/><text x="30" y="219" class="t">Gambut dan kebakaran</text><text x="30" y="236" class="m">Bekas kebakaran (frekuensi)</text><text x="30" y="251" class="m">Kelas kedalaman gambut</text><rect x="20" y="290" width="250" height="76" rx="9" class="in"/><text x="30" y="309" class="t">Air dan wilayah</text><text x="30" y="326" class="m">Sub-KHG + tabel prioritas</text><text x="30" y="341" class="m">Sungai, konsesi (opsional)</text><rect x="20" y="392" width="250" height="66" rx="9" class="cfg"/><text x="30" y="411" class="t">Keputusan Anda (berkas konfigurasi)</text><text x="30" y="428" class="m">bobot, toleransi, pengaturan pompa</text><rect x="370" y="20" width="290" height="120" rx="9" class="st"/><text x="380" y="39" class="t">Siapkan jaringan</text><text x="380" y="56" class="m">Muat dan periksa data, bersihkan kanal,</text><text x="380" y="71" class="m">analisis aliran, segmen, profil lahan</text><text x="384" y="128" class="m">tahap 1-5</text><circle cx="640" cy="40" r="12" class="badgev"/><text x="640" y="44.5" class="bt">2</text><text x="622" y="44" class="m" text-anchor="end">titik tinjauan</text><rect x="370" y="170" width="290" height="120" rx="9" class="st"/><text x="380" y="189" class="t">Tentukan lokasi tindakan</text><text x="380" y="206" class="m">Urutkan segmen menurut kebutuhan,</text><text x="380" y="221" class="m">periksa dan tempatkan sekat</text><text x="384" y="278" class="m">tahap 6-7</text><circle cx="640" cy="190" r="12" class="badgev"/><text x="640" y="194.5" class="bt">6</text><text x="622" y="194" class="m" text-anchor="end">titik tinjauan</text><rect x="370" y="320" width="290" height="120" rx="9" class="st"/><text x="380" y="339" class="t">Rutekan air dan tentukan pompa</text><text x="380" y="356" class="m">Jaringan, sumber dan sasaran,</text><text x="380" y="371" class="m">rute, stasiun pompa, pintu air</text><text x="384" y="428" class="m">tahap 8-10</text><circle cx="640" cy="340" r="12" class="badgev"/><text x="640" y="344.5" class="bt">9</text><text x="622" y="344" class="m" text-anchor="end">titik tinjauan</text><rect x="740" y="120" width="240" height="230" rx="9" class="out"/><text x="750" y="139" class="t">Hasil yang Anda dapat</text><text x="750" y="156" class="m">Kanal diurutkan menurut kebutuhan</text><text x="750" y="171" class="m">Sekat usulan: lokasi, tinggi,</text><text x="750" y="186" class="m">tipe, dan IPG per kanal</text><text x="750" y="201" class="m">Titik sumber air</text><text x="750" y="216" class="m">Rute dan stasiun pompa</text><text x="750" y="231" class="m">(debit, tinggi tekan, daya)</text><text x="750" y="246" class="m">Pintu air yang harus ditambah</text><text x="750" y="261" class="m">Layer masalah (qa_*)</text><text x="750" y="276" class="m">run_report.md</text><text x="740" y="372" class="m">Semua dalam satu GeoPackage + laporan</text><path d="M270 58 C320.0 58 320.0 70 370 70" class="ln" marker-end="url(#ah1i)"/><path d="M270 58 C320.0 58 320.0 205 370 205" class="ln" marker-end="url(#ah1i)"/><path d="M270 148 C320.0 148 320.0 90 370 90" class="ln" marker-end="url(#ah1i)"/><path d="M270 148 C320.0 148 320.0 220 370 220" class="ln" marker-end="url(#ah1i)"/><path d="M270 238 C320.0 238 320.0 235 370 235" class="ln" marker-end="url(#ah1i)"/><path d="M270 238 C320.0 238 320.0 360 370 360" class="ln" marker-end="url(#ah1i)"/><path d="M270 328 C320.0 328 320.0 110 370 110" class="ln" marker-end="url(#ah1i)"/><path d="M270 328 C320.0 328 320.0 372 370 372" class="ln" marker-end="url(#ah1i)"/><path d="M270 425 C320.0 425 320.0 80 370 80" class="ld" marker-end="url(#ah1i)"/><path d="M270 425 C320.0 425 320.0 230 370 230" class="ld" marker-end="url(#ah1i)"/><path d="M270 425 C320.0 425 320.0 395 370 395" class="ld" marker-end="url(#ah1i)"/><path d="M515 140 L515 170" class="lm" marker-end="url(#ah1i)"/><path d="M515 290 L515 320" class="lm" marker-end="url(#ah1i)"/><path d="M660 230 C700.0 230 700.0 220 740 220" class="ln" marker-end="url(#ah1i)"/><path d="M660 380 C700.0 380 700.0 300 740 300" class="ln" marker-end="url(#ah1i)"/><text x="370" y="470" class="m"></text></svg>
+<div class="legend"><span><b style="border-color:var(--line);background:var(--card)"></b>Data masukan Anda</span><span><b style="border-color:var(--warn);background:var(--warn-soft)"></b>Keputusan Anda</span><span><b style="border-color:var(--accent);background:var(--accent-soft)"></b>Pekerjaan otomatis / hasil</span><span><i style="display:inline-block;width:.8rem;height:.8rem;border-radius:50%;background:var(--stop);vertical-align:middle;margin-right:.35rem"></i>Titik tinjauan (Anda menyetujui sebelum lanjut)</span></div>
+<h3 style="margin-top:1.6rem">Tahap demi tahap: apa yang dibaca dan dihasilkan</h3>
+<p>Bacalah dari atas ke bawah. Setiap tahap memakai layer yang dihasilkan tahap di atasnya, jadi kesalahan di awal terbawa ke bawah. Nama layer adalah nama yang akan Anda lihat di GeoPackage keluaran.</p>
+<svg class="diagram" viewBox="0 0 1000 952" role="img" aria-label="Tahap demi tahap: apa yang dibaca dan dihasilkan setiap tahap"><defs><marker id="ah2i" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="lg"/></marker></defs><text x="20" y="24" class="t">Membaca</text><text x="380" y="24" class="t">Tahap</text><text x="680" y="24" class="t">Menghasilkan</text><rect x="20" y="40" width="300" height="62" rx="9" class="in"/><text x="32" y="67.0" class="m">Semua layer masukan Anda</text><text x="32" y="82.0" class="m">+ berkas konfigurasi</text><rect x="380" y="40" width="240" height="62" rx="9" class="st"/><circle cx="398" cy="71.0" r="12" class="badge"/><text x="398" y="75.5" class="bt">1</text><text x="418" y="59" class="t">Muat dan validasi</text><rect x="680" y="40" width="300" height="62" rx="9" class="out"/><text x="692" y="59.5" class="m">subkhg_selected</text><text x="692" y="74.5" class="m">inputs_clipped_* layers</text><text x="692" y="89.5" class="m">DTM dan kelembapan terpotong</text><path d="M320 71.0 L380 71.0" class="ln" marker-end="url(#ah2i)"/><path d="M620 71.0 L680 71.0" class="ln" marker-end="url(#ah2i)"/><path d="M500.0 102 L500.0 122" class="lm" marker-end="url(#ah2i)"/><rect x="20" y="122" width="300" height="62" rx="9" class="in"/><text x="32" y="149.0" class="m">inputs_clipped_canals</text><text x="32" y="164.0" class="m">suntingan kanal, sungai</text><rect x="380" y="122" width="240" height="62" rx="9" class="rv"/><circle cx="398" cy="153.0" r="12" class="badgev"/><text x="398" y="157.5" class="bt">2</text><text x="418" y="141" class="t">Bersihkan topologi kanal</text><text x="418" y="158" class="m">titik tinjauan</text><rect x="680" y="122" width="300" height="62" rx="9" class="out"/><text x="692" y="141.5" class="m">canals_clean</text><text x="692" y="156.5" class="m">qa_topology_gaps, _dangles,</text><text x="692" y="171.5" class="m">_disconnected, _issues</text><path d="M320 153.0 L380 153.0" class="ln" marker-end="url(#ah2i)"/><path d="M620 153.0 L680 153.0" class="ln" marker-end="url(#ah2i)"/><path d="M500.0 184 L500.0 204" class="lm" marker-end="url(#ah2i)"/><rect x="20" y="204" width="300" height="62" rx="9" class="in"/><text x="32" y="231.0" class="m">DTM terpotong</text><text x="32" y="246.0" class="m">canals_clean</text><rect x="380" y="204" width="240" height="62" rx="9" class="st"/><circle cx="398" cy="235.0" r="12" class="badge"/><text x="398" y="239.5" class="bt">3</text><text x="418" y="223" class="t">Analisis aliran</text><rect x="680" y="204" width="300" height="62" rx="9" class="out"/><text x="692" y="231.0" class="m">dtm_conditioned.tif</text><text x="692" y="246.0" class="m">flow_acc.tif  (folder kerja)</text><path d="M320 235.0 L380 235.0" class="ln" marker-end="url(#ah2i)"/><path d="M620 235.0 L680 235.0" class="ln" marker-end="url(#ah2i)"/><path d="M500.0 266 L500.0 286" class="lm" marker-end="url(#ah2i)"/><rect x="20" y="286" width="300" height="62" rx="9" class="in"/><text x="32" y="320.5" class="m">canals_clean</text><rect x="380" y="286" width="240" height="62" rx="9" class="st"/><circle cx="398" cy="317.0" r="12" class="badge"/><text x="398" y="321.5" class="bt">4</text><text x="418" y="305" class="t">Segmen (maks 500 m)</text><rect x="680" y="286" width="300" height="62" rx="9" class="out"/><text x="692" y="313.0" class="m">canal_segments</text><text x="692" y="328.0" class="m">(seg_id, panjang, status_mcda)</text><path d="M320 317.0 L380 317.0" class="ln" marker-end="url(#ah2i)"/><path d="M620 317.0 L680 317.0" class="ln" marker-end="url(#ah2i)"/><path d="M500.0 348 L500.0 368" class="lm" marker-end="url(#ah2i)"/><rect x="20" y="368" width="300" height="62" rx="9" class="in"/><text x="32" y="395.0" class="m">DTM terpotong (asli, tidak dibakar)</text><text x="32" y="410.0" class="m">canals_clean, canal_segments, rivers</text><rect x="380" y="368" width="240" height="62" rx="9" class="st"/><circle cx="398" cy="399.0" r="12" class="badge"/><text x="398" y="403.5" class="bt">5</text><text x="418" y="387" class="t">Profil lahan, arah aliran</text><rect x="680" y="368" width="300" height="62" rx="9" class="out"/><text x="692" y="395.0" class="m">canal_profiles</text><text x="692" y="410.0" class="m">arah, kemiringan, z_up / z_down</text><path d="M320 399.0 L380 399.0" class="ln" marker-end="url(#ah2i)"/><path d="M620 399.0 L680 399.0" class="ln" marker-end="url(#ah2i)"/><path d="M500.0 430 L500.0 450" class="lm" marker-end="url(#ah2i)"/><rect x="20" y="450" width="300" height="62" rx="9" class="in"/><text x="32" y="469.5" class="m">canal_segments, bekas kebakaran, kedalaman gambut</text><text x="32" y="484.5" class="m">raster kelembapan, flow_acc.tif</text><text x="32" y="499.5" class="m">subkhg_selected</text><rect x="380" y="450" width="240" height="62" rx="9" class="rv"/><circle cx="398" cy="481.0" r="12" class="badgev"/><text x="398" y="485.5" class="bt">6</text><text x="418" y="469" class="t">Prioritaskan segmen</text><text x="418" y="486" class="m">titik tinjauan</text><rect x="680" y="450" width="300" height="62" rx="9" class="out"/><text x="692" y="477.0" class="m">need_score, need_rank, selected</text><text x="692" y="492.0" class="m">qa_sensitivity</text><path d="M320 481.0 L380 481.0" class="ln" marker-end="url(#ah2i)"/><path d="M620 481.0 L680 481.0" class="ln" marker-end="url(#ah2i)"/><path d="M500.0 512 L500.0 532" class="lm" marker-end="url(#ah2i)"/><rect x="20" y="532" width="300" height="62" rx="9" class="in"/><text x="32" y="559.0" class="m">canal_profiles, canals_clean</text><text x="32" y="574.0" class="m">sekat yang ada</text><rect x="380" y="532" width="240" height="62" rx="9" class="st"/><circle cx="398" cy="563.0" r="12" class="badge"/><text x="398" y="567.5" class="bt">7</text><text x="418" y="551" class="t">Analisis celah + penempatan sekat</text><rect x="680" y="532" width="300" height="62" rx="9" class="out"/><text x="692" y="559.0" class="m">sekat_proposed</text><text x="692" y="574.0" class="m">sekat_existing_assessed, IPG</text><path d="M320 563.0 L380 563.0" class="ln" marker-end="url(#ah2i)"/><path d="M620 563.0 L680 563.0" class="ln" marker-end="url(#ah2i)"/><path d="M500.0 594 L500.0 614" class="lm" marker-end="url(#ah2i)"/><rect x="20" y="614" width="300" height="62" rx="9" class="in"/><text x="32" y="641.0" class="m">canal_segments, canal_profiles</text><text x="32" y="656.0" class="m">layer sekat, sungai</text><rect x="380" y="614" width="240" height="62" rx="9" class="st"/><circle cx="398" cy="645.0" r="12" class="badge"/><text x="398" y="649.5" class="bt">8</text><text x="418" y="633" class="t">Bangun graf jaringan</text><rect x="680" y="614" width="300" height="62" rx="9" class="out"/><text x="692" y="641.0" class="m">network_nodes</text><text x="692" y="656.0" class="m">network_edges</text><path d="M320 645.0 L380 645.0" class="ln" marker-end="url(#ah2i)"/><path d="M620 645.0 L680 645.0" class="ln" marker-end="url(#ah2i)"/><path d="M500.0 676 L500.0 696" class="lm" marker-end="url(#ah2i)"/><rect x="20" y="696" width="300" height="62" rx="9" class="in"/><text x="32" y="723.0" class="m">graf jaringan</text><text x="32" y="738.0" class="m">segmen terpilih (tahap 6)</text><rect x="380" y="696" width="240" height="62" rx="9" class="rv"/><circle cx="398" cy="727.0" r="12" class="badgev"/><text x="398" y="731.5" class="bt">9</text><text x="418" y="715" class="t">Sumber, sasaran, rute</text><text x="418" y="732" class="m">titik tinjauan</text><rect x="680" y="696" width="300" height="62" rx="9" class="out"/><text x="692" y="723.0" class="m">pump_sources, pump_targets</text><text x="692" y="738.0" class="m">pump_routes, qa_unreachable_targets</text><path d="M320 727.0 L380 727.0" class="ln" marker-end="url(#ah2i)"/><path d="M620 727.0 L680 727.0" class="ln" marker-end="url(#ah2i)"/><path d="M500.0 758 L500.0 778" class="lm" marker-end="url(#ah2i)"/><rect x="20" y="778" width="300" height="62" rx="9" class="in"/><text x="32" y="805.0" class="m">pump_routes, targets, sources</text><text x="32" y="820.0" class="m">kedalaman gambut, defisit sub-KHG</text><rect x="380" y="778" width="240" height="62" rx="9" class="st"/><circle cx="398" cy="809.0" r="12" class="badge"/><text x="398" y="813.5" class="bt">10</text><text x="418" y="797" class="t">Kebutuhan, stasiun pompa</text><rect x="680" y="778" width="300" height="62" rx="9" class="out"/><text x="692" y="805.0" class="m">pump_stations</text><text x="692" y="820.0" class="m">gates_required</text><path d="M320 809.0 L380 809.0" class="ln" marker-end="url(#ah2i)"/><path d="M620 809.0 L680 809.0" class="ln" marker-end="url(#ah2i)"/><path d="M500.0 840 L500.0 860" class="lm" marker-end="url(#ah2i)"/><rect x="20" y="860" width="300" height="62" rx="9" class="in"/><text x="32" y="894.5" class="m">semua layer dan peringatan</text><rect x="380" y="860" width="240" height="62" rx="9" class="st"/><circle cx="398" cy="891.0" r="12" class="badge"/><text x="398" y="895.5" class="bt">11</text><text x="418" y="879" class="t">Laporan</text><rect x="680" y="860" width="300" height="62" rx="9" class="out"/><text x="692" y="894.5" class="m">run_report.md / .json</text><path d="M320 891.0 L380 891.0" class="ln" marker-end="url(#ah2i)"/><path d="M620 891.0 L680 891.0" class="ln" marker-end="url(#ah2i)"/></svg>
+<div class="note"><b>Dua hal yang perlu diperhatikan</b>DTM asli dipakai untuk semua tinggi dan kemiringan (tahap 5 dan 7); salinan yang "dibakar" dari tahap 3 hanya dipakai untuk aliran. Dan layer kanal yang Anda tinjau di tahap 2 (<code>canals_clean</code>) menjadi dasar hampir semua tahap sesudahnya.</div>
+</div>
+</section>
+
+<section id="before">
+<div class="t-en">
+<h2>Before you start</h2>
+<ol>
+  <li><b>QGIS 4</b> with the <b>RE-PEAT Pompanisasi</b> plugin installed and enabled. Step-by-step instructions, in English and Bahasa Indonesia, are in <a href="install.html">install.html</a>.</li>
+  <li><b>Internet</b> for the first engine setup, and again the first time stage 3 runs, when the tool downloads the WhiteboxTools program. After that it works offline.</li>
+  <li><b>Python 3.11 or newer</b> (from python.org) installed on the computer. The plugin uses it to build its own private environment, so you do not touch Python yourself.</li>
+  <li>Your data prepared as in <a href="#data">Input data</a>, all saved as files (GeoPackage, Shapefile, GeoTIFF). Temporary layers do not work.</li>
+  <li>A <b>config file</b> (<code>.yaml</code>) filled in by the person responsible for the decisions in <a href="#config">The config file</a>.</li>
+</ol>
+<div class="note"><b>Want to practise first?</b>There is a small set of dummy data and a full wizard guide with screenshots: <a href="wizard.html">wizard.html</a>.</div>
+</div>
+<div class="t-id">
+<h2>Sebelum mulai</h2>
+<ol>
+  <li><b>QGIS 4</b> dengan plugin <b>RE-PEAT Pompanisasi</b> terpasang dan aktif. Petunjuk langkah demi langkah dalam bahasa Inggris dan Indonesia ada di <a href="install.html">install.html</a>.</li>
+  <li><b>Internet</b> untuk penyiapan mesin pertama, dan lagi saat tahap 3 dijalankan pertama kali, ketika alat mengunduh program WhiteboxTools. Sesudah itu alat bekerja tanpa internet.</li>
+  <li><b>Python 3.11 atau lebih baru</b> (dari python.org) terpasang di komputer. Plugin memakainya untuk membangun lingkungannya sendiri, jadi Anda tidak perlu mengurus Python.</li>
+  <li>Data Anda disiapkan seperti di <a href="#data">Data masukan</a>, semuanya tersimpan sebagai berkas (GeoPackage, Shapefile, GeoTIFF). Layer sementara tidak berfungsi.</li>
+  <li>Sebuah <b>berkas konfigurasi</b> (<code>.yaml</code>) yang diisi oleh orang yang bertanggung jawab atas keputusan di <a href="#config">Berkas konfigurasi</a>. Dengan wizard, Anda mengisi keputusan itu langsung di kartu tahapnya.</li>
+</ol>
+<div class="note"><b>Mau berlatih dulu?</b>Ada data latihan kecil (data tiruan) dan panduan wizard lengkap dengan tangkapan layar: <a href="wizard.html">wizard.html</a>.</div>
+
+</div>
+</section>
+
+<section id="data">
+<div class="t-en">
+<h2>Input data</h2>
+<p>Use <b>one projected coordinate system in metres</b> for everything (for example UTM 49S, <code>EPSG:32749</code>). Mixed systems are the most common mistake; the tool stops with an error if a layer does not match.</p>
+<table>
+<thead><tr><th>Layer</th><th>Type</th><th>Must contain</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td><b>DTM</b></td><td>Raster (GeoTIFF)</td><td>Elevation in metres</td><td>Must be a <b>bare-earth DTM</b>. A surface model (DSM) is refused. Needs a known vertical accuracy (RMSE) in the config.</td></tr>
+<tr><td><b>Sub-KHG</b></td><td>Polygons</td><td><code>subkhg_id</code> (unique)</td><td>The work area.</td></tr>
+<tr><td><b>Priority table</b></td><td>CSV</td><td><code>subkhg_id</code>, <code>priority_rank</code> (1 = highest), <code>deficit_mm</code>, <code>design_period_days</code></td><td>Comes from the water-balance (neraca air) work. Decides which sub-KHGs are used and how much water they need.</td></tr>
+<tr><td><b>Canals</b></td><td>Lines</td><td><code>canal_class</code></td><td>Optional but recommended: <code>depth_m</code>, <code>width_m</code>. Depth is needed for sekat height and canal burning; depth and width for pump friction losses.</td></tr>
+<tr><td><b>Canal edits</b> <small>(optional)</small></td><td>Lines</td><td><code>action</code> = <code>add</code> or <code>delete</code></td><td>Your manual topology fixes (see <a href="#s2">stage 2</a>). Keeping them in a layer makes every run repeatable.</td></tr>
+<tr><td><b>Existing sekat</b> <small>(optional)</small></td><td>Points</td><td><code>sekat_id</code>, <code>has_gate</code> (yes/no)</td><td>May be empty. A sekat without a gate blocks pumped water.</td></tr>
+<tr><td><b>Rivers</b> <small>(optional)</small></td><td>Polygons or lines</td><td>Optional: <code>perennial</code>, <code>dry_season_wl_m</code></td><td>The water sources. If you give dry-season water levels, the vertical datum of the levels and of the DTM must be stated.</td></tr>
+<tr><td><b>Burn scar</b></td><td>Polygons</td><td>Burn frequency, e.g. <code>2x</code></td><td>Text like "2x" is converted to a number; values it cannot read are listed in the report.</td></tr>
+<tr><td><b>Peat depth</b></td><td>Polygons</td><td>Thickness class, e.g. <code>3,0 - 4,0 meter</code></td><td>The comma decimal is understood.</td></tr>
+<tr><td><b>Moisture</b></td><td>Raster</td><td>A wetness index (e.g. CPWI)</td><td>You must say whether higher values mean wetter.</td></tr>
+<tr><td><b>Concession</b> <small>(optional)</small></td><td>Polygons</td><td>-</td><td>Only used as a feasibility filter, never in the need score.</td></tr>
+<tr><td><b>Water-level observations</b> <small>(optional)</small></td><td>Points</td><td>A level column (<code>tma_m</code>, <code>water_level_m</code>, <code>level_m</code> or <code>wl_m</code>)</td><td>Only compared with the model in the report; nothing is calibrated.</td></tr>
+</tbody></table>
+<div class="warn"><b>Check your data first</b>Open every layer in QGIS. Same CRS? Canal lines look connected? Attribute names spelled exactly as above? Ten minutes here saves an hour later.</div>
+</div>
+<div class="t-id">
+<h2>Data masukan</h2>
+<p>Pakailah <b>satu sistem koordinat proyeksi dalam meter</b> untuk semuanya (misalnya UTM 49S, <code>EPSG:32749</code>). Sistem yang tercampur adalah kesalahan paling umum; alat berhenti dengan pesan galat jika ada layer yang tidak cocok.</p>
+<table>
+<thead><tr><th>Layer</th><th>Jenis</th><th>Harus memuat</th><th>Catatan</th></tr></thead>
+<tbody>
+<tr><td><b>DTM</b></td><td>Raster (GeoTIFF)</td><td>Ketinggian dalam meter</td><td>Harus berupa <b>DTM permukaan tanah</b>. Model permukaan (DSM) ditolak. Akurasi vertikal (RMSE) yang diketahui harus ada di konfigurasi.</td></tr>
+<tr><td><b>Sub-KHG</b></td><td>Poligon</td><td><code>subkhg_id</code> (unik)</td><td>Wilayah kerja.</td></tr>
+<tr><td><b>Tabel prioritas</b></td><td>CSV</td><td><code>subkhg_id</code>, <code>priority_rank</code> (1 = tertinggi), <code>deficit_mm</code>, <code>design_period_days</code></td><td>Berasal dari pekerjaan neraca air. Menentukan sub-KHG mana yang dipakai dan berapa air yang dibutuhkan.</td></tr>
+<tr><td><b>Kanal</b></td><td>Garis</td><td><code>canal_class</code></td><td>Opsional tetapi disarankan: <code>depth_m</code>, <code>width_m</code>. Kedalaman diperlukan untuk tinggi sekat dan pembakaran kanal; kedalaman dan lebar untuk kehilangan gesekan pompa.</td></tr>
+<tr><td><b>Suntingan kanal</b> <small>(opsional)</small></td><td>Garis</td><td><code>action</code> = <code>add</code> atau <code>delete</code></td><td>Perbaikan topologi manual Anda (lihat <a href="#s2">tahap 2</a>). Menyimpannya dalam satu layer membuat setiap proses dapat diulang.</td></tr>
+<tr><td><b>Sekat yang ada</b> <small>(opsional)</small></td><td>Titik</td><td><code>sekat_id</code>, <code>has_gate</code> (ya/tidak)</td><td>Boleh kosong. Sekat tanpa pintu air menghalangi air pompa.</td></tr>
+<tr><td><b>Sungai</b> <small>(opsional)</small></td><td>Poligon atau garis</td><td>Opsional: <code>perennial</code>, <code>dry_season_wl_m</code></td><td>Sumber air. Jika Anda memberi tinggi muka air musim kemarau, datum vertikal untuk tinggi muka air dan untuk DTM harus dinyatakan.</td></tr>
+<tr><td><b>Bekas kebakaran</b></td><td>Poligon</td><td>Frekuensi kebakaran, mis. <code>2x</code></td><td>Teks seperti "2x" diubah menjadi angka; nilai yang tidak terbaca dicantumkan di laporan.</td></tr>
+<tr><td><b>Kedalaman gambut</b></td><td>Poligon</td><td>Kelas ketebalan, mis. <code>3,0 - 4,0 meter</code></td><td>Koma desimal dipahami.</td></tr>
+<tr><td><b>Kelembapan</b></td><td>Raster</td><td>Indeks kebasahan (mis. CPWI)</td><td>Anda harus menyatakan apakah nilai lebih tinggi berarti lebih basah.</td></tr>
+<tr><td><b>Konsesi</b> <small>(opsional)</small></td><td>Poligon</td><td>-</td><td>Hanya dipakai sebagai filter kelayakan, tidak pernah dalam skor kebutuhan.</td></tr>
+<tr><td><b>Pengamatan tinggi muka air</b> <small>(opsional)</small></td><td>Titik</td><td>Kolom tinggi (<code>tma_m</code>, <code>water_level_m</code>, <code>level_m</code>, atau <code>wl_m</code>)</td><td>Hanya dibandingkan dengan model di laporan; tidak ada kalibrasi.</td></tr>
+</tbody></table>
+<div class="warn"><b>Periksa data Anda dulu</b>Buka setiap layer di QGIS. CRS sama? Garis kanal tampak tersambung? Nama atribut ditulis persis seperti di atas? Sepuluh menit di sini menghemat satu jam nanti.</div>
+
+</div>
+</section>
+
+<section id="config">
+<div class="t-en">
+<h2>The config file</h2>
+<p>A small text file (<code>.yaml</code>) holds the file paths and the <b>decisions only a person should make</b>. Start from <code>configs/example_khg.yaml</code>. Every value left as <code>null</code> is a decision still to be made. The tool never guesses: if a stage needs one, it stops and lists every missing value in one message.</p>
+<table>
+<thead><tr><th>Setting</th><th>What it means</th><th>Needed from stage</th></tr></thead>
+<tbody>
+<tr><td><code>run.clip_margin_m</code></td><td>How far around the selected sub-KHGs data is kept</td><td>1</td></tr>
+<tr><td><code>inputs.dtm.vertical_rmse_m</code></td><td>Vertical accuracy of the DTM. If it is more than half of the 0.40 m sekat step, a prominent accuracy warning is raised.</td><td>1</td></tr>
+<tr><td><code>run.vertical_datum</code>, <code>inputs.rivers.vertical_datum</code></td><td>Height reference of DTM and river levels (only when river levels are given)</td><td>1</td></tr>
+<tr><td><code>inputs.moisture.higher_is_wetter</code></td><td>true or false</td><td>1</td></tr>
+<tr><td><code>topology.snap_tolerance_m</code></td><td>Largest gap between canal ends that is closed automatically</td><td>2</td></tr>
+<tr><td><code>topology.overshoot_max_m</code></td><td>Optional. Short stubs shorter than this are trimmed. Leave <code>null</code> to switch trimming off.</td><td>2</td></tr>
+<tr><td><code>hydro.breach_max_dist_cells</code></td><td>How far water may be breached through small pits in the DTM</td><td>3</td></tr>
+<tr><td><code>prioritise.criteria.*.weight</code></td><td>Importance of burn frequency, peat depth, dryness and upstream contribution (or an AHP matrix)</td><td>6</td></tr>
+<tr><td><code>prioritise.upstream_buffer_m</code></td><td>Search distance around a canal for upstream flow</td><td>6</td></tr>
+<tr><td><code>prioritise.feasibility.concession_mode</code></td><td><code>exclude</code>, <code>flag</code> or <code>ignore</code> concession areas (only if a concession layer is given)</td><td>6</td></tr>
+<tr><td><code>sekat.max_spacing_m</code>, <code>snap_tolerance_m</code>, <code>min_spacing_m</code></td><td>Upper limit for spacing, how close an existing sekat must be to a canal to count, and the minimum distance from an existing sekat to a new one</td><td>7</td></tr>
+<tr><td><code>pumping.uphill_penalty_lambda</code></td><td>How strongly the routing avoids uphill (energy-costly) canals</td><td>9</td></tr>
+<tr><td><code>pumping.*</code> pump settings</td><td>Canal or pipe, roughness, pump efficiency, maximum head per station, capacity per pump, influence distance</td><td>10</td></tr>
+</tbody></table>
+<div class="note"><b>Ready-made values</b>Some settings already have a default you can keep: 500 m maximum segment length, 25 m minimum segment length, 0.40 m sekat step (PP 57/2016), 5 % slope for reinforced sekat, 15 to 100 m ring for moisture.</div>
+</div>
+<div class="t-id">
+<h2>Berkas konfigurasi</h2>
+<p>Sebuah berkas teks kecil (<code>.yaml</code>) menyimpan jalur berkas dan <b>keputusan yang hanya boleh dibuat manusia</b>. Mulailah dari <code>configs/example_khg.yaml</code>. Setiap nilai yang dibiarkan <code>null</code> adalah keputusan yang belum dibuat. Alat tidak pernah menebak: jika sebuah tahap membutuhkannya, alat berhenti dan mencantumkan semua nilai yang kurang dalam satu pesan. Di wizard, kolom yang kosong disorot di kartu tahap.</p>
+<table>
+<thead><tr><th>Pengaturan</th><th>Artinya</th><th>Dibutuhkan mulai tahap</th></tr></thead>
+<tbody>
+<tr><td><code>run.clip_margin_m</code></td><td>Seberapa jauh di sekitar sub-KHG terpilih data dipertahankan</td><td>1</td></tr>
+<tr><td><code>inputs.dtm.vertical_rmse_m</code></td><td>Akurasi vertikal DTM. Jika lebih dari setengah langkah sekat 0,40 m, muncul peringatan akurasi yang mencolok.</td><td>1</td></tr>
+<tr><td><code>run.vertical_datum</code>, <code>inputs.rivers.vertical_datum</code></td><td>Acuan tinggi untuk DTM dan tinggi muka air sungai (hanya bila tinggi muka air sungai diberikan)</td><td>1</td></tr>
+<tr><td><code>inputs.moisture.higher_is_wetter</code></td><td>true atau false</td><td>1</td></tr>
+<tr><td><code>topology.snap_tolerance_m</code></td><td>Celah terbesar antar-ujung kanal yang ditutup otomatis</td><td>2</td></tr>
+<tr><td><code>topology.overshoot_max_m</code></td><td>Opsional. Ujung pendek yang lebih kecil dari nilai ini dipangkas. Biarkan <code>null</code> untuk mematikan pemangkasan.</td><td>2</td></tr>
+<tr><td><code>hydro.breach_max_dist_cells</code></td><td>Seberapa jauh air boleh ditembuskan melewati cekungan kecil di DTM</td><td>3</td></tr>
+<tr><td><code>prioritise.criteria.*.weight</code></td><td>Bobot frekuensi kebakaran, kedalaman gambut, kekeringan, dan kontribusi hulu (atau matriks AHP)</td><td>6</td></tr>
+<tr><td><code>prioritise.upstream_buffer_m</code></td><td>Jarak pencarian di sekitar kanal untuk aliran dari hulu</td><td>6</td></tr>
+<tr><td><code>prioritise.feasibility.concession_mode</code></td><td><code>exclude</code>, <code>flag</code>, atau <code>ignore</code> untuk area konsesi (hanya jika layer konsesi diberikan)</td><td>6</td></tr>
+<tr><td><code>sekat.max_spacing_m</code>, <code>snap_tolerance_m</code>, <code>min_spacing_m</code></td><td>Batas atas jarak antarsekat, seberapa dekat sekat yang ada harus dari kanal agar dihitung, dan jarak minimum dari sekat yang ada ke sekat baru</td><td>7</td></tr>
+<tr><td><code>pumping.uphill_penalty_lambda</code></td><td>Seberapa kuat penentuan rute menghindari kanal menanjak (boros energi)</td><td>9</td></tr>
+<tr><td><code>pumping.*</code> pengaturan pompa</td><td>Kanal atau pipa, kekasaran, efisiensi pompa, tinggi tekan maksimum per stasiun, kapasitas per pompa, jarak pengaruh</td><td>10</td></tr>
+</tbody></table>
+<div class="note"><b>Nilai bawaan</b>Beberapa pengaturan sudah punya nilai bawaan yang boleh Anda pakai: panjang segmen maksimum 500 m, panjang segmen minimum 25 m, langkah sekat 0,40 m (PP 57/2016), kemiringan 5 % untuk sekat yang diperkuat, cincin 15 sampai 100 m untuk kelembapan.</div>
+
+</div>
+</section>
+
+<section id="run">
+<div class="t-en">
+<h2>Running it</h2>
+<h3>In QGIS with the guided wizard (recommended)</h3>
+<p>The wizard takes you through the 11 stages one at a time. Install the plugin first (see <a href="install.html">install.html</a>), then:</p>
+<ol>
+  <li>Open the wizard with the water-drop button on the toolbar, or <i>Plugins &rsaquo; RE-PEAT Pompanisasi &rsaquo; Guided wizard</i>. If it asks for the engine, click <b>Set up engine</b> and wait a few minutes.</li>
+  <li>On stage 1, open <b>Run setup</b>. Choose the output GeoPackage, a starting config, the priority table (CSV) and each input layer, then click <b>Create run</b>. The run folder is the folder of the GeoPackage; your settings are saved there in <code>run_config.yaml</code>.</li>
+  <li>Each stage card has a <b>Decisions</b> box with the settings that stage needs. Empty ones are highlighted and the Run button stays off until you fill them. The wizard never fills them in for you.</li>
+  <li>Click <b>Run stage</b>. The result numbers appear on the card and the stage's layers are added to the map. QGIS stays usable while it runs, and <b>Cancel run</b> stops it.</li>
+  <li>At a review stop (stages 2, 6 and 9) the card says <i>Review needed</i>. Look at the layers, then click <b>Accept and continue</b> (see <a href="#review">Review stops</a>).</li>
+  <li>Turn on <b>Learn mode</b> (top right) to see what each stage does and why, with references. The <b>EN</b> and <b>ID</b> buttons switch between English and Bahasa Indonesia.</li>
+</ol>
+<figure class="shot"><img src="img/review_learn_en.png" alt="The wizard at stage 2, waiting for review, with Learn mode on" loading="lazy"><figcaption>The wizard at a review stop (dummy data). Stage list on the left, results and decisions on the card.</figcaption></figure>
+<p>The full guide with screenshots and practice data: <a href="wizard.html">wizard.html</a>.</p>
+<div class="note"><b>Layers the form does not have</b>The setup form has no slot for the concession layer or water-level observations. Add them to <code>run_config.yaml</code> by hand (see the commented lines in <code>configs/example_khg.yaml</code>); the wizard then marks stage 1 as out of date and you re-run from there.</div>
+
+<h3>In QGIS with the Processing algorithms</h3>
+<p>The same work is available as separate algorithms, useful for repeating only part of a run or for batch use.</p>
+<ol>
+  <li>Open the <b>Processing Toolbox</b> and find <b>RE-PEAT Pompanisasi</b>.</li>
+  <li>Choose <b>Run full pipeline</b>. Pick your config file, then each input layer. Choose where to save the output GeoPackage.</li>
+  <li>Click <b>Run</b>. <b>The very first run</b> also builds the tool's private environment, which needs internet and takes a few minutes. This happens only once (you can also trigger it with <i>Set up engine environment</i>).</li>
+  <li>The log window shows each stage. The result layers are added to your project when it finishes.</li>
+</ol>
+<p>The other entries (stages 1-2, 3-5, 6, 7, 8-11) run a part of the work. They are useful to repeat only what you changed.</p>
+
+<h3>From the command line (optional)</h3>
+<pre><code>python -m repeat_pump.cli run --config my_khg.yaml
+python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accept 9</code></pre>
+<p>Exit code <code>0</code> = finished, <code>1</code> = error, <code>2</code> = waiting for your review.</p>
+</div>
+<div class="t-id">
+<h2>Menjalankannya</h2>
+<h3>Di QGIS dengan wizard terpandu (disarankan)</h3>
+<p>Wizard membawa Anda melewati 11 tahap satu per satu. Pasang plugin dulu (lihat <a href="install.html">install.html</a>), lalu:</p>
+<ol>
+  <li>Buka wizard dengan tombol tetesan air di toolbar, atau lewat <i>Plugins &rsaquo; RE-PEAT Pompanisasi &rsaquo; Guided wizard</i>. Jika wizard meminta mesin, klik <b>Siapkan mesin</b> dan tunggu beberapa menit.</li>
+  <li>Di tahap 1, buka <b>Pengaturan proses</b>. Pilih GeoPackage keluaran, konfigurasi awal, tabel prioritas (CSV), dan setiap layer masukan, lalu klik <b>Buat proses</b>. Folder proses adalah folder GeoPackage tersebut; pengaturan Anda disimpan di sana dalam <code>run_config.yaml</code>.</li>
+  <li>Setiap kartu tahap memiliki kotak <b>Keputusan</b> berisi pengaturan yang dibutuhkan tahap itu. Kolom yang kosong disorot dan tombol Jalankan tetap mati sampai Anda mengisinya. Wizard tidak pernah mengisinya untuk Anda.</li>
+  <li>Klik <b>Jalankan tahap</b>. Angka hasil muncul di kartu dan layer tahap itu ditambahkan ke peta. QGIS tetap bisa dipakai selama proses berjalan, dan <b>Batalkan proses</b> menghentikannya.</li>
+  <li>Di titik tinjauan (tahap 2, 6, dan 9) kartu menampilkan <i>Perlu tinjauan Anda</i>. Periksa layernya, lalu klik <b>Terima dan lanjutkan</b> (lihat <a href="#review">Titik tinjauan</a>).</li>
+  <li>Aktifkan <b>Mode belajar</b> (kanan atas) untuk melihat apa yang dilakukan setiap tahap dan alasannya, lengkap dengan referensi. Tombol <b>EN</b> dan <b>ID</b> berpindah antara bahasa Inggris dan Bahasa Indonesia.</li>
+</ol>
+<figure class="shot"><img src="img/review_learn_id.png" alt="Wizard pada tahap 2 yang menunggu tinjauan, dengan Mode belajar aktif" loading="lazy"><figcaption>Wizard pada titik tinjauan (data tiruan). Daftar tahap di kiri, hasil dan keputusan di kartu.</figcaption></figure>
+<p>Panduan lengkap dengan tangkapan layar dan data latihan: <a href="wizard.html">wizard.html</a>.</p>
+<div class="note"><b>Layer yang belum ada di formulir</b>Formulir pengaturan belum punya tempat untuk layer konsesi atau pengamatan tinggi muka air. Tambahkan keduanya ke <code>run_config.yaml</code> secara manual (lihat baris yang dikomentari di <code>configs/example_khg.yaml</code>); wizard lalu menandai tahap 1 sebagai usang dan Anda menjalankan ulang dari sana.</div>
+
+<h3>Di QGIS dengan algoritma Processing</h3>
+<p>Pekerjaan yang sama tersedia sebagai algoritma terpisah, berguna untuk mengulang sebagian proses atau untuk pemakaian batch.</p>
+<ol>
+  <li>Buka <b>Processing Toolbox</b> dan cari <b>RE-PEAT Pompanisasi</b>.</li>
+  <li>Pilih <b>Run full pipeline</b>. Pilih berkas konfigurasi Anda, lalu setiap layer masukan. Pilih lokasi penyimpanan GeoPackage keluaran.</li>
+  <li>Klik <b>Run</b>. <b>Proses pertama</b> juga membangun lingkungan pribadi alat, yang membutuhkan internet dan beberapa menit. Ini hanya terjadi sekali (Anda juga dapat memicunya dengan <i>Set up engine environment</i>).</li>
+  <li>Jendela log menampilkan setiap tahap. Layer hasil ditambahkan ke proyek Anda setelah selesai.</li>
+</ol>
+<p>Entri lain (tahap 1-2, 3-5, 6, 7, 8-11) menjalankan sebagian pekerjaan. Berguna untuk mengulang hanya bagian yang Anda ubah.</p>
+
+<h3>Dari command line (opsional)</h3>
+<pre><code>python -m repeat_pump.cli run --config my_khg.yaml
+python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accept 9</code></pre>
+<p>Kode keluar <code>0</code> = selesai, <code>1</code> = galat, <code>2</code> = menunggu tinjauan Anda.</p>
+
+</div>
+</section>
+
+<section id="stages">
+<div class="t-en">
+<h2>The 11 stages</h2>
+<p>Each stage reads the result of the one before. Layer names below are the layers you find in the output GeoPackage. Files that are not map layers (rasters, logs) are in the folder named after the output file with <code>_work</code> added.</p>
+
+<div class="stage" id="s1"><h3><span class="num">1</span> Load and validate</h3>
+<p>Checks that your data is usable and keeps only what is inside the chosen sub-KHGs.</p>
+<dl><dt>Does</dt><dd>Refuses a DSM, checks the CRS of every layer, selects the sub-KHGs (top N by priority, or by ID), cuts all data to them plus the margin, converts text attributes (burn frequency, peat class).</dd>
+<dt>Output</dt><dd><code>subkhg_selected</code>, <code>inputs_clipped_*</code> layers, a clipped DTM and moisture raster.</dd>
+<dt>Check</dt><dd>The warnings list. Pay attention to the <b>accuracy warning</b>, to unreadable burn or peat values, and to layers that cover less than 90 % of the area.</dd></dl></div>
+
+<div class="stage" id="s2"><h3><span class="num">2</span> Canal topology <span class="tag">REVIEW</span></h3>
+<p>Cleans the canal lines so they form a connected network. Water routing only works on a connected network.</p>
+<dl><dt>Does</dt><dd>Applies your canal edits, snaps nearly-touching ends together, splits lines at junctions, removes duplicates, trims short stubs (if switched on), and checks that every canal is connected to a river. Nothing is deleted without a record.</dd>
+<dt>Output</dt><dd><code>canals_clean</code> plus problem layers: <code>qa_topology_gaps</code> (ends that were snapped), <code>qa_topology_dangles</code> (free ends), <code>qa_topology_disconnected</code> (canals with no river connection), <code>qa_topology_issues</code> (self-crossing or closed lines), <code>qa_topology_trimmed</code>, <code>qa_topology_edits</code>.</dd>
+<dt>Check</dt><dd>Open the problem layers. A gap too big to snap shows as dangles near another canal. Fix it by adding a line to your <b>canal edits</b> layer (<code>action = add</code>) or removing a wrong canal (<code>action = delete</code>), then run again. The same edits give the same result every time.</dd></dl></div>
+
+<div class="stage" id="s3"><h3><span class="num">3</span> Flow analysis</h3>
+<p>Works out where water flows over the land, used only for routing.</p>
+<dl><dt>Does</dt><dd>Burns the canals into a <i>copy</i> of the DTM, removes small pits, and calculates flow accumulation (how much land drains to each cell).</dd>
+<dt>Output</dt><dd>Files <code>dtm_conditioned.tif</code> and <code>flow_acc.tif</code> in the work folder.</dd>
+<dt>Check</dt><dd>The warning about canals that used the default depth, which means <code>depth_m</code> was missing. The original DTM is never changed; all heights and slopes come from it.</dd></dl></div>
+
+<div class="stage" id="s4"><h3><span class="num">4</span> Segments</h3>
+<p>Cuts canals into pieces of at most 500 m, which are the units that get scored.</p>
+<dl><dt>Output</dt><dd><code>canal_segments</code> with a stable <code>seg_id</code>, <code>length_m</code> and <code>status_mcda</code>.</dd>
+<dt>Check</dt><dd>Pieces shorter than 25 m get <code>status_mcda = 0</code>: they stay in the network but are not scored.</dd></dl></div>
+
+<div class="stage" id="s5"><h3><span class="num">5</span> Land profiles and flow direction</h3>
+<p>Measures how the land rises along each canal.</p>
+<dl><dt>Does</dt><dd>Reads land height on both banks (6 m and 10 m from the canal, because the canal bed itself is lower than the land), smooths it, derives slope, and decides which end of each canal is downstream. Flat canals are decided by their distance to the nearest river.</dd>
+<dt>Output</dt><dd><code>canal_profiles</code> (points every 5 m), and new fields on <code>canal_segments</code> (<code>z_up_m</code>, <code>z_down_m</code>, <code>i_lahan_pct</code>) and on <code>canals_clean</code> (<code>direction</code>).</dd>
+<dt>Check</dt><dd>A warning about canals whose direction could not be resolved, usually canals not connected to any river.</dd></dl></div>
+
+<div class="stage" id="s6"><h3><span class="num">6</span> Prioritise segments <span class="tag">REVIEW</span></h3>
+<p>Ranks segments by how much they need rewetting.</p>
+<dl><dt>Does</dt><dd>For each segment takes the burn class and peat class that cover the <b>greatest length</b> of the segment, measures dryness in a ring around the canal (excluding the canal water), and measures upstream contribution. Each factor is rescaled 0 to 1 and combined using your weights. Only segments inside the selected sub-KHGs are scored. Then it selects the top share (<code>top_fraction</code>) of feasible segments as targets. Concession is applied afterwards as a filter, never inside the score.</dd>
+<dt>Output</dt><dd><code>canal_segments</code> with <code>need_score</code>, <code>need_rank</code> (1 = highest), <code>feasible</code>, <code>selected</code>; table <code>qa_sensitivity</code>.</dd>
+<dt>Check</dt><dd>Map <code>need_score</code>: do the highest segments make sense on the ground? <code>qa_sensitivity</code> shows how stable the ranking is when weights change by 10 or 20 %. Low values mean the result depends strongly on your weights.</dd></dl></div>
+
+<div class="stage" id="s7"><h3><span class="num">7</span> Sekat gap analysis and placement</h3>
+<p>Compares existing sekat with what the terrain needs and proposes new ones.</p>
+<dl><dt>Does</dt><dd>Matches existing sekat to canals, then walks each canal from downstream to upstream and places a sekat each time the land has risen 0.40 m since the previous sekat (existing sekat restart the count). For each canal it calculates the <b>required number</b> of sekat and the <b>IPG</b> = existing / required (above 1 means enough).</dd>
+<dt>Output</dt><dd><code>sekat_proposed</code> (position, <code>dist_down_m</code>, <code>z_land_m</code>, spacing <code>js_m</code>, height <code>ts_m</code>, type <code>standard</code> or <code>leaky/reinforced</code>), <code>sekat_existing_assessed</code> (with IPG). IPG per canal is on <code>canals_clean</code>.</dd>
+<dt>Check</dt><dd>Existing sekat that could not be matched to a canal (listed as a warning). Proposed sekat with an empty height mean the canal has no <code>depth_m</code>.</dd></dl></div>
+
+<div class="stage" id="s8"><h3><span class="num">8</span> Network</h3>
+<p>Builds the canal network as a graph the computer can route over.</p>
+<dl><dt>Output</dt><dd><code>network_nodes</code> (junctions, sekat, river points) and <code>network_edges</code> (each canal piece, in both directions, with its start and end height).</dd>
+<dt>Check</dt><dd>Usually nothing. It is there for inspection when a route looks wrong.</dd></dl></div>
+
+<div class="stage" id="s9"><h3><span class="num">9</span> Water sources, targets and routes <span class="tag">REVIEW</span></h3>
+<p>Finds how to bring river water to the priority canals at the lowest pumping cost.</p>
+<dl><dt>Does</dt><dd><b>Sources</b> are river and canal crossings (on perennial rivers or with a known dry-season level). <b>Targets</b> are the <i>highest</i> point of each group of selected segments, because water must reach the top. Routes are chosen to minimise length plus a penalty for going uphill, and shared canals are reused by several targets. An existing sekat <b>without a gate</b> blocks the route.</dd>
+<dt>Output</dt><dd><code>pump_sources</code>, <code>pump_targets</code>, <code>pump_routes</code>, <code>qa_unreachable_targets</code>.</dd>
+<dt>Check</dt><dd>Targets with no route, in <code>qa_unreachable_targets</code>. The <code>reason</code> says why: <code>blocked_by_ungated_sekat</code> (add a gate), <code>disconnected_from_river</code> (fix the canal topology in stage 2), or <code>no_path</code>.</dd></dl></div>
+
+<div class="stage" id="s10"><h3><span class="num">10</span> Water demand and pump stations</h3>
+<p>Calculates how much water is needed and where and how big the pumps must be.</p>
+<dl><dt>Does</dt><dd>Demand = water deficit x peat area within the influence distance of the served canals, spread over the design period. The lift is the height difference between the river level and the target pool plus friction losses. Stations are placed so that no station lifts more than the maximum head, preferably at a sekat. Power = density x gravity x flow x head / efficiency.</dd>
+<dt>Output</dt><dd><code>pump_stations</code> (flow <code>q_m3s</code>, head <code>h_m</code>, power <code>p_kw</code>, <code>units_needed</code>), <code>gates_required</code> (sekat on a route that must be a gated type), and demand fields on <code>pump_routes</code>.</dd>
+<dt>Check</dt><dd>Warnings about demand above the installed capacity (<code>shortfall_m3s</code>) and about single canal pieces that need more head than allowed.</dd></dl></div>
+
+<div class="stage" id="s11"><h3><span class="num">11</span> Report</h3>
+<p>Collects everything into one readable summary.</p>
+<dl><dt>Output</dt><dd><code>run_report.md</code> and <code>run_report.json</code> next to the GeoPackage: all warnings, counts per stage, IPG per canal, weights and sensitivity, routing totals, the pump table, and the list of settings that are still <code>null</code>.</dd></dl></div>
+</div>
+<div class="t-id">
+<h2>11 tahap</h2>
+<p>Setiap tahap membaca hasil tahap sebelumnya. Nama layer di bawah adalah layer yang Anda temukan di GeoPackage keluaran. Berkas yang bukan layer peta (raster, log) ada di folder bernama sama dengan berkas keluaran ditambah <code>_work</code>.</p>
+
+<div class="stage" id="s1"><h3><span class="num">1</span> Muat dan validasi</h3>
+<p>Memeriksa bahwa data Anda dapat dipakai dan hanya menyimpan yang berada di dalam sub-KHG terpilih.</p>
+<dl><dt>Dilakukan</dt><dd>Menolak DSM, memeriksa CRS setiap layer, memilih sub-KHG (N teratas menurut prioritas, atau menurut ID), memotong semua data ke sub-KHG itu ditambah margin, dan mengubah atribut teks (frekuensi kebakaran, kelas gambut).</dd>
+<dt>Keluaran</dt><dd><code>subkhg_selected</code>, layer <code>inputs_clipped_*</code>, DTM dan raster kelembapan yang terpotong.</dd>
+<dt>Periksa</dt><dd>Daftar peringatan. Perhatikan <b>peringatan akurasi</b>, nilai kebakaran atau gambut yang tidak terbaca, dan layer yang mencakup kurang dari 90 % wilayah.</dd></dl></div>
+
+<div class="stage" id="s2"><h3><span class="num">2</span> Topologi kanal <span class="tag">TINJAU</span></h3>
+<p>Membersihkan garis kanal agar membentuk jaringan yang tersambung. Penentuan rute air hanya bekerja pada jaringan yang tersambung.</p>
+<dl><dt>Dilakukan</dt><dd>Menerapkan suntingan kanal Anda, menyambungkan ujung yang hampir bersentuhan, memecah garis di persimpangan, membuang duplikat, memangkas ujung pendek (jika diaktifkan), dan memeriksa bahwa setiap kanal tersambung ke sungai. Tidak ada yang dihapus tanpa catatan.</dd>
+<dt>Keluaran</dt><dd><code>canals_clean</code> ditambah layer masalah: <code>qa_topology_gaps</code> (ujung yang disambung), <code>qa_topology_dangles</code> (ujung bebas), <code>qa_topology_disconnected</code> (kanal tanpa sambungan ke sungai), <code>qa_topology_issues</code> (garis yang berpotongan sendiri atau tertutup), <code>qa_topology_trimmed</code>, <code>qa_topology_edits</code>.</dd>
+<dt>Periksa</dt><dd>Buka layer masalah. Celah yang terlalu besar untuk disambung tampak sebagai dangle di dekat kanal lain. Perbaiki dengan menambah garis ke layer <b>suntingan kanal</b> (<code>action = add</code>) atau menghapus kanal yang salah (<code>action = delete</code>), lalu jalankan lagi. Suntingan yang sama memberi hasil yang sama setiap kali.</dd></dl></div>
+
+<div class="stage" id="s3"><h3><span class="num">3</span> Analisis aliran</h3>
+<p>Menghitung ke mana air mengalir di atas lahan, hanya dipakai untuk penentuan rute.</p>
+<dl><dt>Dilakukan</dt><dd>Membakar kanal ke dalam <i>salinan</i> DTM, menghilangkan cekungan kecil, dan menghitung akumulasi aliran (berapa banyak lahan yang mengalir ke setiap sel).</dd>
+<dt>Keluaran</dt><dd>Berkas <code>dtm_conditioned.tif</code> dan <code>flow_acc.tif</code> di folder kerja.</dd>
+<dt>Periksa</dt><dd>Peringatan tentang kanal yang memakai kedalaman bawaan, artinya <code>depth_m</code> tidak ada. DTM asli tidak pernah diubah; semua tinggi dan kemiringan berasal darinya.</dd></dl></div>
+
+<div class="stage" id="s4"><h3><span class="num">4</span> Segmen</h3>
+<p>Memotong kanal menjadi bagian sepanjang paling besar 500 m, yang menjadi satuan penilaian.</p>
+<dl><dt>Keluaran</dt><dd><code>canal_segments</code> dengan <code>seg_id</code> yang stabil, <code>length_m</code>, dan <code>status_mcda</code>.</dd>
+<dt>Periksa</dt><dd>Potongan yang lebih pendek dari 25 m mendapat <code>status_mcda = 0</code>: tetap ada di jaringan tetapi tidak dinilai.</dd></dl></div>
+
+<div class="stage" id="s5"><h3><span class="num">5</span> Profil lahan dan arah aliran</h3>
+<p>Mengukur bagaimana lahan naik sepanjang setiap kanal.</p>
+<dl><dt>Dilakukan</dt><dd>Membaca tinggi lahan di kedua tepi (6 m dan 10 m dari kanal, karena dasar kanal sendiri lebih rendah daripada lahan), menghaluskannya, menurunkan kemiringan, dan menentukan ujung mana dari setiap kanal yang berada di hilir. Kanal yang datar ditentukan dari jaraknya ke sungai terdekat.</dd>
+<dt>Keluaran</dt><dd><code>canal_profiles</code> (titik setiap 5 m), serta kolom baru pada <code>canal_segments</code> (<code>z_up_m</code>, <code>z_down_m</code>, <code>i_lahan_pct</code>) dan pada <code>canals_clean</code> (<code>direction</code>).</dd>
+<dt>Periksa</dt><dd>Peringatan tentang kanal yang arahnya tidak dapat ditentukan, biasanya kanal yang tidak tersambung ke sungai mana pun.</dd></dl></div>
+
+<div class="stage" id="s6"><h3><span class="num">6</span> Prioritasi segmen <span class="tag">TINJAU</span></h3>
+<p>Mengurutkan segmen menurut seberapa besar kebutuhannya untuk dibasahi kembali.</p>
+<dl><dt>Dilakukan</dt><dd>Untuk setiap segmen, mengambil kelas kebakaran dan kelas gambut yang mencakup <b>panjang terbesar</b> segmen itu, mengukur kekeringan di cincin sekitar kanal (tanpa air kanal), dan mengukur kontribusi dari hulu. Setiap faktor diskalakan 0 sampai 1 lalu digabung dengan bobot Anda. Hanya segmen di dalam sub-KHG terpilih yang dinilai. Kemudian porsi teratas (<code>top_fraction</code>) dari segmen yang layak dipilih sebagai sasaran. Konsesi diterapkan sesudahnya sebagai filter, tidak pernah di dalam skor.</dd>
+<dt>Keluaran</dt><dd><code>canal_segments</code> dengan <code>need_score</code>, <code>need_rank</code> (1 = tertinggi), <code>feasible</code>, <code>selected</code>; tabel <code>qa_sensitivity</code>.</dd>
+<dt>Periksa</dt><dd>Petakan <code>need_score</code>: apakah segmen tertinggi masuk akal di lapangan? <code>qa_sensitivity</code> menunjukkan seberapa stabil peringkat ketika bobot berubah 10 atau 20 %. Nilai rendah berarti hasilnya sangat bergantung pada bobot Anda.</dd></dl></div>
+
+<div class="stage" id="s7"><h3><span class="num">7</span> Analisis celah dan penempatan sekat</h3>
+<p>Membandingkan sekat yang ada dengan kebutuhan medan dan mengusulkan sekat baru.</p>
+<dl><dt>Dilakukan</dt><dd>Mencocokkan sekat yang ada ke kanal, lalu menelusuri setiap kanal dari hilir ke hulu dan menempatkan sekat setiap kali lahan naik 0,40 m sejak sekat sebelumnya (sekat yang ada mengulang hitungan). Untuk setiap kanal dihitung <b>jumlah sekat yang dibutuhkan</b> dan <b>IPG</b> = ada / dibutuhkan (di atas 1 berarti cukup).</dd>
+<dt>Keluaran</dt><dd><code>sekat_proposed</code> (posisi, <code>dist_down_m</code>, <code>z_land_m</code>, jarak <code>js_m</code>, tinggi <code>ts_m</code>, tipe <code>standard</code> atau <code>leaky/reinforced</code>), <code>sekat_existing_assessed</code> (dengan IPG). IPG per kanal ada di <code>canals_clean</code>.</dd>
+<dt>Periksa</dt><dd>Sekat yang ada yang tidak dapat dicocokkan ke kanal (tercantum sebagai peringatan). Sekat usulan dengan tinggi kosong berarti kanalnya tidak punya <code>depth_m</code>.</dd></dl></div>
+
+<div class="stage" id="s8"><h3><span class="num">8</span> Jaringan</h3>
+<p>Menyusun jaringan kanal sebagai graf yang dapat dilalui perhitungan rute.</p>
+<dl><dt>Keluaran</dt><dd><code>network_nodes</code> (persimpangan, sekat, titik sungai) dan <code>network_edges</code> (setiap potongan kanal, dua arah, dengan tinggi awal dan akhirnya).</dd>
+<dt>Periksa</dt><dd>Biasanya tidak perlu. Tahap ini ada untuk pemeriksaan ketika sebuah rute tampak keliru.</dd></dl></div>
+
+<div class="stage" id="s9"><h3><span class="num">9</span> Sumber air, sasaran, dan rute <span class="tag">TINJAU</span></h3>
+<p>Mencari cara membawa air sungai ke kanal prioritas dengan biaya pemompaan terendah.</p>
+<dl><dt>Dilakukan</dt><dd><b>Sumber</b> adalah persilangan sungai dan kanal (pada sungai permanen atau yang tinggi muka air musim kemaraunya diketahui). <b>Sasaran</b> adalah titik <i>tertinggi</i> dari setiap kelompok segmen terpilih, karena air harus mencapai bagian atas. Rute dipilih untuk meminimalkan panjang ditambah penalti naik tanjakan, dan kanal bersama dipakai ulang oleh beberapa sasaran. Sekat yang ada <b>tanpa pintu air</b> menghalangi rute.</dd>
+<dt>Keluaran</dt><dd><code>pump_sources</code>, <code>pump_targets</code>, <code>pump_routes</code>, <code>qa_unreachable_targets</code>.</dd>
+<dt>Periksa</dt><dd>Sasaran tanpa rute, di <code>qa_unreachable_targets</code>. Kolom <code>reason</code> menjelaskan sebabnya: <code>blocked_by_ungated_sekat</code> (tambahkan pintu air), <code>disconnected_from_river</code> (perbaiki topologi kanal di tahap 2), atau <code>no_path</code>.</dd></dl></div>
+
+<div class="stage" id="s10"><h3><span class="num">10</span> Kebutuhan air dan stasiun pompa</h3>
+<p>Menghitung berapa air yang dibutuhkan serta di mana dan sebesar apa pompanya.</p>
+<dl><dt>Dilakukan</dt><dd>Kebutuhan = defisit air x luas gambut dalam jarak pengaruh kanal yang dilayani, dibagi sepanjang periode rancangan. Angkatan adalah selisih tinggi antara muka air sungai dan kolam sasaran ditambah kehilangan gesekan. Stasiun ditempatkan agar tidak ada stasiun yang mengangkat melebihi tinggi tekan maksimum, sebaiknya di sebuah sekat. Daya = massa jenis x gravitasi x debit x tinggi tekan / efisiensi.</dd>
+<dt>Keluaran</dt><dd><code>pump_stations</code> (debit <code>q_m3s</code>, tinggi tekan <code>h_m</code>, daya <code>p_kw</code>, <code>units_needed</code>), <code>gates_required</code> (sekat pada rute yang harus bertipe berpintu air), dan kolom kebutuhan pada <code>pump_routes</code>.</dd>
+<dt>Periksa</dt><dd>Peringatan tentang kebutuhan di atas kapasitas terpasang (<code>shortfall_m3s</code>) dan tentang potongan kanal tunggal yang membutuhkan tinggi tekan lebih besar daripada yang diizinkan.</dd></dl></div>
+
+<div class="stage" id="s11"><h3><span class="num">11</span> Laporan</h3>
+<p>Mengumpulkan semuanya dalam satu ringkasan yang mudah dibaca.</p>
+<dl><dt>Keluaran</dt><dd><code>run_report.md</code> dan <code>run_report.json</code> di samping GeoPackage: semua peringatan, jumlah per tahap, IPG per kanal, bobot dan sensitivitas, total rute, tabel pompa, dan daftar pengaturan yang masih <code>null</code>.</dd></dl></div>
+
+</div>
+</section>
+
+<section id="review">
+<div class="t-en">
+<h2>Review stops</h2>
+<p>After stages <b>2</b>, <b>6</b> and <b>9</b> the tool stops on purpose. These are the points where a human decision matters most.</p>
+<h3>In the wizard</h3>
+<ol>
+  <li>The stage card shows <i>Review needed</i> and the stage's layers are on the map (open the layers listed in the stage description above).</li>
+  <li>If something is wrong, fix the cause (a setting in the <b>Decisions</b> box, canal edits) and click <b>Re-run this stage</b>.</li>
+  <li>If it is fine, click <b>Accept and continue</b>. The next stage unlocks.</li>
+</ol>
+<h3>In the Processing algorithms</h3>
+<ol>
+  <li>The run ends with a message such as <i>"Stage 2 finished; inspect the QA layers... re-run with --accept 2"</i>. In QGIS this appears as a warning, not a failure.</li>
+  <li>Open the output GeoPackage and look at the layers listed in the stage description above.</li>
+  <li>If something is wrong, fix the cause (canal edits, weights, config) and run again.</li>
+  <li>If it is fine, run again with that stage ticked under <b>Review stages to accept</b>. The tool continues from where it stopped and does not redo finished work.</li>
+</ol>
+<h3>If you change something after a stage ran</h3>
+<ul>
+  <li>The wizard marks that stage and every later one <b>Out of date</b>, and you cannot accept them until you re-run. The stage records the settings it was run with, so this also catches a value you edited after the result was produced.</li>
+  <li><b>Re-run this stage</b> on an earlier stage clears the results of all later stages, because they depend on it. The wizard asks first and also takes their layers off the map.</li>
+  <li>Warnings raised by a stage disappear when it is re-run, so the list always matches the current result.</li>
+  <li>Canal edits and the other input layers are read in stage 1. If you change them, re-run from stage 1, not stage 2.</li>
+</ul>
+<div class="stop"><b>Do not skip review</b>An unconnected canal in stage 2 or a wrong weight in stage 6 quietly changes everything after it. Tick all three stages at once only for a repeat run whose inputs you have already reviewed.</div>
+</div>
+<div class="t-id">
+<h2>Titik tinjauan</h2>
+<p>Setelah tahap <b>2</b>, <b>6</b>, dan <b>9</b> alat berhenti dengan sengaja. Di titik-titik inilah keputusan manusia paling berarti.</p>
+<h3>Di wizard</h3>
+<ol>
+  <li>Kartu tahap menampilkan <i>Perlu tinjauan Anda</i> dan layer tahap itu sudah ada di peta (buka layer yang tercantum pada uraian tahap di atas).</li>
+  <li>Jika ada yang salah, perbaiki penyebabnya (pengaturan di kotak <b>Keputusan</b>, suntingan kanal) lalu klik <b>Jalankan ulang tahap ini</b>.</li>
+  <li>Jika sudah baik, klik <b>Terima dan lanjutkan</b>. Tahap berikutnya terbuka.</li>
+</ol>
+<h3>Di algoritma Processing</h3>
+<ol>
+  <li>Proses berakhir dengan pesan seperti <i>"Stage 2 finished; inspect the QA layers... re-run with --accept 2"</i>. Di QGIS ini muncul sebagai peringatan, bukan kegagalan.</li>
+  <li>Buka GeoPackage keluaran dan lihat layer yang tercantum pada uraian tahap di atas.</li>
+  <li>Jika ada yang salah, perbaiki penyebabnya (suntingan kanal, bobot, konfigurasi) lalu jalankan lagi.</li>
+  <li>Jika sudah baik, jalankan lagi dengan tahap itu dicentang di <b>Review stages to accept</b>. Alat melanjutkan dari titik berhenti dan tidak mengulang pekerjaan yang sudah selesai.</li>
+</ol>
+<h3>Jika Anda mengubah sesuatu setelah tahap dijalankan</h3>
+<ul>
+  <li>Wizard menandai tahap itu dan semua tahap sesudahnya sebagai <b>Usang</b>, dan Anda tidak dapat menerimanya sebelum menjalankan ulang. Tahap mencatat pengaturan yang dipakainya, jadi ini juga menangkap nilai yang Anda ubah setelah hasilnya dibuat.</li>
+  <li><b>Jalankan ulang tahap ini</b> pada tahap yang lebih awal menghapus hasil semua tahap sesudahnya, karena mereka bergantung padanya. Wizard bertanya dulu dan juga mencabut layernya dari peta.</li>
+  <li>Peringatan yang dimunculkan sebuah tahap hilang ketika tahap itu dijalankan ulang, sehingga daftarnya selalu sesuai dengan hasil terbaru.</li>
+  <li>Suntingan kanal dan layer masukan lain dibaca di tahap 1. Jika Anda mengubahnya, jalankan ulang dari tahap 1, bukan tahap 2.</li>
+</ul>
+<div class="stop"><b>Jangan lewati tinjauan</b>Kanal yang tidak tersambung di tahap 2 atau bobot yang salah di tahap 6 diam-diam mengubah semua yang sesudahnya. Centang ketiga tahap sekaligus hanya untuk proses ulang yang masukannya sudah Anda tinjau.</div>
+
+</div>
+</section>
+
+<section id="results">
+<div class="t-en">
+<h2>Reading the results</h2>
+<p>All layers carry <code>run_name</code> and <code>stage</code> fields, so you always know where they came from. Open the GeoPackage in QGIS and start with these:</p>
+<table>
+<thead><tr><th>Layer</th><th>What it shows</th><th>Key fields</th></tr></thead>
+<tbody>
+<tr><td><code>canal_segments</code></td><td>Scored canal pieces</td><td><code>need_score</code>, <code>need_rank</code>, <code>selected</code></td></tr>
+<tr><td><code>sekat_proposed</code></td><td>Where new sekat should go</td><td><code>ts_m</code> height, <code>sekat_type</code>, <code>z_land_m</code></td></tr>
+<tr><td><code>sekat_existing_assessed</code></td><td>Existing sekat and whether canals have enough</td><td><code>ipg_canal</code>, <code>snapped</code></td></tr>
+<tr><td><code>pump_routes</code></td><td>Where pumped water travels</td><td><code>q_required_m3s</code>, <code>h_total_m</code>, <code>n_stations</code></td></tr>
+<tr><td><code>pump_stations</code></td><td>Pump locations and sizes</td><td><code>p_kw</code>, <code>units_needed</code></td></tr>
+<tr><td><code>gates_required</code></td><td>Sekat that need a gate</td><td><code>sekat_id</code>, <code>route_ids</code></td></tr>
+<tr><td><code>qa_*</code> layers</td><td>Things that need a human look</td><td>see stages 2, 6 and 9</td></tr>
+</tbody></table>
+<div class="note"><b>Good habit</b>Open <code>run_report.md</code> first. Read the warnings, then the list of settings still <code>null</code>, before trusting any number.</div>
+</div>
+<div class="t-id">
+<h2>Membaca hasil</h2>
+<p>Semua layer memiliki kolom <code>run_name</code> dan <code>stage</code>, sehingga Anda selalu tahu asalnya. Buka GeoPackage di QGIS dan mulailah dengan layer ini:</p>
+<table>
+<thead><tr><th>Layer</th><th>Menunjukkan</th><th>Kolom penting</th></tr></thead>
+<tbody>
+<tr><td><code>canal_segments</code></td><td>Potongan kanal yang dinilai</td><td><code>need_score</code>, <code>need_rank</code>, <code>selected</code></td></tr>
+<tr><td><code>sekat_proposed</code></td><td>Lokasi sekat baru yang disarankan</td><td><code>ts_m</code> tinggi, <code>sekat_type</code>, <code>z_land_m</code></td></tr>
+<tr><td><code>sekat_existing_assessed</code></td><td>Sekat yang ada dan apakah kanal sudah cukup sekat</td><td><code>ipg_canal</code>, <code>snapped</code></td></tr>
+<tr><td><code>pump_routes</code></td><td>Jalur air pompa</td><td><code>q_required_m3s</code>, <code>h_total_m</code>, <code>n_stations</code></td></tr>
+<tr><td><code>pump_stations</code></td><td>Lokasi dan ukuran pompa</td><td><code>p_kw</code>, <code>units_needed</code></td></tr>
+<tr><td><code>gates_required</code></td><td>Sekat yang membutuhkan pintu air</td><td><code>sekat_id</code>, <code>route_ids</code></td></tr>
+<tr><td>layer <code>qa_*</code></td><td>Hal yang perlu dilihat manusia</td><td>lihat tahap 2, 6, dan 9</td></tr>
+</tbody></table>
+<div class="note"><b>Kebiasaan baik</b>Buka <code>run_report.md</code> lebih dulu. Baca peringatannya, lalu daftar pengaturan yang masih <code>null</code>, sebelum memercayai angka apa pun.</div>
+
+</div>
+</section>
+
+<section id="problems">
+<div class="t-en">
+<h2>Troubleshooting</h2>
+<table>
+<thead><tr><th>You see</th><th>Why</th><th>What to do</th></tr></thead>
+<tbody>
+<tr><td>"needs these parameters ... TODO(human)"</td><td>A setting in the config is still <code>null</code></td><td>Ask the person responsible for that decision, fill it in, run again. All missing settings for that stage are listed.</td></tr>
+<tr><td>CRS error</td><td>A layer is in a different coordinate system</td><td>Reproject it to the project CRS and save it as a file.</td></tr>
+<tr><td>"refusing to run on a DSM"</td><td><code>surface_type</code> is not <code>DTM</code></td><td>Use a bare-earth DTM.</td></tr>
+<tr><td>"the layer must be saved to a file"</td><td>A temporary (scratch) layer was selected</td><td>Export it to a GeoPackage, then select it.</td></tr>
+<tr><td>"Could not set up the engine environment", or the wizard shows a <b>Set up engine</b> button</td><td>No internet, or no Python 3.11+ found</td><td>Connect to the internet, install Python from python.org, click <b>Set up engine</b> (wizard) or run <i>Set up engine environment</i> (Processing) again.</td></tr>
+<tr><td>"The engine is older than the plugin"</td><td>You installed a newer plugin</td><td>Click <b>Set up engine</b> in the wizard to update the engine.</td></tr>
+<tr><td>Run button is off and a field is highlighted</td><td>The stage needs a decision from you</td><td>Fill in the highlighted field in the <b>Decisions</b> box. Commas work as decimal marks.</td></tr>
+<tr><td>Stage shows <b>Out of date</b></td><td>A setting or input changed after the stage ran</td><td>Click <b>Re-run to apply your change</b>. Later stages are re-run after it.</td></tr>
+<tr><td>Stage shows <b>Interrupted</b></td><td>The run was cancelled or QGIS closed while it ran</td><td>Run the stage again.</td></tr>
+<tr><td>Canals "have no connection to a river"</td><td>A gap bigger than the snap tolerance</td><td>Add a bridging line in the canal edits layer.</td></tr>
+<tr><td>Target "unreachable"</td><td>See the <code>reason</code> in <code>qa_unreachable_targets</code></td><td>Add a gate, fix topology, or accept that the target cannot be served.</td></tr>
+<tr><td>Accuracy warning</td><td>DTM error is too large for a 0.40 m sekat step</td><td>Treat sekat positions as indicative, or use a better DTM.</td></tr>
+<tr><td>Memory error in stage 3</td><td>The area is too large for the computer's memory</td><td>Run fewer sub-KHGs at a time. Tiled processing is not available yet.</td></tr>
+</tbody></table>
+</div>
+<div class="t-id">
+<h2>Pemecahan masalah</h2>
+<table>
+<thead><tr><th>Yang Anda lihat</th><th>Penyebab</th><th>Yang dilakukan</th></tr></thead>
+<tbody>
+<tr><td>"needs these parameters ... TODO(human)"</td><td>Sebuah pengaturan di konfigurasi masih <code>null</code></td><td>Tanyakan kepada penanggung jawab keputusan itu, isi nilainya, lalu jalankan lagi. Semua pengaturan yang kurang untuk tahap itu dicantumkan.</td></tr>
+<tr><td>Galat CRS</td><td>Sebuah layer memakai sistem koordinat berbeda</td><td>Proyeksikan ulang ke CRS proyek dan simpan sebagai berkas.</td></tr>
+<tr><td>"refusing to run on a DSM"</td><td><code>surface_type</code> bukan <code>DTM</code></td><td>Pakai DTM permukaan tanah.</td></tr>
+<tr><td>"the layer must be saved to a file"</td><td>Layer sementara (scratch) terpilih</td><td>Ekspor ke GeoPackage, lalu pilih.</td></tr>
+<tr><td>"Could not set up the engine environment", atau wizard menampilkan tombol <b>Siapkan mesin</b></td><td>Tidak ada internet, atau Python 3.11+ tidak ditemukan</td><td>Sambungkan ke internet, pasang Python dari python.org, klik <b>Siapkan mesin</b> (wizard) atau jalankan <i>Set up engine environment</i> (Processing) lagi.</td></tr>
+<tr><td>"Mesin lebih lama daripada plugin"</td><td>Anda memasang plugin yang lebih baru</td><td>Klik <b>Siapkan mesin</b> di wizard untuk memperbarui mesin.</td></tr>
+<tr><td>Tombol Jalankan mati dan ada kolom yang disorot</td><td>Tahap itu membutuhkan keputusan dari Anda</td><td>Isi kolom yang disorot di kotak <b>Keputusan</b>. Koma dapat dipakai sebagai tanda desimal.</td></tr>
+<tr><td>Tahap menampilkan <b>Usang</b></td><td>Sebuah pengaturan atau masukan berubah setelah tahap dijalankan</td><td>Klik <b>Jalankan ulang untuk menerapkan perubahan</b>. Tahap sesudahnya dijalankan ulang setelahnya.</td></tr>
+<tr><td>Tahap menampilkan <b>Terhenti</b></td><td>Proses dibatalkan atau QGIS ditutup saat berjalan</td><td>Jalankan tahap itu lagi.</td></tr>
+<tr><td>Kanal "have no connection to a river"</td><td>Celah lebih besar daripada toleransi penyambungan</td><td>Tambahkan garis penyambung di layer suntingan kanal.</td></tr>
+<tr><td>Sasaran "unreachable"</td><td>Lihat <code>reason</code> di <code>qa_unreachable_targets</code></td><td>Tambahkan pintu air, perbaiki topologi, atau terima bahwa sasaran itu tidak dapat dilayani.</td></tr>
+<tr><td>Peringatan akurasi</td><td>Galat DTM terlalu besar untuk langkah sekat 0,40 m</td><td>Anggap posisi sekat sebagai indikatif, atau pakai DTM yang lebih baik.</td></tr>
+<tr><td>Galat memori di tahap 3</td><td>Wilayah terlalu besar untuk memori komputer</td><td>Jalankan lebih sedikit sub-KHG sekaligus. Pemrosesan berubin belum tersedia.</td></tr>
+</tbody></table>
+
+</div>
+</section>
+
+<section id="glossary">
+<div class="t-en">
+<h2>Glossary</h2>
+<table>
+<thead><tr><th>Term</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>KHG / sub-KHG</td><td>Peat hydrological unit and its sub-units, the work area</td></tr>
+<tr><td>Sekat</td><td>A block placed in a canal to hold water back</td></tr>
+<tr><td>DTM / DSM</td><td>Bare-earth elevation model / surface model (includes vegetation and buildings). Only the DTM is accepted.</td></tr>
+<tr><td>RMSE</td><td>Typical vertical error of the DTM, in metres</td></tr>
+<tr><td>dA (0.40 m)</td><td>The water-level step between two sekat, from PP 57/2016. Sekat are placed each time the land rises by this much.</td></tr>
+<tr><td>IPG</td><td>Existing sekat divided by required sekat on a canal. Above 1 is adequate.</td></tr>
+<tr><td>Head (H)</td><td>The height the pumps must lift water, in metres, including friction losses</td></tr>
+<tr><td>Dangle</td><td>A canal end that touches nothing; either a real dead end or a digitising gap</td></tr>
+<tr><td>Source / target</td><td>Where river water enters the canals / the highest point of a priority canal group that water must reach</td></tr>
+<tr><td>Review stop</td><td>A planned pause after stages 2, 6 and 9 for you to approve the result</td></tr>
+<tr><td>QA layer</td><td>A layer that lists things to check, named <code>qa_*</code></td></tr>
+</tbody></table>
+</div>
+<div class="t-id">
+<h2>Daftar istilah</h2>
+<table>
+<thead><tr><th>Istilah</th><th>Arti</th></tr></thead>
+<tbody>
+<tr><td>KHG / sub-KHG</td><td>Kesatuan hidrologis gambut dan bagian-bagiannya, wilayah kerja</td></tr>
+<tr><td>Sekat</td><td>Penahan yang dipasang di kanal untuk menahan air</td></tr>
+<tr><td>DTM / DSM</td><td>Model ketinggian permukaan tanah / model permukaan (termasuk vegetasi dan bangunan). Hanya DTM yang diterima.</td></tr>
+<tr><td>RMSE</td><td>Galat vertikal khas DTM, dalam meter</td></tr>
+<tr><td>dA (0,40 m)</td><td>Selisih muka air antara dua sekat, dari PP 57/2016. Sekat ditempatkan setiap kali lahan naik sebesar ini.</td></tr>
+<tr><td>IPG</td><td>Sekat yang ada dibagi sekat yang dibutuhkan pada sebuah kanal. Di atas 1 berarti cukup.</td></tr>
+<tr><td>Tinggi tekan (H)</td><td>Tinggi yang harus diangkat pompa, dalam meter, termasuk kehilangan gesekan</td></tr>
+<tr><td>Dangle</td><td>Ujung kanal yang tidak menyentuh apa pun; entah memang buntu, entah celah digitasi</td></tr>
+<tr><td>Sumber / sasaran</td><td>Tempat air sungai masuk ke kanal / titik tertinggi dari kelompok kanal prioritas yang harus dicapai air</td></tr>
+<tr><td>Titik tinjauan</td><td>Jeda terencana setelah tahap 2, 6, dan 9 agar Anda menyetujui hasilnya</td></tr>
+<tr><td>Layer QA</td><td>Layer yang mencantumkan hal-hal yang perlu diperiksa, bernama <code>qa_*</code></td></tr>
+<tr><td>Wizard</td><td>Panel di QGIS yang memandu Anda melewati 11 tahap satu per satu</td></tr>
+</tbody></table>
+
+</div>
+</section>
+
+</main>
+</div>
+<footer>
+  <span class="t-en">RE-PEAT Pompanisasi · Departemen Teknik Geodesi UGM · Full specification: <a href="https://github.com/danylaksono/rewetting-peat/blob/main/AGENTS.md">AGENTS.md</a> · Installation: <a href="install.html">install.html</a> · Wizard guide: <a href="wizard.html">wizard.html</a></span>
+  <span class="t-id">RE-PEAT Pompanisasi · Departemen Teknik Geodesi UGM · Spesifikasi lengkap: <a href="https://github.com/danylaksono/rewetting-peat/blob/main/AGENTS.md">AGENTS.md</a> · Pemasangan: <a href="install.html">install.html</a> · Panduan wizard: <a href="wizard.html">wizard.html</a></span>
+</footer>
+<script>
+(function () {
+  var root = document.documentElement, buttons = document.querySelectorAll(".lang button");
+  function apply(code) {
+    root.setAttribute("data-lang", code); root.lang = code;
+    for (var i = 0; i < buttons.length; i++) buttons[i].setAttribute("aria-pressed", String(buttons[i].getAttribute("data-set") === code));
+    try { localStorage.setItem("repeat_pump_doc_lang", code); } catch (e) {}
+  }
+  var start = "";
+  try { start = localStorage.getItem("repeat_pump_doc_lang") || ""; } catch (e) {}
+  if (start !== "en" && start !== "id") start = (navigator.language || "").toLowerCase().indexOf("id") === 0 ? "id" : "en";
+  apply(start);
+  for (var i = 0; i < buttons.length; i++) buttons[i].addEventListener("click", function () { apply(this.getAttribute("data-set")); });
+})();
+</script>
+</body>
+</html>

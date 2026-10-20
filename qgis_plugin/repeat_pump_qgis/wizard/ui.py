@@ -359,11 +359,12 @@ class WizardPanel(QWidget):
                 raise ValueError(tr("Choose a starting config (YAML)."))
             if not self.priority.filePath().strip():
                 raise ValueError(tr("Choose the sub-KHG priority table (CSV)."))
-            vectors, dtm, moisture = {}, "", ""
+            vectors, dtm, moisture, drop = {}, "", "", []
             for key, (cb, optional, text) in self.combos.items():
                 layer = cb.currentLayer()
                 if layer is None:
                     if optional:
+                        drop.append(key)             # left empty on purpose: do not keep the template's placeholder path
                         continue
                     raise ValueError(tr("Choose a layer for: {text}.").format(text=tr(text)))
                 path, name = split_source(layer.source())
@@ -378,7 +379,7 @@ class WizardPanel(QWidget):
             cfg_path = Path(out).parent / "run_config.yaml"
             base = cfg_path if cfg_path.exists() else Path(tpl)
             data = build_run_config(base, output_gpkg=str(Path(out)), dtm=dtm, moisture=moisture,
-                                    priority=self.priority.filePath().strip(), vectors=vectors)
+                                    priority=self.priority.filePath().strip(), vectors=vectors, drop=drop)
         except Exception as e:
             self.setup_msg.setText(f"<span style='color:{theme.RED_TEXT}'>{e}</span>")
             return

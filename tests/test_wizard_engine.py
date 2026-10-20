@@ -43,6 +43,22 @@ def test_completed_stage_stores_a_fingerprint_that_changes_with_its_settings(wor
     assert changed[2] != state["2"]["fingerprint"] and changed[3] == now[3] and changed[1]["run"]["name"] == now[1]["run"]["name"]
 
 
+def test_a_stage_is_not_invalidated_by_settings_only_later_stages_read(world):
+    """Filling in pump settings (stage 10) after routing (stage 9) ran must not mark routing out of date."""
+    cfg, tmp = world
+    fp = lambda c, i: {s["id"]: s["fingerprint"] for s in check(load_config(write_cfg(tmp / f"{i}.yaml", c)))["stages"]}
+    base = fp(cfg, "a")
+    cfg["pumping"]["manning_n"] = 0.05                               # a stage 10 setting
+    pump = fp(cfg, "b")
+    assert pump[9] == base[9] and pump[10] != base[10] and pump[7] == base[7]
+    cfg["pumping"]["uphill_penalty_lambda"] = 99                     # read by stage 9 (and stage 10 reads all of pumping)
+    lam = fp(cfg, "c")
+    assert lam[9] != base[9] and lam[10] != base[10]
+    cfg["sekat"]["dA_m"] = 0.5                                       # stage 7 and stage 10 read it
+    da = fp(cfg, "d")
+    assert da[7] != base[7] and da[10] != lam[10] and da[9] == lam[9]
+
+
 def test_rerun_drops_warnings_of_the_stage_and_later_ones(world):
     cfg, tmp = world
     c = load_config(write_cfg(tmp / "c.yaml", cfg))

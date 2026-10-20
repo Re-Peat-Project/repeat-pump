@@ -44,15 +44,24 @@ def needs_by_stage(cfg: Config) -> dict[int, list[str]]:
     return need
 
 
-# config sections whose values change a stage's own results (a stage that is out of date makes every later one out of date)
-SECTIONS: dict[int, list[str]] = {1: ["run", "inputs"], 2: ["topology"], 3: ["hydro"], 4: ["segments"], 5: ["profiles"], 6: ["prioritise"],
-                                  7: ["sekat"], 8: [], 9: ["pumping"], 10: ["pumping", "sekat"], 11: []}
+# settings whose values change a stage's own results: whole sections (``topology``) or single keys (``pumping.routing``).
+# A stage that is out of date makes every later one out of date, so each stage lists only what it reads itself.
+FINGERPRINT_KEYS: dict[int, list[str]] = {
+    1: ["run", "inputs"], 2: ["topology"], 3: ["hydro"], 4: ["segments"], 5: ["profiles"], 6: ["prioritise"], 7: ["sekat"], 8: [],
+    9: ["pumping.uphill_penalty_lambda", "pumping.routing", "pumping.allow_gate_addition"],
+    10: ["pumping", "sekat.dA_m"], 11: [],
+}
+SECTIONS = FINGERPRINT_KEYS          # kept for older imports
 
 
 def fingerprint(cfg: Config, stage: int) -> dict:
     """JSON-ready snapshot of the settings that determine a stage's results. Stored when the stage completes; if the
     current fingerprint differs, the stage's outputs are out of date."""
-    return {sec: getattr(cfg, sec).model_dump(mode="json") for sec in SECTIONS[stage]}
+    out = {}
+    for key in FINGERPRINT_KEYS[stage]:
+        v = get_value(cfg, key)
+        out[key] = v.model_dump(mode="json") if hasattr(v, "model_dump") else v
+    return out
 
 
 def required_by_stage(cfg: Config) -> dict[int, list[str]]:

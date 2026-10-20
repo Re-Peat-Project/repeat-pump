@@ -1,0 +1,100 @@
+# Practice run, dummy values only.
+hydro:
+  breach_max_dist_cells: 20
+  burn_depth_default_m: 2.0
+  flow_algorithm: dinf
+inputs:
+  burn_area:
+    path: ../data/burn_area.gpkg
+  canals:
+    path: ../data/canals.gpkg
+  dtm:
+    path: ../data/dtm.tif
+    surface_type: DTM
+    vertical_rmse_m: 0.1
+  moisture:
+    higher_is_wetter: true
+    paths:
+    - ../data/moisture.tif
+  peat_depth:
+    path: ../data/peat_depth.gpkg
+  rivers:
+    path: ../data/rivers.gpkg
+    vertical_datum: DUMMY-DATUM
+  sekat_existing:
+    path: ../data/sekat_existing.gpkg
+  subkhg:
+    path: ../data/subkhg.gpkg
+  subkhg_priority:
+    path: ../data/subkhg_priority.csv
+prioritise:
+  ahp_matrix: null
+  criteria:
+    burn_freq:
+      direction: higher_is_worse
+      weight: 0.25
+    dryness:
+      direction: higher_is_worse
+      weight: 0.25
+    peat_depth:
+      direction: higher_is_worse
+      weight: 0.25
+    upstream_contrib:
+      direction: higher_is_worse
+      weight: 0.25
+  feasibility:
+    concession_mode: ignore
+  ring_buffer_m:
+  - 15
+  - 100
+  top_fraction: 0.2
+  upstream_buffer_m: 15
+  upstream_method: flow_acc
+  weights_mode: direct
+profiles:
+  bank_offsets_m:
+  - 6
+  - 10
+  sample_step_m: 5
+  smoothing_window_m: 50
+pumping:
+  allow_gate_addition: true
+  conveyance: canal
+  demand_mode: deficit
+  hazen_williams_c: null
+  influence_distance_m: 200
+  manning_n: 0.035
+  max_head_per_station_m: 1.0
+  max_units_per_station: null
+  pipe_diameter_m: null
+  pump_capacity_m3s: 0.5
+  pump_efficiency: 0.6
+  routing: steiner
+  specific_yield: null
+  uphill_penalty_lambda: 10
+  water_table_rise_m: null
+review:
+  auto_accept: []
+run:
+  auto_reproject: false
+  clip_margin_m: 100
+  crs: EPSG:32749
+  memory_budget_gb: 8
+  name: practice_run
+  output_gpkg: out/practice.gpkg
+  subkhg_selection:
+    mode: top_n
+    n: 1
+  vertical_datum: DUMMY-DATUM
+segments:
+  max_length_m: 500
+  min_length_m: 25
+sekat:
+  dA_m: 0.4
+  max_spacing_m: 1000
+  min_spacing_m: 50
+  slope_reinforced_pct: 5.0
+  snap_tolerance_m: 10
+topology:
+  overshoot_max_m: null
+  snap_tolerance_m: 2.0

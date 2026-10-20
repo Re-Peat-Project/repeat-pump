@@ -82,9 +82,11 @@ class _StageAlgorithm(QgsProcessingAlgorithm):
         out = self.parameterAsFileOutput(parameters, "OUTPUT_GPKG", context)
         kw = {}
         if self.FIRST == 1:
-            vectors = {}
+            vectors, drop = {}, []
             for key, _, _, cfgkey, optional in VECTOR_INPUTS:
                 if self.parameterAsSource(parameters, key, context) is None:
+                    if optional:
+                        drop.append(cfgkey)          # left empty on purpose: do not keep the template's placeholder path
                     continue
                 layer = self.parameterAsVectorLayer(parameters, key, context)
                 path, name = split_source(layer.source()) if layer is not None else ("", None)
@@ -93,7 +95,7 @@ class _StageAlgorithm(QgsProcessingAlgorithm):
                 vectors[cfgkey] = (path, name)
             kw = dict(dtm=self.parameterAsRasterLayer(parameters, "DTM", context).source(),
                       moisture=self.parameterAsRasterLayer(parameters, "MOISTURE", context).source(),
-                      priority=self.parameterAsFile(parameters, "PRIORITY", context), vectors=vectors)
+                      priority=self.parameterAsFile(parameters, "PRIORITY", context), vectors=vectors, drop=drop)
         return build_run_config(cfgfile, output_gpkg=out or None, **kw)
 
     def processAlgorithm(self, parameters, context, feedback):
