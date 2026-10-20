@@ -1,0 +1,72 @@
+"""Engine contract the QGIS wizard relies on: stale-stage invalidation, failed status, ``check`` JSON."""
+import json
+from pathlib import Path
+
+import pytest
+
+from repeat_pump import cli
+from repeat_pump.core.config import MissingParameters, load_config
+from repeat_pump.core.pipeline import ReviewRequired, run_pipeline
+from repeat_pump.core.requirements import check, required_by_stage
+from tests.fixtures.synthetic import write_cfg
+
+EXAMPLE = Path(__file__).parents[1] / "configs" / "example_khg.yaml"
+
+
+def _state(ctx):
+    return {int(k): v["status"] for k, v in ctx.state["stages"].items()}
+
+
+def test_rerunning_a_stage_invalidates_later_stages(world):
+    cfg, tmp = world
+    c = load_config(write_cfg(tmp / "c.yaml", cfg))
+    with pytest.raises(ReviewRequired):
+        run_pipeline(c)
+    with pytest.raises(ReviewRequired):
+        run_pipeline(c, accept=[2])                        # stages 3-5 done, 6 awaits review
+    ctx = run_pipeline(c, stop_after=3, resume_from=3)    # re-run stage 3 only
+    assert _state(ctx) == {1: "done", 2: "done", 3: "done"}, "stages 4-6 must be dropped, not left 'done'"
+    with pytest.raises(ReviewRequired):                    # a normal run now recomputes 4, 5 and 6
+        run_pipeline(c, accept=[2])
+
+
+def test_failed_stage_is_recorded(world):
+    cfg, tmp = world
+    cfg["hydro"]["breach_max_dist_cells"] = None
+    c = load_config(write_cfg(tmp / "c.yaml", cfg))
+    with pytest.raises(ReviewRequired):
+        run_pipeline(c)
+    with pytest.raises(MissingParameters):
+        run_pipeline(c, accept=[2])
+    state = json.loads(next(tmp.rglob("run_state.json")).read_text())["stages"]
+    assert state["3"]["status"] == "failed" and "breach_max_dist_cells" in state["3"]["error"]
+
+
+def test_check_on_example_config_lists_the_todo_keys():
+    out = check(load_config(EXAMPLE))
+    by = {s["id"]: s for s in out["stages"]}
+    assert len(out["stages"]) == 11 and [s["id"] for s in out["stages"] if s["review"]] == [2, 6, 9]
+    assert {"run.clip_margin_m", "inputs.dtm.vertical_rmse_m", "inputs.moisture.higher_is_wetter"} <= set(by[1]["missing"])
+    assert by[1]["recommended_missing"] == ["run.vertical_datum", "inputs.rivers.vertical_datum"]
+    assert by[2]["missing"] == ["topology.snap_tolerance_m"]
+    assert "prioritise.criteria.burn_freq.weight" in by[6]["missing"] and "prioritise.upstream_buffer_m" in by[6]["missing"]
+    assert "pumping.conveyance" in by[10]["missing"] and "pumping.manning_n" not in by[10]["missing"]
+
+
+def test_check_on_complete_world_is_empty(world):
+    cfg, tmp = world
+    cfg["pumping"]["allow_gate_addition"] = True
+    req = required_by_stage(load_config(write_cfg(tmp / "c.yaml", cfg)))
+    assert all(v == [] for v in req.values()), req
+
+
+def test_check_follows_conveyance_and_demand_mode(world):
+    cfg, tmp = world
+    cfg["pumping"].update(conveyance="pipe", demand_mode="specific_yield", hazen_williams_c=None, pipe_diameter_m=None)
+    req = required_by_stage(load_config(write_cfg(tmp / "c.yaml", cfg)))[10]
+    assert "pumping.hazen_williams_c" in req and "pumping.pipe_diameter_m" in req and "pumping.manning_n" not in req
+
+
+def test_check_cli_prints_json(capsys):
+    assert cli.main(["check", "--config", str(EXAMPLE)]) == 0
+    assert json.loads(capsys.readouterr().out)["stages"][1]["name"] == "topology"

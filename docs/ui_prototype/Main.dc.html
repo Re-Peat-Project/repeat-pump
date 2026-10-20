@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pompanisasi Wizard</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+button{font-family:inherit;cursor:pointer}
+button:disabled{cursor:default}
+button:focus-visible,input:focus-visible{outline:3px solid #1F8A8A;outline-offset:2px}
+</style>
+</helmet>
+<div style="width: 1280px; height: 900px; box-sizing: border-box; display: flex; background: #F4F1EA; color: #17261F; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 14px; line-height: 1.45; overflow: hidden">
+
+<!-- ================= STEPPER RAIL ================= -->
+<nav aria-label="Stages" style="width: 300px; flex-shrink: 0; background: #0F2B26; color: #E6EFEA; display: flex; flex-direction: column; padding: 24px 16px 16px 16px; box-sizing: border-box; gap: 18px">
+<div style="display: flex; align-items: center; gap: 12px; padding: 0 8px">
+<div style="width: 40px; height: 40px; border-radius: 12px; background: #1F8A8A; display: flex; align-items: center; justify-content: center" aria-hidden="true">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E8FBF7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3.5 4.2 6 7.2 6 10.5a6 6 0 0 1-12 0C6 10.200 8.500 7.200 12 3z"/><path d="M9 14.500a3 3 0 0 0 3 2.500"/></svg>
+</div>
+<div>
+<div style="font-weight: 800; font-size: 17px; letter-spacing: -0.01em">RE-PEAT</div>
+<div style="font-size: 12px; color: #9FB5AD">Rewetting with pompanisasi</div>
+</div>
+</div>
+
+<div style="margin: 0 8px; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,0.07); display: flex; flex-direction: column; gap: 2px">
+<div style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #9FB5AD; font-weight: 600">Run</div>
+<div style="font-weight: 600">khg_kahayan_sebangau_pilot</div>
+<div style="font-size: 12px; color: #9FB5AD">Sub-KHG 1 of 3 selected</div>
+</div>
+
+<ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; flex: 1; min-height: 0">
+<sc-for list="{{stages}}" as="item" hint-placeholder-count="11">
+<li style="margin: 0">
+<button onClick="{{item.go}}" disabled="{{item.disabled}}" aria-current="{{item.ariaCurrent}}" style="width: 100%; display: flex; align-items: center; gap: 12px; padding: 7px 10px; border: 0; border-left: 3px solid {{item.bar}}; border-radius: 10px; background: {{item.rowBg}}; color: {{item.labelColor}}; text-align: left; font-size: 14px">
+<span style="width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; box-sizing: border-box; background: {{item.dotBg}}; border: 2px solid {{item.dotBorder}}; color: {{item.dotColor}}; font-weight: 700; font-size: 12px">
+<sc-if value="{{item.isDone}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.500" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.500l4.500 4.500L19 7"/></svg></sc-if>
+<sc-if value="{{item.isLocked}}" hint-placeholder-val="{{ false }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.500" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></sc-if>
+<sc-if value="{{item.isNumber}}" hint-placeholder-val="{{ true }}"><span>{{item.n}}</span></sc-if>
+</span>
+<span style="display: flex; flex-direction: column; flex: 1; min-width: 0">
+<span style="font-weight: 600">{{item.name}}</span>
+<span style="font-size: 12px; color: {{item.subColor}}">{{item.sub}}</span>
+</span>
+</button>
+</li>
+</sc-for>
+</ol>
+
+<div style="margin: 0 8px; font-size: 12px; color: #9FB5AD; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.12)">Prototype with sample numbers. Click stages 1, 2 or 7.</div>
+</nav>
+
+<!-- ================= MAIN COLUMN ================= -->
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+
+<header style="display: flex; align-items: center; justify-content: space-between; padding: 18px 36px; gap: 16px; border-bottom: 1px solid #DDD8CB; flex-shrink: 0">
+<div style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: #4C5E57">
+<span>Stage {{cur}} of 11</span>
+<span style="padding: 3px 10px; border-radius: 999px; background: #E7E2D4; font-weight: 600; font-size: 12px">Sample data</span>
+</div>
+<button onClick="{{toggleLearn}}" aria-pressed="{{learn}}" style="display: flex; align-items: center; gap: 10px; border: 1px solid #C9C3B3; border-radius: 999px; padding: 6px 14px 6px 8px; background: {{learnBg}}; color: #17261F; font-size: 13px; font-weight: 600">
+<span style="width: 34px; height: 20px; border-radius: 999px; background: {{learnTrack}}; position: relative; display: block" aria-hidden="true"><span style="position: absolute; top: 2px; left: {{learnKnob}}; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF; display: block"></span></span>
+Learn mode
+</button>
+</header>
+
+<!-- ========== SCREEN A: Stage 1 inputs ========== -->
+<sc-if value="{{isA}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 1; min-height: 0; display: flex; flex-direction: column">
+<div style="flex: 1; overflow: auto; padding: 28px 36px; display: flex; flex-direction: column; gap: 22px">
+<div>
+<div style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #1F6F6F">Stage 1</div>
+<h1 style="margin: 2px 0 6px 0; font-size: 34px; letter-spacing: -0.02em; line-height: 1.1">Load and validate</h1>
+<p style="margin: 0; max-width: 640px; font-size: 16px; color: #3B4D46">Tell the module where your data is. It checks projections, extents and the DTM type before anything is processed.</p>
+</div>
+
+<sc-if value="{{learn}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 16px">
+<div style="flex: 1; background: #E4F1EE; border-radius: 16px; padding: 16px 18px">
+<div style="font-weight: 700; margin-bottom: 4px">What this does</div>
+<div style="color: #2A3E37">{{learnWhat}}</div>
+</div>
+<div style="flex: 1; background: #E4F1EE; border-radius: 16px; padding: 16px 18px">
+<div style="font-weight: 700; margin-bottom: 4px">Why it matters</div>
+<div style="color: #2A3E37">{{learnWhy}}</div>
+<div style="margin-top: 8px; font-size: 12px; color: #1F6F6F; font-weight: 600">{{learnRef}}</div>
+</div>
+</div>
+</sc-if>
+
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px">
+<div style="background: #FFFFFF; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; border: 1px solid #E3DECF">
+<div style="font-weight: 700; font-size: 15px">Elevation</div>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600">DTM raster (bare earth)
+<input value="D:\RE-PEAT\lidar\dtm_pilot.tif" style="padding: 10px 12px; border: 1px solid #C9C3B3; border-radius: 10px; font: 500 13px 'JetBrains Mono', monospace; background: #FBFAF6; color: #17261F">
+</label>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 13px"><span style="padding: 3px 10px; border-radius: 999px; background: #DDF1E8; color: #14573D; font-weight: 700; font-size: 12px">Surface type: DTM</span><span style="color: #4C5E57">DSM files are refused.</span></div>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600">Vertical accuracy, RMSE (m)
+<input placeholder="Required. Ask the LiDAR provider." aria-invalid="true" style="padding: 10px 12px; border: 2px solid #D98A1F; border-radius: 10px; font: 500 13px 'Plus Jakarta Sans', sans-serif; background: #FFF6E6; color: #17261F">
+<span style="font-size: 12px; font-weight: 500; color: #8A4B00">Needed to judge if a 0.40 m sekat step is larger than the DTM noise.</span>
+</label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600">Vertical datum
+<input placeholder="Required. Same datum as river water levels." aria-invalid="true" style="padding: 10px 12px; border: 2px solid #D98A1F; border-radius: 10px; font: 500 13px 'Plus Jakarta Sans', sans-serif; background: #FFF6E6; color: #17261F">
+</label>
+</div>
+
+<div style="background: #FFFFFF; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; border: 1px solid #E3DECF">
+<div style="font-weight: 700; font-size: 15px">Layers, by role</div>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600">Canals (lines)
+<input value="canals_pilot  [LineString]" style="padding: 10px 12px; border: 1px solid #C9C3B3; border-radius: 10px; font: 500 13px 'JetBrains Mono', monospace; background: #FBFAF6; color: #17261F">
+</label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600">River polygons (water sources)
+<input value="sungai_pilot  [Polygon]" style="padding: 10px 12px; border: 1px solid #C9C3B3; border-radius: 10px; font: 500 13px 'JetBrains Mono', monospace; background: #FBFAF6; color: #17261F">
+</label>
+<label style="display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600">Existing sekat (points)
+<input value="sekat_existing  [Point]" style="padding: 10px 12px; border: 1px solid #C9C3B3; border-radius: 10px; font: 500 13px 'JetBrains Mono', monospace; background: #FBFAF6; color: #17261F">
+</label>
+<div style="display: flex; align-items: center; gap: 8px; font-size: 13px"><span style="padding: 3px 10px; border-radius: 999px; background: #DDF1E8; color: #14573D; font-weight: 700; font-size: 12px">CRS matches EPSG:32749</span></div>
+</div>
+</div>
+</div>
+<footer style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 36px; border-top: 1px solid #DDD8CB; background: #EFEBDF; flex-shrink: 0">
+<div style="display: flex; align-items: center; gap: 10px; color: #8A4B00; font-weight: 600; font-size: 13px">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18.500v.1"/></svg>
+2 required values are empty
+</div>
+<button disabled style="border: 0; border-radius: 12px; padding: 12px 26px; background: #CFCABB; color: #5E6A64; font-weight: 700; font-size: 15px">Run validation</button>
+</footer>
+</div>
+</sc-if>
+
+<!-- ========== SCREEN B: Stage 2 review ========== -->
+<sc-if value="{{isB}}" hint-placeholder-val="{{ true }}">
+<div style="flex: 1; min-height: 0; display: flex; flex-direction: column">
+<div style="flex: 1; overflow: auto; padding: 28px 36px; display: flex; flex-direction: column; gap: 20px">
+<div style="display: flex; align-items: flex-end; justify-content: space-between; gap: 16px">
+<div>
+<div style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #8A4B00">Stage 2 · Review needed</div>
+<h1 style="margin: 2px 0 6px 0; font-size: 34px; letter-spacing: -0.02em; line-height: 1.1">Canal topology</h1>
+<p style="margin: 0; max-width: 640px; font-size: 16px; color: #3B4D46">Canals were snapped and noded. Nothing was deleted silently: check the loose ends below.</p>
+</div>
+<span style="padding: 6px 14px; border-radius: 999px; background: #FFE9C7; color: #7A4300; font-weight: 700; font-size: 13px; white-space: nowrap">Your turn</span>
+</div>
+
+<sc-if value="{{learn}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 16px">
+<div style="flex: 1; background: #E4F1EE; border-radius: 16px; padding: 16px 18px">
+<div style="font-weight: 700; margin-bottom: 4px">What this does</div>
+<div style="color: #2A3E37">{{learnWhat}}</div>
+</div>
+<div style="flex: 1; background: #E4F1EE; border-radius: 16px; padding: 16px 18px">
+<div style="font-weight: 700; margin-bottom: 4px">Why it matters</div>
+<div style="color: #2A3E37">{{learnWhy}}</div>
+<div style="margin-top: 8px; font-size: 12px; color: #1F6F6F; font-weight: 600">{{learnRef}}</div>
+</div>
+</div>
+</sc-if>
+
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px">
+<sc-for list="{{tiles}}" as="t" hint-placeholder-count="4">
+<div style="background: {{t.bg}}; border-radius: 16px; padding: 14px 18px; border: 1px solid {{t.border}}">
+<div style="font-size: 12px; font-weight: 600; color: {{t.labelColor}}">{{t.label}}</div>
+<div style="font-size: 34px; font-weight: 800; letter-spacing: -0.02em; color: {{t.valueColor}}; line-height: 1.15">{{t.value}}</div>
+<div style="font-size: 12px; color: {{t.labelColor}}">{{t.note}}</div>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; gap: 20px; align-items: stretch">
+<div style="flex: 1.100; min-width: 0; background: #FFFFFF; border-radius: 16px; border: 1px solid #E3DECF; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-weight: 700; font-size: 15px">Where the loose ends are</div>
+<svg viewBox="0 0 520 250" width="100%" role="img" aria-label="Schematic map of canals, a river on the left and four highlighted dangles" style="display: block; background: #F0F6F3; border-radius: 12px">
+<path d="M70 0 C 40 60, 90 110, 60 170 S 40 230, 70 250" stroke="#7CC4CF" stroke-width="22" fill="none" stroke-linecap="round"/>
+<g stroke="#2B6B6B" stroke-width="3" fill="none" stroke-linecap="round">
+<path d="M78 50 L 480 50"/><path d="M70 120 L 480 120"/><path d="M62 190 L 480 190"/>
+<path d="M200 50 L 200 190"/><path d="M340 50 L 340 190"/><path d="M450 50 L 450 118"/>
+</g>
+<g stroke="#2B6B6B" stroke-width="3" fill="none" stroke-linecap="round" stroke-dasharray="1 7"><path d="M450 122 L 450 190"/></g>
+<g fill="#F2A93B" stroke="#7A4300" stroke-width="2">
+<circle cx="450" cy="119" r="8"/><circle cx="480" cy="50" r="8"/><circle cx="480" cy="190" r="8"/><circle cx="340" cy="190" r="8"/>
+</g>
+<text x="352" y="214" font-family="Plus Jakarta Sans, sans-serif" font-size="12" font-weight="700" fill="#7A4300">D-031</text>
+<text x="410" y="150" font-family="Plus Jakarta Sans, sans-serif" font-size="12" font-weight="700" fill="#7A4300">D-014</text>
+</svg>
+<div style="display: flex; gap: 16px; font-size: 12px; color: #4C5E57; flex-wrap: wrap">
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 4px; border-radius: 2px; background: #2B6B6B; display: block"></span>Cleaned canal</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 50%; background: #F2A93B; border: 2px solid #7A4300; box-sizing: border-box; display: block"></span>Dangle</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 10px; border-radius: 4px; background: #7CC4CF; display: block"></span>River</span>
+</div>
+</div>
+
+<div style="flex: 1; min-width: 0; background: #FFFFFF; border-radius: 16px; border: 1px solid #E3DECF; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px">
+<div style="font-weight: 700; font-size: 15px">Dangles to check</div>
+<sc-for list="{{dangles}}" as="d" hint-placeholder-count="4">
+<div style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: #F8F6F0">
+<span style="font: 500 12px 'JetBrains Mono', monospace; color: #17261F; width: 48px">{{d.id}}</span>
+<span style="flex: 1; font-size: 13px">{{d.text}}</span>
+<span style="padding: 3px 10px; border-radius: 999px; background: {{d.chipBg}}; color: {{d.chipColor}}; font-weight: 700; font-size: 12px; white-space: nowrap">{{d.chip}}</span>
+</div>
+</sc-for>
+<div style="font-size: 12px; color: #4C5E57; margin-top: 2px">Snaps above the tolerance always need a human decision.</div>
+</div>
+</div>
+</div>
+<footer style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 36px; border-top: 1px solid #DDD8CB; background: #EFEBDF; flex-shrink: 0">
+<button style="border: 1px solid #B7B09D; border-radius: 12px; padding: 12px 22px; background: transparent; color: #17261F; font-weight: 700; font-size: 14px">Back</button>
+<div style="display: flex; gap: 12px">
+<button style="border: 1px solid #1F6F6F; border-radius: 12px; padding: 12px 22px; background: transparent; color: #1F6F6F; font-weight: 700; font-size: 14px">Re-run with a new tolerance</button>
+<button style="border: 0; border-radius: 12px; padding: 12px 26px; background: #1F6F6F; color: #FFFFFF; font-weight: 700; font-size: 15px">Accept and continue</button>
+</div>
+</footer>
+</div>
+</sc-if>
+
+<!-- ========== SCREEN C: Stage 7 sekat ========== -->
+<sc-if value="{{isC}}" hint-placeholder-val="{{ false }}">
+<div style="flex: 1; min-height: 0; display: flex; flex-direction: column">
+<div style="flex: 1; overflow: auto; padding: 28px 36px; display: flex; flex-direction: column; gap: 20px">
+<div>
+<div style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #1F6F6F">Stage 7</div>
+<h1 style="margin: 2px 0 6px 0; font-size: 34px; letter-spacing: -0.02em; line-height: 1.1">Sekat gap analysis and placement</h1>
+<p style="margin: 0; max-width: 680px; font-size: 16px; color: #3B4D46">Existing blocks were compared with what the terrain needs. New sekat are proposed wherever the land has risen by one step, dA.</p>
+</div>
+
+<sc-if value="{{learn}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; gap: 16px">
+<div style="flex: 1; background: #E4F1EE; border-radius: 16px; padding: 16px 18px">
+<div style="font-weight: 700; margin-bottom: 4px">What this does</div>
+<div style="color: #2A3E37">{{learnWhat}}</div>
+</div>
+<div style="flex: 1; background: #E4F1EE; border-radius: 16px; padding: 16px 18px">
+<div style="font-weight: 700; margin-bottom: 4px">Why it matters</div>
+<div style="color: #2A3E37">{{learnWhy}}</div>
+<div style="margin-top: 8px; font-size: 12px; color: #1F6F6F; font-weight: 600">{{learnRef}}</div>
+</div>
+</div>
+</sc-if>
+
+<div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; border-radius: 14px; background: #FFF1DC; border: 1px solid #EBC689; color: #5E3500">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink: 0; margin-top: 1px"><path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18.500v.1"/></svg>
+<div><b>Check the DTM accuracy.</b> If dA is smaller than twice the DTM vertical RMSE, sekat positions are mostly noise. This warning appears only when that happens.</div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px">
+<sc-for list="{{tiles}}" as="t" hint-placeholder-count="4">
+<div style="background: {{t.bg}}; border-radius: 16px; padding: 14px 18px; border: 1px solid {{t.border}}">
+<div style="font-size: 12px; font-weight: 600; color: {{t.labelColor}}">{{t.label}}</div>
+<div style="font-size: 34px; font-weight: 800; letter-spacing: -0.02em; color: {{t.valueColor}}; line-height: 1.15">{{t.value}}</div>
+<div style="font-size: 12px; color: {{t.labelColor}}">{{t.note}}</div>
+</div>
+</sc-for>
+</div>
+
+<div style="display: flex; gap: 20px; align-items: stretch">
+<div style="flex: 1.400; min-width: 0; background: #FFFFFF; border-radius: 16px; border: 1px solid #E3DECF; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px">
+<div style="font-weight: 700; font-size: 15px">Along one canal: land rises, pools step up</div>
+<svg viewBox="0 0 660 230" width="100%" role="img" aria-label="Cross-section of a canal: rising peat surface with water pools held by sekat, each step one dA high" style="display: block; background: #F0F6F3; border-radius: 12px">
+<polygon points="0,176 60,170 120,160 180,155 240,140 300,131 360,118 420,108 480,92 540,80 600,66 640,58 640,230 0,230" fill="#B9A58A"/>
+<rect x="60" y="170" width="160" height="60" fill="#3F9DAA" fill-opacity="0.75"/>
+<rect x="220" y="145" width="131" height="85" fill="#3F9DAA" fill-opacity="0.75"/>
+<rect x="351" y="120" width="118" height="110" fill="#3F9DAA" fill-opacity="0.75"/>
+<rect x="469" y="95" width="114" height="135" fill="#3F9DAA" fill-opacity="0.75"/>
+<polyline points="0,176 60,170 120,160 180,155 240,140 300,131 360,118 420,108 480,92 540,80 600,66 640,58" fill="none" stroke="#6E5A3E" stroke-width="3" stroke-linejoin="round"/>
+<g fill="#17261F"><rect x="57" y="160" width="7" height="40" rx="2"/></g>
+<g fill="#E0922F" stroke="#7A4300" stroke-width="1.500"><rect x="217" y="135" width="7" height="40" rx="2"/><rect x="348" y="110" width="7" height="40" rx="2"/><rect x="466" y="85" width="7" height="40" rx="2"/><rect x="580" y="60" width="7" height="40" rx="2"/></g>
+<g stroke="#17261F" stroke-width="1.500"><line x1="618" y1="95" x2="618" y2="120"/><line x1="612" y1="95" x2="624" y2="95"/><line x1="612" y1="120" x2="624" y2="120"/></g>
+<text x="506" y="38" font-family="Plus Jakarta Sans, sans-serif" font-size="12" font-weight="700" fill="#17261F">dA = 0.40 m</text>
+<text x="8" y="22" font-family="Plus Jakarta Sans, sans-serif" font-size="12" font-weight="600" fill="#3B4D46">Downstream (river)</text>
+<text x="548" y="222" font-family="Plus Jakarta Sans, sans-serif" font-size="12" font-weight="600" fill="#17261F">Upstream</text>
+</svg>
+<div style="display: flex; gap: 16px; font-size: 12px; color: #4C5E57; flex-wrap: wrap">
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 8px; height: 14px; background: #17261F; border-radius: 2px; display: block"></span>Existing sekat</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 8px; height: 14px; background: #E0922F; border: 1px solid #7A4300; box-sizing: border-box; border-radius: 2px; display: block"></span>Proposed sekat</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 10px; background: #3F9DAA; border-radius: 3px; display: block"></span>Pool</span>
+</div>
+</div>
+
+<div style="flex: 1; min-width: 0; background: #FFFFFF; border-radius: 16px; border: 1px solid #E3DECF; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px">
+<div style="font-weight: 700; font-size: 15px">Coverage by canal (IPG)</div>
+<sc-for list="{{canals}}" as="c" hint-placeholder-count="4">
+<div style="display: flex; flex-direction: column; gap: 4px; padding: 6px 0">
+<div style="display: flex; justify-content: space-between; font-size: 13px"><span style="font: 500 12px 'JetBrains Mono', monospace">{{c.id}}</span><span style="font-weight: 700">{{c.text}}</span></div>
+<div style="height: 8px; border-radius: 4px; background: #ECE7DA; overflow: hidden"><div style="height: 8px; width: {{c.width}}; background: {{c.bar}}; border-radius: 4px"></div></div>
+</div>
+</sc-for>
+<div style="font-size: 12px; color: #4C5E57; margin-top: 2px">IPG = existing sekat ÷ required. Above 1.0 is adequate.</div>
+</div>
+</div>
+</div>
+<footer style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 36px; border-top: 1px solid #DDD8CB; background: #EFEBDF; flex-shrink: 0">
+<button style="border: 1px solid #B7B09D; border-radius: 12px; padding: 12px 22px; background: transparent; color: #17261F; font-weight: 700; font-size: 14px">Back</button>
+<div style="display: flex; gap: 12px">
+<button style="border: 1px solid #1F6F6F; border-radius: 12px; padding: 12px 22px; background: transparent; color: #1F6F6F; font-weight: 700; font-size: 14px">Open layers in QGIS</button>
+<button style="border: 0; border-radius: 12px; padding: 12px 26px; background: #1F6F6F; color: #FFFFFF; font-weight: 700; font-size: 15px">Next: Network graph</button>
+</div>
+</footer>
+</div>
+</sc-if>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { screen: 'B', learn: false };
+  }
+  renderVals() {
+    const s = this.state.screen;
+    const learn = this.state.learn;
+    const cur = { A: 1, B: 2, C: 7 }[s];
+    const names = ['Load and validate', 'Canal topology', 'Hydro-conditioning', 'Segmentation', 'Land profiles', 'Prioritisation', 'Sekat placement', 'Network graph', 'Sources and routes', 'Pumps and sizing', 'Report'];
+    const review = [2, 6, 9];
+    const targets = { 1: 'A', 2: 'B', 7: 'C' };
+
+    const stages = names.map((name, i) => {
+      const n = i + 1;
+      let st = 'locked';
+      if (s === 'A') st = n === 1 ? 'ready' : 'locked';
+      if (s === 'B') st = n === 1 ? 'done' : (n === 2 ? 'review' : 'locked');
+      if (s === 'C') st = n <= 7 ? 'done' : 'locked';
+      const isCur = n === cur;
+      const isRev = review.indexOf(n) >= 0;
+      const dot = {
+        done: { bg: '#2E9E7B', border: '#2E9E7B', color: '#FFFFFF' },
+        ready: { bg: 'transparent', border: '#7FD1C4', color: '#9BE3D6' },
+        review: { bg: '#F2A93B', border: '#F2A93B', color: '#2A1A00' },
+        locked: { bg: 'rgba(255,255,255,0.08)', border: 'transparent', color: '#9FB5AD' }
+      }[st];
+      const sub = { done: 'Done', ready: 'Ready to run', review: 'Needs your review', locked: isRev ? 'Locked · review stage' : 'Locked' }[st];
+      const subColor = st === 'review' ? '#F6C06A' : '#9FB5AD';
+      const target = targets[n];
+      return {
+        n: n,
+        name: name,
+        sub: sub,
+        subColor: subColor,
+        dotBg: dot.bg,
+        dotBorder: dot.border,
+        dotColor: dot.color,
+        labelColor: st === 'locked' ? '#9FB5AD' : '#F2F7F4',
+        rowBg: isCur ? 'rgba(255,255,255,0.10)' : 'transparent',
+        bar: isCur ? (st === 'review' ? '#F2A93B' : '#7FD1C4') : 'transparent',
+        isDone: st === 'done',
+        isLocked: st === 'locked',
+        isNumber: st === 'ready' || st === 'review',
+        disabled: !target || st === 'locked' && !isCur,
+        ariaCurrent: isCur ? 'step' : 'false',
+        go: () => { if (target) this.setState({ screen: target }); }
+      };
+    });
+
+    const tone = {
+      neutral: { bg: '#FFFFFF', border: '#E3DECF', value: '#17261F', label: '#4C5E57' },
+      warn: { bg: '#FFF1DC', border: '#EBC689', value: '#7A4300', label: '#5E3500' },
+      good: { bg: '#E4F4EC', border: '#B6DCC8', value: '#14573D', label: '#2A4A3B' }
+    };
+    const mk = (label, value, note, t) => ({ label, value, note, bg: tone[t].bg, border: tone[t].border, valueColor: tone[t].value, labelColor: tone[t].label });
+
+    let tiles = [];
+    if (s === 'B') tiles = [
+      mk('Canal features in', '412', 'before cleaning', 'neutral'),
+      mk('Canal features out', '389', 'after snap and node', 'neutral'),
+      mk('Dangles found', '14', 'written to QA layer', 'warn'),
+      mk('Snaps above tolerance', '4', 'need your decision', 'warn')
+    ];
+    if (s === 'C') tiles = [
+      mk('Existing sekat', '38', '35 snapped to canals', 'neutral'),
+      mk('Sekat required', '121', 'from land rise ÷ dA', 'neutral'),
+      mk('Sekat proposed', '83', 'ready to review', 'good'),
+      mk('Unsnapped points', '3', 'listed in the log', 'warn')
+    ];
+
+    const chip = { ok: ['#DDF1E8', '#14573D'], review: ['#FFE0B0', '#6E3B00'] };
+    const dangles = [
+      { id: 'D-014', text: '3.2 m from nearest canal', chip: 'Auto-snapped', k: 'ok' },
+      { id: 'D-022', text: '1.1 m from nearest canal', chip: 'Auto-snapped', k: 'ok' },
+      { id: 'D-031', text: '18.5 m from nearest canal', chip: 'Check', k: 'review' },
+      { id: 'D-037', text: '26.0 m from nearest canal', chip: 'Check', k: 'review' }
+    ].map(d => ({ id: d.id, text: d.text, chip: d.chip, chipBg: chip[d.k][0], chipColor: chip[d.k][1] }));
+
+    const canals = [
+      { id: 'C-007', text: '1.3  adequate', w: '100%', ok: true },
+      { id: 'C-012', text: '0.6', w: '60%', ok: false },
+      { id: 'C-019', text: '0.2', w: '20%', ok: false },
+      { id: 'C-024', text: '0.0  no sekat', w: '2%', ok: false }
+    ].map(c => ({ id: c.id, text: c.text, width: c.w, bar: c.ok ? '#2E9E7B' : '#E0922F' }));
+
+    const learnTexts = {
+      A: ['Reads every layer you point to, checks projection, extent and that the elevation is a bare-earth DTM.', 'A silent projection mismatch or a surface model (DSM) would make every later height and slope wrong.', 'Reference: PP 57/2016 for dA'],
+      B: ['Joins canal ends that nearly touch, splits lines at crossings and removes duplicates. Loose ends are kept and flagged.', 'A canal that looks connected on screen but is not would stop pumped water in the routing stage.', 'Reference: Neteler and Mitasova (2008)'],
+      C: ['Counts how many sekat each canal needs from the land rise, then places new ones so each step in water level is dA.', 'Each sekat holds water about 0.40 m above the next pool downstream, keeping the peat wet without flooding it.', 'Reference: PP 57/2016, Ritzema et al. (2014)']
+    }[s];
+
+    return {
+      stages: stages,
+      tiles: tiles,
+      dangles: dangles,
+      canals: canals,
+      cur: cur,
+      isA: s === 'A',
+      isB: s === 'B',
+      isC: s === 'C',
+      learn: learn,
+      learnWhat: learnTexts[0],
+      learnWhy: learnTexts[1],
+      learnRef: learnTexts[2],
+      learnBg: learn ? '#E4F1EE' : '#FFFFFF',
+      learnTrack: learn ? '#1F6F6F' : '#B7B09D',
+      learnKnob: learn ? '16px' : '2px',
+      toggleLearn: () => this.setState({ learn: !this.state.learn })
+    };
+  }
+}
+</script>
+</body>
+</html>
