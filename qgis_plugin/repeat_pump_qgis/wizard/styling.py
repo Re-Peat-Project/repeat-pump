@@ -45,6 +45,17 @@ def style_layer(layer: QgsVectorLayer) -> None:
     layer.triggerRepaint()
 
 
+def remove_layers(run_name: str, names: list[str]) -> None:
+    """Take outputs of stages that are about to be invalidated off the map (so stale results are not mistaken for current ones)."""
+    project = QgsProject.instance()
+    group = project.layerTreeRoot().findGroup(f"RE-PEAT {run_name}")
+    if group is None:
+        return
+    for node in list(group.findLayers()):
+        if node.layer() is not None and node.layer().name() in names:
+            project.removeMapLayer(node.layer().id())
+
+
 def load_layers(gpkg: Path, names: list[str], run_name: str) -> list[str]:
     """Add ``names`` from the GeoPackage into a group for this run, replacing earlier copies. Returns the names loaded."""
     if not Path(gpkg).exists():

@@ -319,13 +319,14 @@ Every layer includes `run_name` and `stage` fields. Field names are lower_snake_
 Purpose: train KLH staff. The plugin registers the §7 provider and adds a dock-widget wizard. **The wizard contains no analysis logic and never imports `repeat_pump`.** It reaches the engine only through (a) `runner.run_cli` (one stage at a time) and (b) files: `run_state.json`, `<name>_work/logs/`, the output GPKG and `run_report.json`; plus `repeat-pump check --config X` (JSON: stages, review flags, null parameters each stage still needs).
 
 **Engine contract (tested in `tests/test_wizard_engine.py`)**
-- Stage status in `run_state.json`: `running | awaiting_review | done | failed` (+ `error`); absent = not run. Re-running a stage deletes the state of all later stages.
+- Stage status in `run_state.json`: `running | awaiting_review | done | failed` (+ `error`); absent = not run. Re-running a stage deletes the state of all later stages and the warnings that stage or later ones raised.
+- On completion each stage stores a `fingerprint` (the config sections that determine its results, `core/requirements.py`). `repeat-pump check` returns the current fingerprints; if they differ the wizard marks the stage and every later one **out of date**: Accept is disabled and the primary action is "Re-run to apply your change".
 - Run next = `last=N`; Accept = `last=N, accept=[N]` (no `first`); Re-run / Back = `first=N`.
 - Tiles read `report.counts[stage]`; callouts read `warnings`.
 
 **Structure**
 - **Stepper rail** (left): the 11 stages, each with status `locked | ready | running | done | needs_review | failed`, taken from `run_state.json`. [REVIEW] stages have a distinct "your turn" accent.
-- **Stage card** (main): one-line purpose; "What this does" and "Why it matters" text (plain language, Indonesian + English strings via Qt translation files); a small diagram for key ideas (sekat head rule, ring buffer, head-aware cost); a typed, named input form; Run button with progress and cancel.
+- **Stage card** (main): one-line purpose; "What this does" and "Why it matters" text (plain language; English only for now, Bahasa Indonesia is a pending decision, the copy lives in `wizard/viewmodel.py` and `wizard/ui.py`); a typed, named input form; Run button with Cancel (kills the engine process tree, works even when the engine is silent). A small diagram for key ideas (sekat head rule, ring buffer, head-aware cost) is not built yet.
 - **Result tiles** after each run: key counts and totals from the stage log (e.g. segments, dangles, sekat needed, unreachable targets, total lift). Warnings (DTM accuracy, defaults used, unparsed attributes) appear as friendly callouts, never buried in a log.
 - **Review panel** for [REVIEW] stages: auto-load the QA layers with bundled QML styles, then offer *Accept*, *Re-run with changes*, *Back*. Accept writes to `review.auto_accept`/`--accept` equivalent in the state file.
 - **Learn toggle:** expands explanations, formulas and §12 references per stage.
@@ -334,7 +335,7 @@ Purpose: train KLH staff. The plugin registers the §7 provider and adds a dock-
 
 **Implementation rules**
 - Run stages off the UI thread (`QgsTask`, or a subprocess if `core` runs in a separate environment). QGIS must not freeze during Stage 3, 5 or 9.
-- Native Qt widgets styled with one QSS theme; follow the QGIS light/dark theme; one accent colour; SVG icons. **Do not embed a web view** (WebEngine is not reliable in QGIS builds).
+- Native Qt widgets styled with one QSS theme that paints its own backgrounds (same look in QGIS light and dark themes); one accent colour; inline SVG icons. **Do not embed a web view** (WebEngine is not reliable in QGIS builds).
 - Output and QA layers are styled in code when loaded (`wizard/styling.py`; see the `qgis-cartography` skill for design principles).
 - Dependencies: the existing private-venv mechanism in `runner.py` (`ensure_environment`) is reused; the wizard shows its status and offers "Set up / repair".
 - Shared code: the provider's config builder lives in a shared module used by both the provider and the wizard.

@@ -418,7 +418,7 @@ class WizardPanel(QWidget):
     def _act(self, action: str, sid: int) -> None:
         model = self.controller.model
         if action == "rerun" and model is not None:
-            later = [v for v in model.stages if v.id > sid and v.status in ("done", "needs_review")]
+            later = [v for v in model.stages if v.id > sid and v.status in ("done", "needs_review", "stale")]
             if later:
                 ok = QMessageBox.question(self, "Re-run stage", f"Re-running stage {sid} clears the results of stages "
                                           f"{later[0].id} to {later[-1].id}, because they depend on it. Continue?")
@@ -516,6 +516,8 @@ class WizardPanel(QWidget):
                                       "\nUse the Set up engine button on the left. It needs internet once and Python 3.11 or newer."))
         if view.status == "failed" and view.error:
             b.addWidget(self._callout("error", "This stage stopped", view.error))
+        if view.status == "stale":
+            b.addWidget(self._callout("warn", "These results are out of date", view.stale_reason))
         if self.learn:
             b.addWidget(self._learn(view))
         if view.id == 1:
@@ -543,8 +545,10 @@ class WizardPanel(QWidget):
         lay = QVBoxLayout(w)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(2)
-        tone = "review" if view.review and view.status in ("needs_review", "locked", "ready") else ("failed" if view.status == "failed" else "")
-        suffix = {"needs_review": " · REVIEW NEEDED", "failed": " · FAILED", "running": " · RUNNING", "done": " · DONE"}.get(view.status, "")
+        tone = "review" if (view.review and view.status in ("needs_review", "locked", "ready")) or view.status == "stale" \
+            else ("failed" if view.status == "failed" else "")
+        suffix = {"needs_review": " · REVIEW NEEDED", "failed": " · FAILED", "running": " · RUNNING", "done": " · DONE",
+                  "stale": " · OUT OF DATE"}.get(view.status, "")
         if view.review and view.status in ("ready", "locked"):
             suffix = " · REVIEW STAGE"
         eyebrow = label(f"STAGE {view.id}{suffix}", "eyebrow", wrap=False)
@@ -714,6 +718,9 @@ class WizardPanel(QWidget):
             if view.id < len(model.stages):
                 add("Next: " + model.stage(view.id + 1).title, "primary", lambda: self._select(view.id + 1))
             note.setText(view.blocking)
+        elif view.status == "stale":
+            note.setText(view.blocking)
+            add("Re-run to apply your change", "primary", lambda: self._act("rerun", view.id), view.can_rerun)
         else:  # failed
             note.setText(view.blocking)
             add("Run again", "primary", lambda: self._act("rerun", view.id), view.can_rerun)

@@ -180,6 +180,78 @@ def test_rerun_of_stage_one_passes_resume_flag(monkeypatch):
     assert "--resume-from" not in seen["cmd"]                       # provider behaviour unchanged
 
 
+def test_cancel_stops_a_silent_process_quickly():
+    import time
+
+    class Fb:
+        def __init__(self): self.t0 = time.time(); self.lines = []
+        def pushInfo(self, m): self.lines.append(m)
+        def pushWarning(self, m): self.lines.append(m)
+        def isCanceled(self): return time.time() - self.t0 > 0.6
+    t0 = time.time()
+    code = runner.stream_process([sys.executable, "-c", "import time; time.sleep(60)"], ".", runner.clean_env(), Fb())
+    assert code == runner.CANCELLED and time.time() - t0 < 10
+
+
+def test_stream_process_relays_output_and_exit_code():
+    class Fb:
+        def __init__(self): self.lines = []
+        def pushInfo(self, m): self.lines.append(m)
+        def pushWarning(self, m): self.lines.append("W:" + m)
+        def isCanceled(self): return False
+    fb = Fb()
+    code = runner.stream_process([sys.executable, "-c", "print('hello'); print('WARNING x'); raise SystemExit(2)"], ".", runner.clean_env(), fb)
+    assert code == 2 and fb.lines == ["hello", "W:WARNING x"]
+
+
+# ---------------------------------------------------------------- out-of-date detection
+def _stale_model(world, stored_tol, now_tol, done=("1", "2", "3")):
+    cfg, tmp = world
+    cfg["pumping"]["allow_gate_addition"] = True
+    cfg["topology"]["snap_tolerance_m"] = now_tol
+    chk = check(load_config(write_cfg(tmp / "c.yaml", cfg)))
+    fp = {s["id"]: s["fingerprint"] for s in chk["stages"]}
+    state = {"stages": {}, "warnings": [], "report": {}}
+    for k in done:
+        f = json.loads(json.dumps(fp[int(k)]))
+        if k == "2":
+            f["topology"]["snap_tolerance_m"] = stored_tol
+        state["stages"][k] = {"status": "awaiting_review" if k == "2" and "3" not in done else "done", "fingerprint": f}
+    return vm.WizardModel(chk, state)
+
+
+def test_changing_a_decision_after_a_run_makes_the_stage_and_later_ones_stale(world):
+    m = _stale_model(world, stored_tol=2.0, now_tol=3.5)
+    assert [m.stage(i).status for i in (1, 2, 3)] == ["done", "stale", "stale"]
+    assert m.stage(2).can_rerun and not m.stage(2).can_accept and "setting changed" in m.stage(2).stale_reason
+    assert not m.stage(3).can_rerun and m.stage(3).blocking == "Re-run stage 2 first."
+    assert m.stage(4).status == "locked"                      # nothing downstream is offered while something is out of date
+    assert m.current == 2
+
+
+def test_unchanged_settings_are_not_stale(world):
+    m = _stale_model(world, stored_tol=2.0, now_tol=2.0)
+    assert [m.stage(i).status for i in (1, 2, 3)] == ["done", "done", "done"]
+
+
+def test_accept_is_disabled_when_a_review_stage_is_out_of_date(world):
+    m = _stale_model(world, stored_tol=2.0, now_tol=3.5, done=("1", "2"))      # stage 2 awaiting review
+    assert m.stage(2).status == "stale" and not m.stage(2).can_accept and m.stage(2).can_rerun
+
+
+def test_runs_without_fingerprints_are_never_stale(world):
+    m = model(st(s1="done", s2="done"))
+    assert m.stage(2).status == "done"
+
+
+def test_layers_after_a_stage_exclude_names_an_earlier_stage_also_makes():
+    after2 = vm.layers_after(2)
+    assert "sekat_proposed" in after2 and "pump_routes" in after2 and "canal_segments" in after2
+    after6 = vm.layers_after(6)
+    assert "canal_segments" not in after6 and "sekat_proposed" in after6 and "canals_clean" not in after6
+    assert vm.layers_after(10) == []
+
+
 # ---------------------------------------------------------------- shared config builder
 def test_build_run_config_overrides_and_params(tmp_path):
     cfg = tmp_path / "t.yaml"

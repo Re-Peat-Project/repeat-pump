@@ -30,6 +30,35 @@ def test_rerunning_a_stage_invalidates_later_stages(world):
         run_pipeline(c, accept=[2])
 
 
+def test_completed_stage_stores_a_fingerprint_that_changes_with_its_settings(world):
+    cfg, tmp = world
+    c = load_config(write_cfg(tmp / "c.yaml", cfg))
+    with pytest.raises(ReviewRequired):
+        run_pipeline(c)
+    state = json.loads(next(tmp.rglob("run_state.json")).read_text())["stages"]
+    now = {s["id"]: s["fingerprint"] for s in check(c)["stages"]}
+    assert state["1"]["fingerprint"] == now[1] and state["2"]["fingerprint"] == now[2]
+    cfg["topology"]["snap_tolerance_m"] = 3.5                        # a decision changed after the stage ran
+    changed = {s["id"]: s["fingerprint"] for s in check(load_config(write_cfg(tmp / "c2.yaml", cfg)))["stages"]}
+    assert changed[2] != state["2"]["fingerprint"] and changed[3] == now[3] and changed[1]["run"]["name"] == now[1]["run"]["name"]
+
+
+def test_rerun_drops_warnings_of_the_stage_and_later_ones(world):
+    cfg, tmp = world
+    c = load_config(write_cfg(tmp / "c.yaml", cfg))
+    with pytest.raises(ReviewRequired):
+        run_pipeline(c)
+    p = next(tmp.rglob("run_state.json"))
+    data = json.loads(p.read_text())
+    data["warnings"] += ["Stage 2: 9 endpoint(s) snapped (tolerance 2.0 m)", "Stage 5: old", "ACCURACY: kept (stage 1)", "dtm covers only 84%"]
+    p.write_text(json.dumps(data))
+    with pytest.raises(ReviewRequired):
+        run_pipeline(c, resume_from=2, stop_after=2)
+    kept = json.loads(p.read_text())["warnings"]
+    assert "Stage 2: 9 endpoint(s) snapped (tolerance 2.0 m)" not in kept and "Stage 5: old" not in kept
+    assert "ACCURACY: kept (stage 1)" in kept and "dtm covers only 84%" in kept
+
+
 def test_failed_stage_is_recorded(world):
     cfg, tmp = world
     cfg["hydro"]["breach_max_dist_cells"] = None

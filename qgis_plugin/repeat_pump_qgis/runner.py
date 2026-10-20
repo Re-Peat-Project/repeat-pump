@@ -7,11 +7,13 @@ from __future__ import annotations
 
 import json
 import os
+import queue
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 KEY = "repeat_pump/python"
@@ -101,19 +103,57 @@ def run_cli(python: str, config: str, cwd: str, first, last, accept, feedback, r
     for a in accept:
         cmd += ["--accept", str(a)]
     feedback.pushInfo("Running: " + " ".join(cmd))
+    return stream_process(cmd, cwd, clean_env(), feedback)
+
+
+CANCELLED = 130
+
+
+def kill_tree(p: subprocess.Popen) -> None:
+    """Stop the process and everything it started (WhiteboxTools runs as a child and would otherwise keep files locked)."""
+    if sys.platform == "win32":
+        subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)], capture_output=True, creationflags=CREATE_NO_WINDOW)
+    else:
+        p.kill()
+
+
+def stream_process(cmd, cwd, env, feedback) -> int:
+    """Run ``cmd``, stream its output lines to ``feedback`` and return its exit code, or ``CANCELLED`` if the user cancelled.
+
+    Output is read on its own thread so cancelling works even when the process is silent (a long download, a hung tool).
+    """
     p = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
-                         creationflags=CREATE_NO_WINDOW, env=clean_env())
-    try:
-        for line in p.stdout:
+                         creationflags=CREATE_NO_WINDOW, env=env)
+    lines: queue.Queue = queue.Queue()
+
+    def pump():
+        try:
+            for line in p.stdout:
+                lines.put(line)
+        finally:
+            lines.put(None)
+
+    reader = threading.Thread(target=pump, daemon=True)
+    reader.start()
+    cancelled = False
+    while True:
+        try:
+            line = lines.get(timeout=0.2)
+        except queue.Empty:
+            line = ""
+        else:
+            if line is None:
+                break
             line = line.rstrip()
             if line:
                 (feedback.pushWarning if line.startswith(("WARNING", "ERROR")) else feedback.pushInfo)(line)
-            if feedback.isCanceled():
-                p.terminate()
-                break
-    finally:
-        p.stdout.close()
-    return p.wait()
+        if feedback.isCanceled():
+            cancelled = True
+            kill_tree(p)
+            break
+    code = p.wait()
+    reader.join(timeout=3)                 # the reader ends at EOF once the process (and its children) are gone
+    return CANCELLED if cancelled else code
 
 
 # ---------------------------------------------------------------------------- auto-managed environment

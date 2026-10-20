@@ -25,7 +25,7 @@ STAGE_TEXT: dict[int, tuple[str, str, str, str, str]] = {
         "Neteler and Mitasova (2008)"),
     3: ("Hydro-conditioning",
         "Prepares a copy of the elevation model for flow routing only, then computes flow accumulation.",
-        "Removes pits by least-cost breaching, burns the canals into a separate raster, and computes D-infinity flow accumulation.",
+        "Removes pits by least-cost breaching, burns the canals into a separate raster, and computes flow accumulation (D-infinity by default).",
         "Water must be able to flow along canals in the model. The unmodified DTM is still used for heights and slopes.",
         "Lindsay (2016a, 2016b); Tarboton (1997); Garbrecht and Martz (1997)"),
     4: ("Segmentation",
@@ -97,7 +97,7 @@ STAGE_LAYERS: dict[int, list[str]] = {
 }
 
 REVIEW_HINT: dict[int, str] = {
-    2: "Open the dangles and gaps layers. Snaps above the tolerance need your decision. Fix canals with a canal-edits layer, then re-run.",
+    2: "Open the dangles and gaps layers. Snaps above the tolerance need your decision. To fix canals, add a canal-edits layer in the run setup (stage 1) and re-run from stage 1, or change the snap tolerance below and re-run this stage.",
     6: "Look at the ranking on the map and the sensitivity table. If the top segments change a lot when weights move, discuss the weights.",
     9: "Check that each target is connected to a source. Unreachable targets usually mean a block without a gate.",
 }
@@ -154,7 +154,16 @@ def field_for(key: str) -> Field_:
 
 
 # ----------------------------------------------------------------------------- model
-STATUSES = ("locked", "ready", "running", "needs_review", "done", "failed")
+STATUSES = ("locked", "ready", "running", "needs_review", "done", "failed", "stale")
+
+
+def layers_after(stage: int) -> list[str]:
+    """Output layers that only stages after ``stage`` produce (their results disappear when ``stage`` is re-run)."""
+    keep = {n for s, names in STAGE_LAYERS.items() if s <= stage for n in names}
+    out: list[str] = []
+    for s, names in sorted(STAGE_LAYERS.items()):
+        out += [n for n in names if s > stage and n not in keep and n not in out]
+    return out
 
 
 @dataclass
@@ -194,6 +203,7 @@ class StageView:
     tiles: list[Tile] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     error: str = ""
+    stale_reason: str = ""
     review_hint: str = ""
     layers: list[str] = field(default_factory=list)
     can_run: bool = False
@@ -277,34 +287,45 @@ class WizardModel:
 
     def _build(self) -> list[StageView]:
         counts = self.state.get("report", {}).get("counts", {})
-        views, prev_ok = [], True
+        views, prev_ok, first_stale = [], True, None
         for s in self.check["stages"]:
             sid = s["id"]
             title, purpose, what, why, ref = STAGE_TEXT[sid]
             status, sub, err = self._status(sid, prev_ok)
+            stale_reason = ""
+            if status in ("done", "needs_review"):
+                stored = self.state.get("stages", {}).get(str(sid), {}).get("fingerprint")
+                if first_stale is not None:
+                    status, sub, stale_reason = "stale", "Out of date", f"Stage {first_stale} changed, so this stage is out of date."
+                elif stored is not None and s.get("fingerprint") is not None and stored != s["fingerprint"]:
+                    first_stale = sid
+                    status, sub = "stale", "Out of date"
+                    stale_reason = "A setting changed after this stage ran. Re-run it to apply the change."
             v = StageView(sid, title, purpose, what, why, ref, s["review"], status, sub, list(s["missing"]),
-                          list(s.get("recommended_missing", [])), error=err)
+                          list(s.get("recommended_missing", [])), error=err, stale_reason=stale_reason)
             v.params = [Param(e["key"], e["value"]) for e in s.get("needs", [])] + \
                        [Param(e["key"], e["value"], True) for e in s.get("recommended", [])]
             if status == "locked" and s["review"]:
                 v.sub = "Locked, review stage"
             tcfg = STAGE_TILES.get(sid, [])
             c = counts.get(str(sid), {})
-            if status in ("done", "needs_review"):
+            if status in ("done", "needs_review", "stale"):
                 v.tiles = [Tile(label, _fmt(c[k]), note, bool(warn and c[k]))
                            for k, label, note, warn in tcfg if k in c]
-            if status in ("done", "needs_review", "failed"):
+            if status in ("done", "needs_review", "failed", "stale"):
                 v.warnings = warnings_for(sid, self.warnings, len(self.check["stages"]))
             v.review_hint = REVIEW_HINT.get(sid, "") if status == "needs_review" else ""
             v.layers = STAGE_LAYERS.get(sid, [])
             busy = self.running is not None
             if not self.engine_ready:
                 v.blocking = "The engine environment is not set up yet."
-            elif v.missing and status in ("ready", "failed", "done", "needs_review"):
+            elif status == "stale" and sid != first_stale:
+                v.blocking = f"Re-run stage {first_stale} first."
+            elif v.missing and status in ("ready", "failed", "done", "needs_review", "stale"):
                 v.blocking = f"{len(v.missing)} required value{'s are' if len(v.missing) != 1 else ' is'} empty"
             v.can_run = status in ("ready",) and not v.blocking and not busy
-            v.can_accept = status == "needs_review" and not busy
-            v.can_rerun = status in ("done", "failed", "needs_review") and not v.blocking and not busy
+            v.can_accept = status == "needs_review" and not busy       # never for a stale stage: its results are out of date
+            v.can_rerun = status in ("done", "failed", "needs_review", "stale") and not v.blocking and not busy
             views.append(v)
             prev_ok = status == "done"
         return views

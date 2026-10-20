@@ -191,6 +191,10 @@ class WizardController(QObject):
             return
         plan = vm.WizardModel.plan(action, stage)
         py, cfg = runner.get_python(), str(self.config_path)
+        if action == "rerun" and self.model is not None:
+            # results of later stages are about to be discarded: take them off the map too
+            from . import styling
+            styling.remove_layers(self.check_json.get("run_name", ""), vm.layers_after(stage))
         self.running = stage
         self.log.clear()
         self.log_line.emit(f"--- {action} stage {stage} ---")
@@ -205,6 +209,8 @@ class WizardController(QObject):
             if err:
                 self.notice.emit("error", f"Stage {stage} could not run: {err}")
                 code = 1
+            elif code == runner.CANCELLED:
+                self.notice.emit("warning", f"Stage {stage} was cancelled. Run it again when you are ready.")
             elif code == 1:
                 self.notice.emit("error", f"Stage {stage} failed. See the message on the card.")
             elif code == 2:

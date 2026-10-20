@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import Any
 
 from .config import Config
-from .pipeline import STAGES
 
 
 def get_value(cfg: Config, key: str) -> Any:
@@ -23,7 +22,7 @@ def get_value(cfg: Config, key: str) -> Any:
 def needs_by_stage(cfg: Config) -> dict[int, list[str]]:
     """Every parameter each stage needs, filled or not (given the current conveyance / demand / weights modes)."""
     pc, pr = cfg.pumping, cfg.prioritise
-    need: dict[int, list[str]] = {sid: [] for sid, *_ in STAGES}
+    need: dict[int, list[str]] = {sid: [] for sid in SECTIONS}
     need[1] = ["run.clip_margin_m", "inputs.dtm.vertical_rmse_m", "inputs.moisture.higher_is_wetter"]
     need[2] = ["topology.snap_tolerance_m"]
     need[3] = ["hydro.breach_max_dist_cells"]
@@ -45,6 +44,17 @@ def needs_by_stage(cfg: Config) -> dict[int, list[str]]:
     return need
 
 
+# config sections whose values change a stage's own results (a stage that is out of date makes every later one out of date)
+SECTIONS: dict[int, list[str]] = {1: ["run", "inputs"], 2: ["topology"], 3: ["hydro"], 4: ["segments"], 5: ["profiles"], 6: ["prioritise"],
+                                  7: ["sekat"], 8: [], 9: ["pumping"], 10: ["pumping", "sekat"], 11: []}
+
+
+def fingerprint(cfg: Config, stage: int) -> dict:
+    """JSON-ready snapshot of the settings that determine a stage's results. Stored when the stage completes; if the
+    current fingerprint differs, the stage's outputs are out of date."""
+    return {sec: getattr(cfg, sec).model_dump(mode="json") for sec in SECTIONS[stage]}
+
+
 def required_by_stage(cfg: Config) -> dict[int, list[str]]:
     """The subset of :func:`needs_by_stage` that is still null."""
     return {sid: [k for k in keys if get_value(cfg, k) is None] for sid, keys in needs_by_stage(cfg).items()}
@@ -59,6 +69,7 @@ def recommended_by_stage(cfg: Config) -> dict[int, list[str]]:
 
 def check(cfg: Config) -> dict:
     """JSON-ready summary: stage list, review flags, the parameters each stage needs (with current values) and which are null."""
+    from .pipeline import STAGES          # lazy: pipeline imports this module
     needs, rec = needs_by_stage(cfg), recommended_by_stage(cfg)
     def entries(keys):
         return [{"key": k, "value": get_value(cfg, k)} for k in keys]
@@ -67,5 +78,6 @@ def check(cfg: Config) -> dict:
         stages.append({"id": sid, "name": name, "review": review,
                        "needs": entries(needs[sid]), "missing": [k for k in needs[sid] if get_value(cfg, k) is None],
                        "recommended": entries(rec.get(sid, [])),
-                       "recommended_missing": [k for k in rec.get(sid, []) if get_value(cfg, k) is None]})
+                       "recommended_missing": [k for k in rec.get(sid, []) if get_value(cfg, k) is None],
+                       "fingerprint": fingerprint(cfg, sid)})
     return {"run_name": cfg.run.name, "output_gpkg": cfg.run.output_gpkg, "stages": stages}

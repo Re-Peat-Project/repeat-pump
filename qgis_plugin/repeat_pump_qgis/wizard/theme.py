@@ -33,11 +33,14 @@ QSS = f"""
 #stageSub {{ color: {RAIL_MUTED}; font-size: 8.5pt; }}
 #stageRow[status="needs_review"] #stageSub {{ color: #F6C06A; }}
 #stageRow[status="failed"] #stageSub {{ color: #F2A097; }}
+#stageRow[status="stale"] #stageSub {{ color: #F6C06A; }}
+#stageRow[current="true"][status="stale"] {{ border-left: 3px solid {AMBER}; }}
 #badge {{ border-radius: 14px; font-weight: 700; font-size: 9pt; }}
 #badge[status="done"] {{ background: {GREEN}; color: white; }}
 #badge[status="ready"], #badge[status="running"] {{ background: transparent; border: 2px solid #7FD1C4; color: #9BE3D6; }}
 #badge[status="needs_review"] {{ background: {AMBER}; color: #2A1A00; }}
 #badge[status="failed"] {{ background: #E8786B; color: #2A0804; }}
+#badge[status="stale"] {{ background: transparent; border: 2px solid {AMBER}; color: {AMBER}; }}
 #badge[status="locked"] {{ background: rgba(255,255,255,0.08); color: {RAIL_MUTED}; }}
 
 /* ---------- header and footer ---------- */
