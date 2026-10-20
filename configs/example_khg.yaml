@@ -13,7 +13,7 @@ run:
 inputs:
   dtm: {path: data/dtm.tif, surface_type: DTM, vertical_rmse_m: null}   # TODO(human)
   subkhg: {path: data/subkhg.gpkg}
-  subkhg_priority: {path: data/subkhg_priority.csv}   # OPTIONAL (delete the line if there is no neraca air): subkhg_id, priority_rank, deficit_mm, design_period_days
+  subkhg_priority: {path: data/subkhg_priority.csv}   # OPTIONAL (delete the line if there is no neraca air): subkhg_id (or unit_id), priority_rank, deficit_mm, design_period_days
   canals: {path: data/canals.gpkg}
   canal_edits: {path: data/canal_edits.gpkg}   # optional: lines with action = add | delete
   sekat_existing: {path: data/sekat_existing.gpkg}

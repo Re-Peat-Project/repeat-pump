@@ -109,3 +109,17 @@ def test_full_run_without_a_table_needs_specific_yield_and_a_design_period(world
     assert any("no water deficit" in w for w in ctx.warnings)
     rep = json.loads((ctx.out_dir / "run_report.json").read_text())
     assert rep["validation"]["priority_source"] == "equal"
+
+
+def test_unit_id_is_accepted_for_subkhg_id_in_the_layer_and_the_table(world):
+    """The RE-PEAT delineation and prioritisation write `unit_id`; the module works on `subkhg_id` internally."""
+    import geopandas as gpd
+    import pandas as pd
+    cfg, tmp = world
+    gpd.read_file(tmp / "subkhg.gpkg").rename(columns={"subkhg_id": "unit_id"}).to_file(tmp / "subkhg.gpkg", driver="GPKG")
+    pd.read_csv(tmp / "prio.csv").rename(columns={"subkhg_id": "unit_id"}).to_csv(tmp / "prio.csv", index=False)
+    ctx = make_ctx(cfg)
+    io.run_stage1(ctx)
+    sel = _selected(ctx)
+    assert list(sel["subkhg_id"]) == ["A"] and sel["priority_rank"].iloc[0] == 1
+    assert ctx.report["validation"]["priority_source"] == "table" and ctx.report["validation"]["demand_source"] == "deficit_table"

@@ -62,6 +62,13 @@ def read_vector(cfg: Config, path: str, name: str, ctx: Optional[RunContext] = N
     return check_vector_crs(gdf, name, cfg, ctx)
 
 
+def _unit_id_alias(df):
+    """The RE-PEAT delineation and prioritisation name the sub-KHG `unit_id`; this module calls it `subkhg_id`. `subkhg_id` wins if both exist."""
+    if "subkhg_id" not in df and "unit_id" in df:
+        return df.rename(columns={"unit_id": "subkhg_id"})
+    return df
+
+
 def _snake(cols: list[str], geom: str) -> list[str]:
     out: list[str] = []
     for c in cols:
@@ -243,18 +250,18 @@ def run_stage1(ctx: RunContext) -> None:
         dtm_bounds, dtm_res = d.bounds, d.res
 
     # --- vectors
-    subkhg = read_vector(cfg, cfg.inputs.subkhg.path, "subkhg", ctx, cfg.inputs.subkhg.layer)
+    subkhg = _unit_id_alias(read_vector(cfg, cfg.inputs.subkhg.path, "subkhg", ctx, cfg.inputs.subkhg.layer))
     if "subkhg_id" not in subkhg or subkhg["subkhg_id"].duplicated().any():
-        raise InputError("subkhg: needs a unique 'subkhg_id' column")
+        raise InputError("subkhg: needs a unique 'subkhg_id' column (or 'unit_id', as the RE-PEAT delineation names it)")
     subkhg = subkhg.assign(geometry=make_valid(subkhg.geometry.values))
     # The priority table (neraca air + prioritisation) is optional. Without it, or without some of its columns, the
     # neutral fallbacks apply: equal priority for every selected sub-KHG, and (stage 10) demand from specific yield.
     subkhg["subkhg_id"] = subkhg["subkhg_id"].astype(str)
     prio = None
     if cfg.inputs.subkhg_priority is not None:
-        prio = pd.read_csv(resolve(cfg, cfg.inputs.subkhg_priority.path))
+        prio = _unit_id_alias(pd.read_csv(resolve(cfg, cfg.inputs.subkhg_priority.path)))
         if "subkhg_id" not in prio:
-            raise InputError("subkhg_priority: needs a 'subkhg_id' column")
+            raise InputError("subkhg_priority: needs a 'subkhg_id' column (or 'unit_id', as the RE-PEAT prioritisation names it)")
         prio["subkhg_id"] = prio["subkhg_id"].astype(str)
         for col, note in (("priority_rank", "all sub-KHGs get equal priority"),
                           ("deficit_mm", "pump demand will use specific yield instead of the water deficit"),

@@ -103,8 +103,8 @@ All inputs are listed in the config. `io.py` validates them before any processin
 | Key | Type | Required fields / notes |
 |---|---|---|
 | `dtm` | GeoTIFF | Bare-earth DTM, metres. Config must declare `surface_type: DTM`; **refuse to run if `DSM`**. Config also declares `vertical_rmse_m`. |
-| `subkhg` | Polygon layer | `subkhg_id` (unique). |
-| `subkhg_priority` | CSV / table, **optional** | `subkhg_id` (required if the table is given); `priority_rank` (int, 1 = highest), `deficit_mm` (water deficit for the design period, from neraca air), `design_period_days` are each optional. Produced by the neraca air module. Missing table or column: all selected sub-KHGs get equal priority (`priority_weight = 1/n`), and pump demand uses specific yield (Stage 10). Warn, never invent a value. |
+| `subkhg` | Polygon layer | `subkhg_id` (unique); `unit_id` is accepted as an alias (RE-PEAT delineation output). |
+| `subkhg_priority` | CSV / table, **optional** | `subkhg_id` or its alias `unit_id` (required if the table is given); `priority_rank` (int, 1 = highest), `deficit_mm` (water deficit for the design period, from neraca air), `design_period_days` are each optional. Produced by the neraca air module. Missing table or column: all selected sub-KHGs get equal priority (`priority_weight = 1/n`), and pump demand uses specific yield (Stage 10). Warn, never invent a value. |
 | `canals` | Line layer | `canal_class` (primer/sekunder/tersier), optional `depth_m`, `width_m`. |
 | `sekat_existing` | Point layer | `sekat_id`, optional `type`, `has_gate` (bool), `crest_elev_m`. May be empty. |
 | `rivers` | Polygon or line layer | Optional `dry_season_wl_m` (dry-season water level, m, same vertical datum as DTM), `perennial` (bool). |
