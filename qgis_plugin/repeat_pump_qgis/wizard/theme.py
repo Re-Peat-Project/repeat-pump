@@ -40,6 +40,7 @@ QSS = f"""
 #badge[status="ready"], #badge[status="running"] {{ background: transparent; border: 2px solid #7FD1C4; color: #9BE3D6; }}
 #badge[status="needs_review"] {{ background: {AMBER}; color: #2A1A00; }}
 #badge[status="failed"] {{ background: #E8786B; color: #2A0804; }}
+#badge[status="skipped"] {{ background: transparent; border: 2px dashed {RAIL_MUTED}; color: {RAIL_MUTED}; }}
 #badge[status="stale"] {{ background: transparent; border: 2px solid {AMBER}; color: {AMBER}; }}
 #badge[status="locked"] {{ background: rgba(255,255,255,0.08); color: {RAIL_MUTED}; }}
 

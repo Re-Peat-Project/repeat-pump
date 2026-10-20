@@ -42,6 +42,7 @@ DUMMY = {   # dummy values for the practice data only (same as practice_run/run_
     "pumping.conveyance": "canal", "pumping.manning_n": "0.035", "pumping.pump_efficiency": "0.6", "pumping.max_head_per_station_m": "1.0",
     "pumping.pump_capacity_m3s": "0.5", "pumping.influence_distance_m": "200",
 }
+DUMMY.update({"optimise.n_blocks": "1", "optimise.max_evaluations": "40", "optimise.canal_drawdown_m": "1.0"})
 for _c in ("burn_freq", "peat_depth", "dryness", "upstream_contrib"):
     DUMMY[f"prioritise.criteria.{_c}.weight"] = "0.25"
 
@@ -221,6 +222,24 @@ for stage in range(3, 12):
         w.render()
         snap(f"stage{stage}_done")
 print("final:", [(v.id, v.status) for v in c.model.stages])
+
+# ---- 5b. the optional stage 12: switched off, then switched on, filled in and run
+w.selected = 12
+w.render()
+pump(timeout=0.3)
+assert c.model.stage(12).status == "skipped", c.model.stage(12).status
+snap("stage12_off", size=(1280, 760))
+w._editors["optimise.enabled"].setCurrentIndex(1)                       # Yes
+wait(lambda: c.model.stage(12).status == "ready", 90, "stage 12 switched on")
+w.render()
+pump(timeout=0.3)
+snap("stage12_decisions", size=(1280, 1000))
+fill(12)
+run("run", 12)
+w.selected = 12
+w.render()
+snap("stage12_done", size=(1280, 900))
+print("stage 12:", c.model.stage(12).status, [t.label + "=" + t.value for t in c.model.stage(12).tiles])
 
 # ---- 6. docked (narrow) layout
 w.selected = 7

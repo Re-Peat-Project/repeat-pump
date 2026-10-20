@@ -28,7 +28,7 @@ def st(**by_stage):
 # ---------------------------------------------------------------- statuses
 def test_fresh_run_only_stage1_is_ready():
     m = model()
-    assert [v.status for v in m.stages] == ["ready"] + ["locked"] * 10
+    assert [v.status for v in m.stages] == ["ready"] + ["locked"] * 11
     assert m.stage(2).sub == "Locked, review stage" and m.stage(3).sub == "Locked"
 
 
@@ -240,7 +240,7 @@ def test_layers_after_a_stage_exclude_names_an_earlier_stage_also_makes():
     assert "sekat_proposed" in after2 and "pump_routes" in after2 and "canal_segments" in after2
     after6 = vm.layers_after(6)
     assert "canal_segments" not in after6 and "sekat_proposed" in after6 and "canals_clean" not in after6
-    assert vm.layers_after(10) == []
+    assert vm.layers_after(10) == ["sekat_optimised", "qa_optimisation"] and vm.layers_after(12) == []
 
 
 # ---------------------------------------------------------------- shared config builder
@@ -287,6 +287,45 @@ def test_design_period_is_a_decision_field_with_a_translation():
         assert vm.field_for("pumping.design_period_days").label == "Periode rancangan"
     finally:
         i18n.set_language("en")
+
+
+def _opt_model(world, enabled, stage11="done", **extra_state):
+    cfg, tmp = world
+    cfg["pumping"]["allow_gate_addition"] = True
+    cfg["optimise"] = {"enabled": enabled}
+    chk = check(load_config(write_cfg(tmp / "o.yaml", cfg)))
+    stages = {str(i): {"status": "done"} for i in range(1, 11)}
+    stages["11"] = {"status": stage11}
+    stages.update(extra_state)
+    return vm.WizardModel(chk, {"stages": stages, "warnings": [], "report": {}})
+
+
+def test_optional_stage_12_is_switched_off_by_default_and_counts_as_done(world):
+    m = _opt_model(world, enabled=False)
+    v = m.stage(12)
+    assert v.status == "skipped" and v.optional and v.sub == "Optional, switched off" and not v.can_run
+    assert m.current == 12 or m.current == len(m.stages)                       # nothing left to do: the last stage is shown
+    assert all(x.status == "done" for x in m.stages[:11])
+
+
+def test_optional_stage_12_becomes_ready_when_switched_on_and_lists_its_decisions(world):
+    m = _opt_model(world, enabled=True)
+    v = m.stage(12)
+    assert v.status == "ready" and not v.can_run and "empty" in v.blocking
+    assert {"optimise.n_blocks", "optimise.max_evaluations", "optimise.canal_drawdown_m"} <= set(v.missing)
+    assert "optimise.enabled" in {p.key for p in v.params} and "optimise.objective" in {p.key for p in v.params}
+    assert m.current == 12
+
+
+def test_optional_stage_stays_locked_until_the_report_is_done(world):
+    m = _opt_model(world, enabled=True, stage11="awaiting_review")
+    assert m.stage(12).status == "locked"
+
+
+def test_report_stage_lists_every_warning_and_stage_12_its_own():
+    ws = ["Stage 12: 2 candidates cannot raise anything", "Stage 9: 1 target(s) unreachable", "dtm covers only 84%"]
+    assert vm.warnings_for(11, ws) == ws
+    assert vm.warnings_for(12, ws) == [ws[0]]
 
 
 def test_dotted_helpers():

@@ -32,7 +32,12 @@ def _symbol(kind: str, props: dict):
 
 def style_layer(layer: QgsVectorLayer) -> None:
     name = layer.name()
-    if name == "canal_segments":                      # selected targets stand out, the rest is quiet
+    if name == "sekat_optimised":                     # the chosen layout stands out, the other candidates are quiet
+        root = QgsRuleBasedRenderer.Rule(None)
+        root.appendChild(QgsRuleBasedRenderer.Rule(_symbol("point", {"name": "square", "color": "#2E9E7B", "outline_color": "#0F2B26", "outline_width": "0.4", "size": "4.2"}), 0, 0, '"selected_best" IS TRUE', "Chosen layout"))
+        root.appendChild(QgsRuleBasedRenderer.Rule(_symbol("point", {"name": "square", "color": "#C9C3B3", "outline_color": "#8A948F", "outline_width": "0.3", "size": "2.6"}), 0, 0, "ELSE", "Other candidates"))
+        layer.setRenderer(QgsRuleBasedRenderer(root))
+    elif name == "canal_segments":                      # selected targets stand out, the rest is quiet
         root = QgsRuleBasedRenderer.Rule(None)
         root.appendChild(QgsRuleBasedRenderer.Rule(_symbol("line", {"color": "#D8574A", "width": "1.2"}), 0, 0, '"selected" IS TRUE', "Selected target"))
         root.appendChild(QgsRuleBasedRenderer.Rule(_symbol("line", {"color": TEAL, "width": "0.5"}), 0, 0, "ELSE", "Other segments"))

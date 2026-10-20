@@ -81,7 +81,7 @@ footer { max-width: 860px; margin: 0 auto; padding: 0 20px 40px; color: var(--mu
 <!-- ================================================================== ENGLISH -->
 <div class="t-en">
 <h1>Wizard guide with practice data</h1>
-<p class="lead">A hands-on walkthrough of the guided wizard in QGIS. You run all 11 stages on a tiny made-up landscape, so you can see every screen, every decision and every review stop before you touch real data.</p>
+<p class="lead">A hands-on walkthrough of the guided wizard in QGIS. You run all the stages on a tiny made-up landscape, so you can see every screen, every decision and every review stop before you touch real data.</p>
 
 <nav class="toc" aria-label="Contents"><ol>
 <li><a href="#e-prep">What you need</a></li>
@@ -106,7 +106,7 @@ footer { max-width: 860px; margin: 0 auto; padding: 0 20px 40px; color: var(--mu
 <p>Open the wizard with the water-drop button on the QGIS toolbar. This is stage 2, waiting for you to review it, with <i>Learn mode</i> on.</p>
 <figure><img src="img/review_learn_en.png" alt="The wizard at stage 2 waiting for review" loading="lazy"><figcaption>The stage list on the left, the result tiles and the decisions on the card, and the actions along the bottom.</figcaption></figure>
 <ul>
-<li>The <b>stage list</b> on the left shows all 11 stages and where you are. Click a stage to look at it.</li>
+<li>The <b>stage list</b> on the left shows all the stages and where you are. Click a stage to look at it.</li>
 <li>The <b>card</b> in the middle shows what the stage does, its result numbers once it has run, warnings worth a look, and the <b>decisions</b> it needs from you.</li>
 <li>The <b>buttons</b> at the bottom change with the stage: run it, accept it, re-run it, or go back.</li>
 <li>At the top right, <b>EN</b> and <b>ID</b> switch the wizard between English and Bahasa Indonesia. <b>Learn mode</b> adds a short explanation and a reference to each stage.</li>
@@ -201,7 +201,18 @@ footer { max-width: 860px; margin: 0 auto; padding: 0 20px 40px; color: var(--mu
 </div>
 
 <div class="step">
-<h3><span class="n">11</span> See the result</h3>
+<h3><span class="n">11</span> Optional: stage 12, block optimisation</h3>
+<p>The last stage is off unless you switch it on. It answers a different question: if you can only build some of the proposed sekat, which ones should come first? It searches layouts with a genetic algorithm and simulated annealing (after Urzainki et al., 2020) and compares them with random and rule-based layouts.</p>
+<figure><img src="img/stage12_off_en.png" alt="Stage 12 shown as optional and switched off" loading="lazy"><figcaption>Switched off: the stage is counted as done and asks for nothing.</figcaption></figure>
+<p>To use it, choose <i>Yes</i> under <i>Decisions</i>. The card then asks for what the search needs. The quick objective needs three values. Choosing the groundwater model adds four more (grid size, dry days, evapotranspiration, transmissivity multiplier), and the result depends strongly on the transmissivity.</p>
+<figure><img src="img/stage12_decisions_en.png" alt="Stage 12 switched on with three decisions to fill in" loading="lazy"><figcaption>Switched on, with the decisions the quick objective needs.</figcaption></figure>
+<p>After the run, the cards show how many layouts were scored and how much better the best layout is than the average random one. The chosen sekat are on the map.</p>
+<figure><img src="img/stage12_done_en.png" alt="Stage 12 finished with result tiles" loading="lazy"><figcaption>Stage 12 done. Candidate sites, blocks to build, layouts scored, best method, and the gain over random.</figcaption></figure>
+<div class="callout"><p>Stage 12 gives an <b>alternative plan</b>. The routing and pump stages still assume every proposed sekat is built, so nothing above changes. The gain is relative to random and rule-based layouts, not a measured change in the water table. With only two candidate sites, as here, there is little to choose between; the stage matters on a real canal network.</p></div>
+</div>
+
+<div class="step">
+<h3><span class="n">12</span> See the result</h3>
 <p>The layers of every stage are in the QGIS layer panel, in a group named after the run. Here they are on top of the practice landscape.</p>
 <figure><img src="img/map.png" alt="Map of the practice run: river, canals, proposed sekat, pump routes and stations" loading="lazy"><figcaption>The practice result. The river is on the west edge; the canal climbs eastwards.
 <span class="legend"><span><i style="background:#2b6fb5"></i>pump route</span><span><i style="background:#e0922f"></i>sekat (existing: dark, proposed: orange)</span><span><i style="background:#c0392b"></i>pump station</span><span><i style="background:#7d4fb5"></i>gate required</span><span><i style="background:#2e9e7b"></i>target</span></span></figcaption></figure>
@@ -241,13 +252,15 @@ footer { max-width: 860px; margin: 0 auto; padding: 0 20px 40px; color: var(--mu
 <tr><td>10</td><td>Maximum head per station</td><td>1.0 m</td></tr>
 <tr><td>10</td><td>Capacity per pump unit</td><td>0.5 m3/s</td></tr>
 <tr><td>10</td><td>Canal influence distance</td><td>200 m</td></tr>
+<tr><td>12</td><td>Run the canal blocking optimisation (optional)</td><td>Yes</td></tr>
+<tr><td>12</td><td>Number of new blocks / search budget / canal water level below the land</td><td>1 / 40 layouts / 1.0 m</td></tr>
 </tbody></table>
 </div>
 
 <!-- ================================================================== INDONESIA -->
 <div class="t-id">
 <h1>Panduan wizard dengan data latihan</h1>
-<p class="lead">Panduan praktik wizard terpandu di QGIS. Anda menjalankan semua 11 tahap pada lanskap tiruan yang sangat kecil, sehingga Anda bisa melihat setiap layar, setiap keputusan, dan setiap titik tinjauan sebelum menyentuh data sungguhan.</p>
+<p class="lead">Panduan praktik wizard terpandu di QGIS. Anda menjalankan semua tahap pada lanskap tiruan yang sangat kecil, sehingga Anda bisa melihat setiap layar, setiap keputusan, dan setiap titik tinjauan sebelum menyentuh data sungguhan.</p>
 
 <nav class="toc" aria-label="Daftar isi"><ol>
 <li><a href="#i-prep">Yang Anda butuhkan</a></li>
@@ -272,7 +285,7 @@ footer { max-width: 860px; margin: 0 auto; padding: 0 20px 40px; color: var(--mu
 <p>Buka wizard dengan tombol tetesan air di toolbar QGIS. Ini adalah tahap 2 yang menunggu tinjauan Anda, dengan <i>Mode belajar</i> aktif.</p>
 <figure><img src="img/review_learn_id.png" alt="Wizard pada tahap 2 yang menunggu tinjauan" loading="lazy"><figcaption>Daftar tahap di kiri, kotak hasil dan keputusan di kartu, dan tombol aksi di bagian bawah.</figcaption></figure>
 <ul>
-<li><b>Daftar tahap</b> di kiri menampilkan semua 11 tahap dan posisi Anda. Klik sebuah tahap untuk melihatnya.</li>
+<li><b>Daftar tahap</b> di kiri menampilkan semua tahap dan posisi Anda. Klik sebuah tahap untuk melihatnya.</li>
 <li><b>Kartu</b> di tengah menampilkan apa yang dilakukan tahap itu, angka hasilnya setelah dijalankan, peringatan yang perlu dilihat, dan <b>keputusan</b> yang dibutuhkan dari Anda.</li>
 <li><b>Tombol</b> di bawah berubah menurut tahap: jalankan, terima, jalankan ulang, atau kembali.</li>
 <li>Di kanan atas, <b>EN</b> dan <b>ID</b> berpindah antara bahasa Inggris dan Bahasa Indonesia. <b>Mode belajar</b> menambahkan penjelasan singkat dan referensi pada setiap tahap.</li>
@@ -367,7 +380,18 @@ footer { max-width: 860px; margin: 0 auto; padding: 0 20px 40px; color: var(--mu
 </div>
 
 <div class="step">
-<h3><span class="n">11</span> Lihat hasilnya</h3>
+<h3><span class="n">11</span> Opsional: tahap 12, optimasi penempatan sekat</h3>
+<p>Tahap terakhir nonaktif kecuali Anda mengaktifkannya. Tahap ini menjawab pertanyaan lain: jika hanya sebagian sekat usulan yang dapat dibangun, mana yang sebaiknya lebih dulu? Tahap ini mencari tata letak dengan algoritma genetika dan simulated annealing (mengikuti Urzainki dkk., 2020) dan membandingkannya dengan tata letak acak dan berbasis aturan.</p>
+<figure><img src="img/stage12_off_id.png" alt="Tahap 12 ditampilkan sebagai opsional dan nonaktif" loading="lazy"><figcaption>Nonaktif: tahap dihitung selesai dan tidak meminta apa pun.</figcaption></figure>
+<p>Untuk memakainya, pilih <i>Ya</i> di bawah <i>Keputusan</i>. Kartu lalu meminta apa yang dibutuhkan pencarian. Objektif cepat butuh tiga nilai. Memilih model air tanah menambah empat nilai lagi (ukuran grid, hari kering, evapotranspirasi, pengali transmisivitas), dan hasilnya sangat bergantung pada transmisivitas.</p>
+<figure><img src="img/stage12_decisions_id.png" alt="Tahap 12 aktif dengan tiga keputusan yang harus diisi" loading="lazy"><figcaption>Aktif, dengan keputusan yang dibutuhkan objektif cepat.</figcaption></figure>
+<p>Setelah dijalankan, kartu menunjukkan berapa tata letak yang dinilai dan seberapa lebih baik tata letak terbaik dibandingkan rata-rata acak. Sekat terpilih ada di peta.</p>
+<figure><img src="img/stage12_done_id.png" alt="Tahap 12 selesai dengan kotak hasil" loading="lazy"><figcaption>Tahap 12 selesai. Lokasi kandidat, sekat yang dibangun, tata letak dinilai, metode terbaik, dan keunggulan atas acak.</figcaption></figure>
+<div class="callout"><p>Tahap 12 memberi <b>rencana alternatif</b>. Tahap rute dan pompa tetap mengasumsikan semua sekat usulan dibangun, jadi tidak ada yang di atas berubah. Keunggulannya relatif terhadap tata letak acak dan berbasis aturan, bukan perubahan muka air tanah yang terukur. Dengan hanya dua lokasi kandidat, seperti di sini, hampir tidak ada yang perlu dipilih; tahap ini berguna pada jaringan kanal sungguhan.</p></div>
+</div>
+
+<div class="step">
+<h3><span class="n">12</span> Lihat hasilnya</h3>
 <p>Layer setiap tahap ada di panel layer QGIS, dalam grup yang diberi nama sesuai proses. Berikut tampilannya di atas lanskap latihan.</p>
 <figure><img src="img/map.png" alt="Peta hasil latihan: sungai, kanal, sekat usulan, rute pompa, dan stasiun" loading="lazy"><figcaption>Hasil latihan. Sungai ada di tepi barat; kanal naik ke arah timur.
 <span class="legend"><span><i style="background:#2b6fb5"></i>rute pompa</span><span><i style="background:#e0922f"></i>sekat (yang ada: gelap, usulan: oranye)</span><span><i style="background:#c0392b"></i>stasiun pompa</span><span><i style="background:#7d4fb5"></i>pintu air dibutuhkan</span><span><i style="background:#2e9e7b"></i>sasaran</span></span></figcaption></figure>
@@ -407,6 +431,8 @@ footer { max-width: 860px; margin: 0 auto; padding: 0 20px 40px; color: var(--mu
 <tr><td>10</td><td>Tinggi tekan maksimum per stasiun</td><td>1,0 m</td></tr>
 <tr><td>10</td><td>Kapasitas per unit pompa</td><td>0,5 m3/s</td></tr>
 <tr><td>10</td><td>Jarak pengaruh kanal</td><td>200 m</td></tr>
+<tr><td>12</td><td>Jalankan optimasi penempatan sekat kanal (opsional)</td><td>Ya</td></tr>
+<tr><td>12</td><td>Jumlah sekat baru / anggaran pencarian / muka air kanal di bawah lahan</td><td>1 / 40 tata letak / 1,0 m</td></tr>
 </tbody></table>
 </div>
 

@@ -117,7 +117,7 @@ figure.shot figcaption{color:var(--muted);font-size:.88rem;margin-top:.4rem}
   <a href="#data"><span class="t-en">Input data</span><span class="t-id">Data masukan</span></a>
   <a href="#config"><span class="t-en">The config file</span><span class="t-id">Berkas konfigurasi</span></a>
   <a href="#run"><span class="t-en">Running it</span><span class="t-id">Menjalankannya</span></a>
-  <a href="#stages"><span class="t-en">The 11 stages</span><span class="t-id">11 tahap</span></a>
+  <a href="#stages"><span class="t-en">The stages</span><span class="t-id">Tahap-tahap</span></a>
   <a href="#review"><span class="t-en">Review stops</span><span class="t-id">Titik tinjauan</span></a>
   <a href="#results"><span class="t-en">Reading the results</span><span class="t-id">Membaca hasil</span></a>
   <a href="#problems"><span class="t-en">Troubleshooting</span><span class="t-id">Pemecahan masalah</span></a>
@@ -131,20 +131,20 @@ figure.shot figcaption{color:var(--muted);font-size:.88rem;margin-top:.4rem}
 <section id="what">
 <div class="t-en">
 <h2>What it does</h2>
-<p>You give it a bare-earth elevation model (DTM), the canal network, peat and burn maps, and the priority sub-KHGs. It then works in 11 stages, which the computer runs one after another:</p>
+<p>You give it a bare-earth elevation model (DTM), the canal network, peat and burn maps, and the priority sub-KHGs. It then works in 11 stages, which the computer runs one after another, plus an optional 12th:</p>
 <div class="flow">
   <span>1 Load</span><i>›</i><span class="review">2 Clean canals</span><i>›</i><span>3 Flow</span><i>›</i><span>4 Segments</span><i>›</i><span>5 Land profiles</span><i>›</i>
-  <span class="review">6 Prioritise</span><i>›</i><span>7 Sekat</span><i>›</i><span>8 Network</span><i>›</i><span class="review">9 Routing</span><i>›</i><span>10 Pumps</span><i>›</i><span>11 Report</span>
+  <span class="review">6 Prioritise</span><i>›</i><span>7 Sekat</span><i>›</i><span>8 Network</span><i>›</i><span class="review">9 Routing</span><i>›</i><span>10 Pumps</span><i>›</i><span>11 Report</span><i>›</i><span style="border-style:dashed">12 Optimise (optional)</span>
 </div>
 <p>Red stages are <b>review stops</b>: the tool pauses so that you can look at the result and approve it before it continues (see <a href="#review">Review stops</a>).</p>
 <div class="note"><b>What you end up with</b>A GeoPackage (<code>.gpkg</code>) of map layers you open in QGIS, plus a written report (<code>run_report.md</code>). Canals ranked by need, proposed sekat locations and heights, water source points, pump routes, pump stations with their power, and the gates you must add.</div>
 </div>
 <div class="t-id">
 <h2>Fungsi alat ini</h2>
-<p>Anda memberikan model ketinggian permukaan tanah (DTM), jaringan kanal, peta gambut dan kebakaran, serta sub-KHG prioritas. Alat ini lalu bekerja dalam 11 tahap yang dijalankan komputer satu per satu:</p>
+<p>Anda memberikan model ketinggian permukaan tanah (DTM), jaringan kanal, peta gambut dan kebakaran, serta sub-KHG prioritas. Alat ini lalu bekerja dalam 11 tahap yang dijalankan komputer satu per satu, ditambah tahap ke-12 yang opsional:</p>
 <div class="flow">
   <span>1 Muat</span><i>›</i><span class="review">2 Bersihkan kanal</span><i>›</i><span>3 Aliran</span><i>›</i><span>4 Segmen</span><i>›</i><span>5 Profil lahan</span><i>›</i>
-  <span class="review">6 Prioritasi</span><i>›</i><span>7 Sekat</span><i>›</i><span>8 Jaringan</span><i>›</i><span class="review">9 Rute</span><i>›</i><span>10 Pompa</span><i>›</i><span>11 Laporan</span>
+  <span class="review">6 Prioritasi</span><i>›</i><span>7 Sekat</span><i>›</i><span>8 Jaringan</span><i>›</i><span class="review">9 Rute</span><i>›</i><span>10 Pompa</span><i>›</i><span>11 Laporan</span><i>›</i><span style="border-style:dashed">12 Optimasi (opsional)</span>
 </div>
 <p>Tahap berwarna merah adalah <b>titik tinjauan</b>: alat berhenti agar Anda dapat memeriksa hasilnya dan menyetujuinya sebelum melanjutkan (lihat <a href="#review">Titik tinjauan</a>).</p>
 <div class="note"><b>Hasil akhir</b>Sebuah GeoPackage (<code>.gpkg</code>) berisi layer peta yang Anda buka di QGIS, ditambah laporan tertulis (<code>run_report.md</code>). Isinya kanal yang diurutkan menurut kebutuhan, lokasi dan tinggi sekat usulan, titik sumber air, rute pompa, stasiun pompa beserta dayanya, dan pintu air yang harus Anda tambahkan.</div>
@@ -268,6 +268,7 @@ figure.shot figcaption{color:var(--muted);font-size:.88rem;margin-top:.4rem}
 <tr><td><code>sekat.max_spacing_m</code>, <code>snap_tolerance_m</code>, <code>min_spacing_m</code></td><td>Upper limit for spacing, how close an existing sekat must be to a canal to count, and the minimum distance from an existing sekat to a new one</td><td>7</td></tr>
 <tr><td><code>pumping.uphill_penalty_lambda</code></td><td>How strongly the routing avoids uphill (energy-costly) canals</td><td>9</td></tr>
 <tr><td><code>pumping.specific_yield</code>, <code>water_table_rise_m</code>, <code>design_period_days</code></td><td>Only when there is no water deficit from neraca air: how much water the peat needs to rise by, and over how many days it is delivered</td><td>10</td></tr>
+<tr><td><code>optimise.*</code></td><td>Only if you switch on the optional stage 12: number of blocks, search budget, canal drawdown; for the groundwater model also grid size, dry days, evapotranspiration and a transmissivity multiplier</td><td>12</td></tr>
 <tr><td><code>pumping.*</code> pump settings</td><td>Canal or pipe, roughness, pump efficiency, maximum head per station, capacity per pump, influence distance</td><td>10</td></tr>
 </tbody></table>
 <div class="note"><b>Ready-made values</b>Some settings already have a default you can keep: 500 m maximum segment length, 25 m minimum segment length, 0.40 m sekat step (PP 57/2016), 5 % slope for reinforced sekat, 15 to 100 m ring for moisture.</div>
@@ -291,6 +292,7 @@ figure.shot figcaption{color:var(--muted);font-size:.88rem;margin-top:.4rem}
 <tr><td><code>sekat.max_spacing_m</code>, <code>snap_tolerance_m</code>, <code>min_spacing_m</code></td><td>Batas atas jarak antarsekat, seberapa dekat sekat yang ada harus dari kanal agar dihitung, dan jarak minimum dari sekat yang ada ke sekat baru</td><td>7</td></tr>
 <tr><td><code>pumping.uphill_penalty_lambda</code></td><td>Seberapa kuat penentuan rute menghindari kanal menanjak (boros energi)</td><td>9</td></tr>
 <tr><td><code>pumping.specific_yield</code>, <code>water_table_rise_m</code>, <code>design_period_days</code></td><td>Hanya bila tidak ada defisit air dari neraca air: berapa kenaikan muka air yang dibutuhkan gambut, dan dalam berapa hari air disalurkan</td><td>10</td></tr>
+<tr><td><code>optimise.*</code></td><td>Hanya jika Anda mengaktifkan tahap 12 yang opsional: jumlah sekat, anggaran pencarian, selisih muka air kanal; untuk model air tanah juga ukuran grid, hari kering, evapotranspirasi, dan pengali transmisivitas</td><td>12</td></tr>
 <tr><td><code>pumping.*</code> pengaturan pompa</td><td>Kanal atau pipa, kekasaran, efisiensi pompa, tinggi tekan maksimum per stasiun, kapasitas per pompa, jarak pengaruh</td><td>10</td></tr>
 </tbody></table>
 <div class="note"><b>Nilai bawaan</b>Beberapa pengaturan sudah punya nilai bawaan yang boleh Anda pakai: panjang segmen maksimum 500 m, panjang segmen minimum 25 m, langkah sekat 0,40 m (PP 57/2016), kemiringan 5 % untuk sekat yang diperkuat, cincin 15 sampai 100 m untuk kelembapan.</div>
@@ -302,7 +304,7 @@ figure.shot figcaption{color:var(--muted);font-size:.88rem;margin-top:.4rem}
 <div class="t-en">
 <h2>Running it</h2>
 <h3>In QGIS with the guided wizard (recommended)</h3>
-<p>The wizard takes you through the 11 stages one at a time. Install the plugin first (see <a href="install.html">install.html</a>), then:</p>
+<p>The wizard takes you through the stages one at a time. Install the plugin first (see <a href="install.html">install.html</a>), then:</p>
 <ol>
   <li>Open the wizard with the water-drop button on the toolbar, or <i>Plugins &rsaquo; RE-PEAT Pompanisasi &rsaquo; Guided wizard</i>. If it asks for the engine, click <b>Set up engine</b> and wait a few minutes.</li>
   <li>On stage 1, open <b>Run setup</b>. Choose the output GeoPackage, a starting config, the priority table (CSV) and each input layer, then click <b>Create run</b>. The run folder is the folder of the GeoPackage; your settings are saved there in <code>run_config.yaml</code>.</li>
@@ -333,7 +335,7 @@ python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accep
 <div class="t-id">
 <h2>Menjalankannya</h2>
 <h3>Di QGIS dengan wizard terpandu (disarankan)</h3>
-<p>Wizard membawa Anda melewati 11 tahap satu per satu. Pasang plugin dulu (lihat <a href="install.html">install.html</a>), lalu:</p>
+<p>Wizard membawa Anda melewati tahap-tahap satu per satu. Pasang plugin dulu (lihat <a href="install.html">install.html</a>), lalu:</p>
 <ol>
   <li>Buka wizard dengan tombol tetesan air di toolbar, atau lewat <i>Plugins &rsaquo; RE-PEAT Pompanisasi &rsaquo; Guided wizard</i>. Jika wizard meminta mesin, klik <b>Siapkan mesin</b> dan tunggu beberapa menit.</li>
   <li>Di tahap 1, buka <b>Pengaturan proses</b>. Pilih GeoPackage keluaran, konfigurasi awal, tabel prioritas (CSV), dan setiap layer masukan, lalu klik <b>Buat proses</b>. Folder proses adalah folder GeoPackage tersebut; pengaturan Anda disimpan di sana dalam <code>run_config.yaml</code>.</li>
@@ -366,7 +368,7 @@ python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accep
 
 <section id="stages">
 <div class="t-en">
-<h2>The 11 stages</h2>
+<h2>The stages</h2>
 <p>Each stage reads the result of the one before. Layer names below are the layers you find in the output GeoPackage. Files that are not map layers (rasters, logs) are in the folder named after the output file with <code>_work</code> added.</p>
 
 <div class="stage" id="s1"><h3><span class="num">1</span> Load and validate</h3>
@@ -430,9 +432,16 @@ python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accep
 <div class="stage" id="s11"><h3><span class="num">11</span> Report</h3>
 <p>Collects everything into one readable summary.</p>
 <dl><dt>Output</dt><dd><code>run_report.md</code> and <code>run_report.json</code> next to the GeoPackage: all warnings, counts per stage, IPG per canal, weights and sensitivity, routing totals, the pump table, and the list of settings that are still <code>null</code>.</dd></dl></div>
+<div class="stage" id="s12"><h3><span class="num">12</span> Block optimisation <span class="tag" style="color:var(--accent);border-color:var(--accent);background:var(--accent-soft)">OPTIONAL</span></h3>
+<p>Compares which of the proposed sekat to build first when you can only build some of them. Switched off unless you turn it on.</p>
+<dl><dt>Does</dt><dd>Scores layouts of new sekat and searches for the best one with a genetic algorithm and simulated annealing, following Urzainki et al. (2020). Each layout is scored either by the total rise of the canal water level (quick) or by a 2D groundwater model (slower, needs physical inputs). Existing sekat are always in place. The result is compared with random and rule-based layouts.</dd>
+<dt>Needs</dt><dd>Decisions: how many blocks, how many layouts the search may score, and how far the canal water sits below the land. The groundwater model also needs the grid size, the length of the dry spell, evapotranspiration and a transmissivity multiplier. Results depend strongly on the transmissivity, so set it for your site.</dd>
+<dt>Output</dt><dd><code>sekat_optimised</code> (all candidates and the chosen layout), <code>qa_optimisation</code> and <code>qa_optimisation_trace</code> (tables), and a section added to the run report.</dd>
+<dt>Check</dt><dd>This is an <b>alternative plan</b>. The routing and pump stages still assume every proposed sekat is built. The gain is relative to random and rule-based layouts; it is not a measured change in the water table.</dd></dl></div>
+
 </div>
 <div class="t-id">
-<h2>11 tahap</h2>
+<h2>Tahap-tahap</h2>
 <p>Setiap tahap membaca hasil tahap sebelumnya. Nama layer di bawah adalah layer yang Anda temukan di GeoPackage keluaran. Berkas yang bukan layer peta (raster, log) ada di folder bernama sama dengan berkas keluaran ditambah <code>_work</code>.</p>
 
 <div class="stage" id="s1"><h3><span class="num">1</span> Muat dan validasi</h3>
@@ -496,6 +505,13 @@ python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accep
 <div class="stage" id="s11"><h3><span class="num">11</span> Laporan</h3>
 <p>Mengumpulkan semuanya dalam satu ringkasan yang mudah dibaca.</p>
 <dl><dt>Keluaran</dt><dd><code>run_report.md</code> dan <code>run_report.json</code> di samping GeoPackage: semua peringatan, jumlah per tahap, IPG per kanal, bobot dan sensitivitas, total rute, tabel pompa, dan daftar pengaturan yang masih <code>null</code>.</dd></dl></div>
+<div class="stage" id="s12"><h3><span class="num">12</span> Optimasi penempatan sekat <span class="tag" style="color:var(--accent);border-color:var(--accent);background:var(--accent-soft)">OPSIONAL</span></h3>
+<p>Membandingkan sekat usulan mana yang sebaiknya dibangun lebih dulu jika hanya sebagian yang dapat dibangun. Nonaktif kecuali Anda mengaktifkannya.</p>
+<dl><dt>Dilakukan</dt><dd>Menilai tata letak sekat baru dan mencari yang terbaik dengan algoritma genetika dan simulated annealing, mengikuti Urzainki dkk. (2020). Setiap tata letak dinilai dengan kenaikan total muka air kanal (cepat) atau model air tanah 2D (lebih lambat, butuh masukan fisik). Sekat yang sudah ada selalu dianggap terpasang. Hasilnya dibandingkan dengan tata letak acak dan berbasis aturan.</dd>
+<dt>Dibutuhkan</dt><dd>Keputusan: berapa sekat, berapa tata letak yang boleh dinilai pencarian, dan seberapa jauh muka air kanal berada di bawah lahan. Model air tanah juga membutuhkan ukuran grid, lama masa kering, evapotranspirasi, dan pengali transmisivitas. Hasil sangat bergantung pada transmisivitas, jadi tetapkan sesuai lokasi Anda.</dd>
+<dt>Keluaran</dt><dd><code>sekat_optimised</code> (semua kandidat dan tata letak terpilih), <code>qa_optimisation</code> dan <code>qa_optimisation_trace</code> (tabel), serta satu bagian yang ditambahkan ke laporan proses.</dd>
+<dt>Periksa</dt><dd>Ini adalah <b>rencana alternatif</b>. Tahap rute dan pompa tetap mengasumsikan semua sekat usulan dibangun. Keunggulannya relatif terhadap tata letak acak dan berbasis aturan; bukan perubahan muka air tanah yang terukur.</dd></dl></div>
+
 
 </div>
 </section>
@@ -604,6 +620,7 @@ python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accep
 <tr><td>"The engine is older than the plugin"</td><td>You installed a newer plugin</td><td>Click <b>Set up engine</b> in the wizard to update the engine.</td></tr>
 <tr><td>Run button is off and a field is highlighted</td><td>The stage needs a decision from you</td><td>Fill in the highlighted field in the <b>Decisions</b> box. Commas work as decimal marks.</td></tr>
 <tr><td>Stage shows <b>Out of date</b></td><td>A setting or input changed after the stage ran</td><td>Click <b>Re-run to apply your change</b>. Later stages are re-run after it.</td></tr>
+<tr><td>Stage 12 shows <b>Optional, switched off</b></td><td>The block optimisation is off by default</td><td>Choose <b>Yes</b> under Decisions on the stage 12 card, fill in the decisions it asks for, then run it.</td></tr>
 <tr><td>Stage shows <b>Interrupted</b></td><td>The run was cancelled or QGIS closed while it ran</td><td>Run the stage again.</td></tr>
 <tr><td>Canals "have no connection to a river"</td><td>A gap bigger than the snap tolerance</td><td>Add a bridging line in the canal edits layer.</td></tr>
 <tr><td>Target "unreachable"</td><td>See the <code>reason</code> in <code>qa_unreachable_targets</code></td><td>Add a gate, fix topology, or accept that the target cannot be served.</td></tr>
@@ -624,6 +641,7 @@ python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accep
 <tr><td>"Mesin lebih lama daripada plugin"</td><td>Anda memasang plugin yang lebih baru</td><td>Klik <b>Siapkan mesin</b> di wizard untuk memperbarui mesin.</td></tr>
 <tr><td>Tombol Jalankan mati dan ada kolom yang disorot</td><td>Tahap itu membutuhkan keputusan dari Anda</td><td>Isi kolom yang disorot di kotak <b>Keputusan</b>. Koma dapat dipakai sebagai tanda desimal.</td></tr>
 <tr><td>Tahap menampilkan <b>Usang</b></td><td>Sebuah pengaturan atau masukan berubah setelah tahap dijalankan</td><td>Klik <b>Jalankan ulang untuk menerapkan perubahan</b>. Tahap sesudahnya dijalankan ulang setelahnya.</td></tr>
+<tr><td>Tahap 12 menampilkan <b>Opsional, nonaktif</b></td><td>Optimasi penempatan sekat nonaktif secara bawaan</td><td>Pilih <b>Ya</b> di bawah Keputusan pada kartu tahap 12, isi keputusan yang diminta, lalu jalankan.</td></tr>
 <tr><td>Tahap menampilkan <b>Terhenti</b></td><td>Proses dibatalkan atau QGIS ditutup saat berjalan</td><td>Jalankan tahap itu lagi.</td></tr>
 <tr><td>Kanal "have no connection to a river"</td><td>Celah lebih besar daripada toleransi penyambungan</td><td>Tambahkan garis penyambung di layer suntingan kanal.</td></tr>
 <tr><td>Sasaran "unreachable"</td><td>Lihat <code>reason</code> di <code>qa_unreachable_targets</code></td><td>Tambahkan pintu air, perbaiki topologi, atau terima bahwa sasaran itu tidak dapat dilayani.</td></tr>
@@ -669,7 +687,7 @@ python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accep
 <tr><td>Sumber / sasaran</td><td>Tempat air sungai masuk ke kanal / titik tertinggi dari kelompok kanal prioritas yang harus dicapai air</td></tr>
 <tr><td>Titik tinjauan</td><td>Jeda terencana setelah tahap 2, 6, dan 9 agar Anda menyetujui hasilnya</td></tr>
 <tr><td>Layer QA</td><td>Layer yang mencantumkan hal-hal yang perlu diperiksa, bernama <code>qa_*</code></td></tr>
-<tr><td>Wizard</td><td>Panel di QGIS yang memandu Anda melewati 11 tahap satu per satu</td></tr>
+<tr><td>Wizard</td><td>Panel di QGIS yang memandu Anda melewati tahap-tahap satu per satu</td></tr>
 </tbody></table>
 
 </div>

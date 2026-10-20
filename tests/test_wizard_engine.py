@@ -90,7 +90,7 @@ def test_failed_stage_is_recorded(world):
 def test_check_on_example_config_lists_the_todo_keys():
     out = check(load_config(EXAMPLE))
     by = {s["id"]: s for s in out["stages"]}
-    assert len(out["stages"]) == 11 and [s["id"] for s in out["stages"] if s["review"]] == [2, 6, 9]
+    assert len(out["stages"]) == 12 and [s["id"] for s in out["stages"] if s["review"]] == [2, 6, 9]       # stage 12 is optional
     assert {"run.clip_margin_m", "inputs.dtm.vertical_rmse_m", "inputs.moisture.higher_is_wetter"} <= set(by[1]["missing"])
     assert by[1]["recommended_missing"] == ["run.vertical_datum", "inputs.rivers.vertical_datum"]
     assert by[2]["missing"] == ["topology.snap_tolerance_m"]

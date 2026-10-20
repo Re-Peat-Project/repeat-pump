@@ -70,7 +70,15 @@ STAGE_TEXT: dict[int, tuple[str, str, str, str, str]] = {
          "Writes run_report.md and run_report.json with counts, warnings, tables and the list of open parameters.",
          "The report is what you share and what the dashboard reads.",
          "Spec section 5, Stage 11"),
+    12: ("Block optimisation",
+         "Optional. Compares which of the proposed sekat to build first when you can only build some of them.",
+         "Scores layouts of new sekat with a canal-level model (or a 2D groundwater model) and searches for the best layout with a genetic algorithm and simulated annealing, next to greedy, random and rule-based comparators.",
+         "Money and access limit how many sekat you can build. This shows which layout of the proposed sekat gives the most benefit. It is an alternative plan: the pump stages still assume every proposed sekat is built.",
+         "Urzainki et al. (2020); Holland (1975); Kirkpatrick et al. (1983)"),
 }
+
+OPTIONAL_STAGES = {12}      # off unless switched on; shown as "Optional, switched off" and counted as done
+REPORT_STAGE = 11           # the stage whose card lists every warning
 
 # stage -> list of (counts key, label, note, warn-if-positive)
 STAGE_TILES: dict[int, list[tuple[str, str, str, bool]]] = {
@@ -89,6 +97,9 @@ STAGE_TILES: dict[int, list[tuple[str, str, str, bool]]] = {
         ("unreachable", "Unreachable targets", "see the QA layer", True)],
     10: [("stations", "Pump stations", "", False), ("gates_required", "Gates required", "", False), ("shortfalls", "Capacity shortfalls", "", True)],
     11: [("warnings", "Warnings", "", True), ("null_parameters", "Parameters still unset", "", True)],
+    12: [("candidates", "Candidate sites", "proposed sekat", False), ("blocks", "Blocks to build", "", False),
+         ("evaluations", "Layouts scored", "all algorithms", False), ("best_method", "Best method", "", False),
+         ("gain_vs_random", "Gain over random", "times the random mean", False)],
 }
 
 # layers worth showing after a stage (all in the output GeoPackage)
@@ -96,6 +107,7 @@ STAGE_LAYERS: dict[int, list[str]] = {
     2: ["canals_clean", "qa_topology_dangles", "qa_topology_gaps"], 4: ["canal_segments"], 5: ["canal_profiles"],
     6: ["canal_segments", "qa_sensitivity"], 7: ["sekat_existing_assessed", "sekat_proposed"], 8: ["network_nodes", "network_edges"],
     9: ["pump_sources", "pump_targets", "pump_routes", "qa_unreachable_targets"], 10: ["pump_stations", "gates_required"],
+    12: ["sekat_optimised", "qa_optimisation"],
 }
 
 REVIEW_HINT: dict[int, str] = {
@@ -138,6 +150,15 @@ FIELDS: dict[str, Field_] = {f.key: f for f in [
     Field_("pumping.max_head_per_station_m", "Maximum head per station", "float", "m", "A new station is placed when this would be exceeded."),
     Field_("pumping.pump_capacity_m3s", "Capacity per pump unit", "float", "m3/s", ""),
     Field_("pumping.influence_distance_m", "Canal influence distance", "float", "m", "How far from a canal the peat is rewetted. Calibrate with water-table observations."),
+    Field_("optimise.enabled", "Run the canal blocking optimisation", "bool", "", "Optional. Chooses which proposed sekat to build first when you cannot build them all. It is an alternative plan and does not change the pump stages."),
+    Field_("optimise.objective", "How layouts are scored", "enum", "", "canal_rise is quick and needs few inputs. pde uses a groundwater model and needs the physical inputs below. screen_then_pde searches with canal rise and re-scores the winners with the groundwater model.", ("canal_rise", "pde", "screen_then_pde")),
+    Field_("optimise.n_blocks", "Number of new blocks", "int", "blocks", "How many of the proposed sekat you can build."),
+    Field_("optimise.max_evaluations", "Search budget per algorithm", "int", "layouts", "How many different layouts each algorithm may score. More is better but slower."),
+    Field_("optimise.canal_drawdown_m", "Canal water level below the land", "float", "m", "Dry-season level of the canal water below the surrounding land."),
+    Field_("optimise.grid_m", "Groundwater grid cell size", "float", "m", "Cell size of the groundwater model. Smaller is more detailed and slower."),
+    Field_("optimise.dry_days", "Length of the dry spell", "int", "days", "Days of drying simulated from a saturated start."),
+    Field_("optimise.et_mm_day", "Net water loss without rain", "float", "mm/day", "Evapotranspiration the peat loses each dry day."),
+    Field_("optimise.transmissivity_multiplier", "Peat transmissivity multiplier", "float", "", "Scales the transmissivity of the built-in peat tables. Results depend strongly on it, so set it for your site."),
     Field_("pumping.specific_yield", "Specific yield", "float", "", "Needed in specific-yield demand mode, and when there is no water deficit (neraca air)."),
     Field_("pumping.design_period_days", "Design period", "float", "days", "The days over which the water must be delivered. Needed when the priority table does not give it."),
     Field_("pumping.water_table_rise_m", "Required water-table rise", "float", "m", "Needed in specific-yield demand mode, and when there is no water deficit (neraca air)."),
@@ -170,7 +191,7 @@ def _field_en(key: str) -> Field_:
 
 
 # ----------------------------------------------------------------------------- model
-STATUSES = ("locked", "ready", "running", "needs_review", "done", "failed", "stale")
+STATUSES = ("locked", "ready", "running", "needs_review", "done", "failed", "stale", "skipped")
 
 
 def layers_after(stage: int) -> list[str]:
@@ -220,6 +241,7 @@ class StageView:
     warnings: list[str] = field(default_factory=list)
     error: str = ""
     stale_reason: str = ""
+    optional: bool = False
     review_hint: str = ""
     layers: list[str] = field(default_factory=list)
     can_run: bool = False
@@ -247,7 +269,7 @@ def placeholder_check() -> dict:
 def warnings_for(stage: int, warnings: list[str], n_stages: int = 11) -> list[str]:
     """Engine warnings relevant to a stage. Stage-specific ones start with ``Stage N:``; unprefixed ones come from
     input validation (stage 1); the DTM accuracy warning also matters for sekat placement (stage 7); the report shows all."""
-    if stage == n_stages:
+    if stage == REPORT_STAGE:
         return list(warnings)
     out = []
     for w in warnings:
@@ -286,7 +308,7 @@ class WizardModel:
         self.stages = self._build()
 
     # ---- derivation
-    def _status(self, sid: int, previous_ok: bool) -> tuple[str, str, str]:
+    def _status(self, sid: int, previous_ok: bool, enabled: bool = True) -> tuple[str, str, str]:
         st = self.state.get("stages", {}).get(str(sid), {})
         raw = st.get("status")
         if raw == "running":
@@ -299,6 +321,8 @@ class WizardModel:
             return "needs_review", tr("Needs your review"), ""
         if raw == "done":
             return "done", tr("Done"), ""
+        if sid in OPTIONAL_STAGES and not enabled and previous_ok:
+            return "skipped", tr("Optional, switched off"), ""
         return ("ready", tr("Ready to run"), "") if previous_ok else ("locked", tr("Locked"), "")
 
     def _build(self) -> list[StageView]:
@@ -307,7 +331,8 @@ class WizardModel:
         for s in self.check["stages"]:
             sid = s["id"]
             title, purpose, what, why, ref = STAGE_TEXT[sid]
-            status, sub, err = self._status(sid, prev_ok)
+            enabled = next((bool(e["value"]) for e in s.get("needs", []) if e["key"] == "optimise.enabled"), True)
+            status, sub, err = self._status(sid, prev_ok, enabled)
             stale_reason = ""
             if status in ("done", "needs_review"):
                 stored = self.state.get("stages", {}).get(str(sid), {}).get("fingerprint")
@@ -342,8 +367,9 @@ class WizardModel:
             v.can_run = status in ("ready",) and not v.blocking and not busy
             v.can_accept = status == "needs_review" and not busy       # never for a stale stage: its results are out of date
             v.can_rerun = status in ("done", "failed", "needs_review", "stale") and not v.blocking and not busy
+            v.optional = sid in OPTIONAL_STAGES
             views.append(v)
-            prev_ok = status == "done"
+            prev_ok = status in ("done", "skipped")
         return views
 
     # ---- queries
@@ -357,7 +383,7 @@ class WizardModel:
             if v.status in ("needs_review", "failed", "running"):
                 return v.id
         for v in self.stages:
-            if v.status != "done":
+            if v.status not in ("done", "skipped"):
                 return v.id
         return self.stages[-1].id
 

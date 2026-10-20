@@ -34,10 +34,11 @@ Click the water-drop button in the toolbar, or *Plugins > RE-PEAT Pompanisasi > 
    never fills these in. Values are saved into `run_config.yaml`.
 3. After a run the result tiles appear and the stage's layers are loaded into a `RE-PEAT <run name>` group on the map.
 4. **Review stages (2, 6, 9)** stop for you: inspect the layers, then *Accept and continue* or *Re-run this stage*.
-5. *Re-run* on an earlier stage clears all later stages, because they depend on it (you are asked first). Their layers leave the map too.
-6. If you change a decision after a stage ran, that stage and the ones after it are marked **Out of date** and you cannot accept
+5. **Stage 12 (block optimisation) is optional** and starts switched off (shown as *Optional, switched off* and counted as done). Choose *Yes* under *Decisions* to use it; it gives an alternative plan for which proposed sekat to build first and does not change the pump stages.
+6. *Re-run* on an earlier stage clears all later stages, because they depend on it (you are asked first). Their layers leave the map too.
+7. If you change a decision after a stage ran, that stage and the ones after it are marked **Out of date** and you cannot accept
    them until you re-run (the button says *Re-run to apply your change*).
-7. *Cancel run* stops the engine and anything it started, even if it is silent (for example a long download).
+8. *Cancel run* stops the engine and anything it started, even if it is silent (for example a long download).
 
 The wizard never imports the engine. It runs the same command as the Processing algorithms and reads `run_state.json`,
 the logs and the GeoPackage; `repeat-pump check --config X` (JSON) tells it which parameters each stage still needs.

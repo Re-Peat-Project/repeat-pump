@@ -21,6 +21,9 @@ Keys cited in module docstrings (from AGENTS.md section 12). Verify volume and p
 - **Saaty1980**: Saaty (1980). The Analytic Hierarchy Process. McGraw-Hill.
 - **Takahashi1980**: Takahashi & Matsuyama (1980). Mathematica Japonica 24(6), 573-577.
 - **Tarboton1997**: Tarboton (1997). Water Resources Research 33(2), 309-319.
+- **Holland1975**: Holland (1975). Adaptation in Natural and Artificial Systems. University of Michigan Press.
+- **Kirkpatrick1983**: Kirkpatrick, Gelatt & Vecchi (1983). Science 220(4598), 671-680.
+- **Urzainki2020**: Urzainki et al. (2020). Biogeosciences 17, 4769-4784, doi:10.5194/bg-17-4769-2020. Peat tables and scheme from LukeEcomod/blopti (MIT); see `repeat_pump/data/NOTICE-urzainki2020.md`.
 - **PP57-2016**, **KHG-SKSS-2021**: see the spec.
 
-No algorithm outside this list was added.
+Stage 12 (optional) adds Urzainki2020, Holland1975 and Kirkpatrick1983. Verify volume and page details against the originals before formal citation.

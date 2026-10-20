@@ -142,6 +142,8 @@ class StageRow(QPushButton):
             badge.setPixmap(svg_pixmap(theme.LOCK_SVG, theme.RAIL_MUTED, 13))
         elif view.status == "failed":
             badge.setText("!")
+        elif view.status == "skipped":
+            badge.setText("-")
         else:
             badge.setText(str(view.id))
         lay.addWidget(badge)
@@ -604,6 +606,8 @@ class WizardPanel(QWidget):
                   "stale": " · OUT OF DATE"}.get(view.status, "")
         if view.review and view.status in ("ready", "locked"):
             suffix = " · REVIEW STAGE"
+        if view.optional and view.status in ("ready", "locked", "skipped"):
+            suffix = " · OPTIONAL"
         eyebrow = label(tr("STAGE {n}").format(n=view.id) + (tr(suffix) if suffix else ""), "eyebrow", wrap=False)
         prop(eyebrow, tone=tone)
         lay.addWidget(eyebrow)
@@ -771,6 +775,8 @@ class WizardPanel(QWidget):
             if view.id < len(model.stages):
                 add(tr("Next: {title}").format(title=model.stage(view.id + 1).title), "primary", lambda: self._select(view.id + 1))
             note.setText(view.blocking)
+        elif view.status == "skipped":
+            note.setText(tr("This optional stage is switched off. Choose Yes under Decisions to use it."))
         elif view.status == "stale":
             note.setText(view.blocking)
             add("Re-run to apply your change", "primary", lambda: self._act("rerun", view.id), view.can_rerun)

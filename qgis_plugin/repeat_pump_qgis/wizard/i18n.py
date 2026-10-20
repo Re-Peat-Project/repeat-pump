@@ -263,4 +263,34 @@ ID: dict[str, str] = {
     "Stage {n} was cancelled. Run it again when you are ready.": "Tahap {n} dibatalkan. Jalankan lagi saat Anda siap.",
     "Stage {n} failed. See the message on the card.": "Tahap {n} gagal. Lihat pesan pada kartu.",
     "Stage {n} is ready for your review.": "Tahap {n} siap Anda tinjau.", "Stage {n} finished.": "Tahap {n} selesai.",
+    # ---------------------------------------------------------------- stage 12: optional block optimisation
+    "Block optimisation": "Optimasi penempatan sekat",
+    "Optional. Compares which of the proposed sekat to build first when you can only build some of them.":
+        "Opsional. Membandingkan sekat usulan mana yang sebaiknya dibangun lebih dulu jika hanya sebagian yang dapat dibangun.",
+    "Scores layouts of new sekat with a canal-level model (or a 2D groundwater model) and searches for the best layout with a genetic algorithm and simulated annealing, next to greedy, random and rule-based comparators.":
+        "Menilai tata letak sekat baru dengan model tinggi muka air kanal (atau model air tanah 2D) dan mencari tata letak terbaik dengan algoritma genetika dan simulated annealing, dibandingkan dengan pilihan greedy, acak, dan berbasis aturan.",
+    "Money and access limit how many sekat you can build. This shows which layout of the proposed sekat gives the most benefit. It is an alternative plan: the pump stages still assume every proposed sekat is built.":
+        "Dana dan akses membatasi jumlah sekat yang dapat dibangun. Tahap ini menunjukkan tata letak sekat usulan yang memberi manfaat terbesar. Ini adalah rencana alternatif: tahap pompa tetap mengasumsikan semua sekat usulan dibangun.",
+    "Candidate sites": "Lokasi kandidat", "proposed sekat": "sekat usulan", "Blocks to build": "Sekat yang dibangun",
+    "Layouts scored": "Tata letak dinilai", "all algorithms": "semua algoritma", "Best method": "Metode terbaik",
+    "Gain over random": "Keunggulan atas acak", "times the random mean": "kali rata-rata acak",
+    "Optional, switched off": "Opsional, nonaktif",
+    "Run the canal blocking optimisation": "Jalankan optimasi penempatan sekat kanal",
+    "Optional. Chooses which proposed sekat to build first when you cannot build them all. It is an alternative plan and does not change the pump stages.":
+        "Opsional. Memilih sekat usulan mana yang dibangun lebih dulu bila tidak semuanya dapat dibangun. Ini rencana alternatif dan tidak mengubah tahap pompa.",
+    "How layouts are scored": "Cara menilai tata letak",
+    "canal_rise is quick and needs few inputs. pde uses a groundwater model and needs the physical inputs below. screen_then_pde searches with canal rise and re-scores the winners with the groundwater model.":
+        "canal_rise cepat dan butuh sedikit masukan. pde memakai model air tanah dan butuh masukan fisik di bawah. screen_then_pde mencari dengan kenaikan muka air kanal lalu menilai ulang pemenangnya dengan model air tanah.",
+    "Number of new blocks": "Jumlah sekat baru", "blocks": "sekat", "How many of the proposed sekat you can build.": "Berapa banyak sekat usulan yang dapat Anda bangun.",
+    "Search budget per algorithm": "Anggaran pencarian per algoritma", "layouts": "tata letak",
+    "How many different layouts each algorithm may score. More is better but slower.": "Berapa tata letak berbeda yang boleh dinilai tiap algoritma. Lebih banyak lebih baik tetapi lebih lambat.",
+    "Canal water level below the land": "Muka air kanal di bawah lahan", "Dry-season level of the canal water below the surrounding land.": "Tinggi muka air kanal di musim kemarau di bawah lahan sekitarnya.",
+    "Groundwater grid cell size": "Ukuran sel grid air tanah", "Cell size of the groundwater model. Smaller is more detailed and slower.": "Ukuran sel model air tanah. Lebih kecil lebih rinci tetapi lebih lambat.",
+    "Length of the dry spell": "Lama masa kering", "Days of drying simulated from a saturated start.": "Jumlah hari pengeringan yang disimulasikan dari kondisi jenuh.",
+    "Net water loss without rain": "Kehilangan air bersih tanpa hujan", "mm/day": "mm/hari", "Evapotranspiration the peat loses each dry day.": "Evapotranspirasi yang hilang dari gambut setiap hari kering.",
+    "Peat transmissivity multiplier": "Pengali transmisivitas gambut",
+    "Scales the transmissivity of the built-in peat tables. Results depend strongly on it, so set it for your site.":
+        "Mengalikan transmisivitas pada tabel gambut bawaan. Hasil sangat bergantung padanya, jadi tetapkan sesuai lokasi Anda.",
+    " · OPTIONAL": " · OPSIONAL",
+    "This optional stage is switched off. Choose Yes under Decisions to use it.": "Tahap opsional ini nonaktif. Pilih Ya di bawah Keputusan untuk memakainya.",
 }

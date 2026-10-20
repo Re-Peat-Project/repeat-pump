@@ -6,7 +6,7 @@ import re
 import time
 from typing import Optional
 
-from . import hydro, io, network, profiles, prioritise, pumps, report, routing, segments, sekat, topology
+from . import hydro, io, network, optimise, profiles, prioritise, pumps, report, routing, segments, sekat, topology
 from .config import Config
 from .context import RunContext
 from .requirements import fingerprint
@@ -24,6 +24,7 @@ STAGES = [
     (9, "routing", routing.run, True),
     (10, "pumps", pumps.run, False),
     (11, "report", report.run, False),
+    (12, "optimise", optimise.run, False),   # optional: records "skipped" unless optimise.enabled
 ]
 
 
@@ -70,7 +71,7 @@ def run_pipeline(cfg: Config, stop_after: Optional[int] = None, resume_from: Opt
         ctx.log.setLevel(logging.INFO)
         ctx.log.info("Stage %s (%s) started", sid, name)
         try:
-            fn(ctx)
+            outcome = fn(ctx)
             ctx.log.info("Stage %s (%s) finished: %s", sid, name, ctx.report.get("counts", {}).get(str(sid), {}))
         except Exception as e:
             ctx.log.error("Stage %s failed: %s", sid, e)
@@ -80,7 +81,7 @@ def run_pipeline(cfg: Config, stop_after: Optional[int] = None, resume_from: Opt
             ctx.log.removeHandler(fh); fh.close()
             ctx.save_state()
         states[key] = {"name": name, "seconds": round(time.time() - t0, 2),
-                       "status": "awaiting_review" if (review and sid not in accepted) else "done",
+                       "status": "skipped" if outcome == "skipped" else ("awaiting_review" if (review and sid not in accepted) else "done"),
                        "fingerprint": fingerprint(cfg, sid)}
         ctx.save_state()
         if states[key]["status"] == "awaiting_review":

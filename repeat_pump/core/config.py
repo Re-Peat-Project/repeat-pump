@@ -171,6 +171,38 @@ class PumpingCfg(_M):
     allow_gate_addition: bool = False
 
 
+class GaCfg(_M):
+    """Genetic algorithm settings. Implementation defaults, not values taken from the paper."""
+    population: int = 30
+    mutation: float = 0.1
+    elite: int = 2
+    tournament: int = 3
+
+
+class SaCfg(_M):
+    """Simulated annealing settings. Implementation defaults, not values taken from the paper."""
+    t0_fraction: float = 0.01
+    cooling: float = 0.995
+
+
+class OptimiseCfg(_M):
+    """Optional Stage 12: canal blocking optimisation after Urzainki et al. (2020). Every physical input is a human decision."""
+    enabled: bool = False
+    objective: Literal["canal_rise", "pde", "screen_then_pde"] = "canal_rise"
+    algorithms: list[Literal["ga", "sa", "greedy"]] = ["ga", "sa"]
+    n_blocks: Optional[int] = None                    # TODO(human): number of new blocks to choose
+    max_evaluations: Optional[int] = None             # TODO(human): cap on distinct layouts scored per algorithm
+    canal_drawdown_m: Optional[float] = None          # TODO(human): dry-season canal water level below the surrounding land
+    grid_m: Optional[float] = None                    # TODO(human): grid cell size of the groundwater model (pde objectives)
+    dry_days: Optional[int] = None                    # TODO(human): length of the drying spell (pde objectives)
+    et_mm_day: Optional[float] = None                 # TODO(human): net evapotranspiration loss without rain, mm/day (pde objectives)
+    transmissivity_multiplier: Optional[float] = None  # TODO(human): scales the peat transmissivity table (pde objectives)
+    seed: int = 0
+    random_baseline_draws: int = 10
+    ga: GaCfg = Field(default_factory=GaCfg)
+    sa: SaCfg = Field(default_factory=SaCfg)
+
+
 class ReviewCfg(_M):
     auto_accept: list[int] = []
 
@@ -185,6 +217,7 @@ class Config(_M):
     sekat: SekatCfg = Field(default_factory=SekatCfg)
     prioritise: PrioritiseCfg = Field(default_factory=PrioritiseCfg)
     pumping: PumpingCfg = Field(default_factory=PumpingCfg)
+    optimise: OptimiseCfg = Field(default_factory=OptimiseCfg)
     review: ReviewCfg = Field(default_factory=ReviewCfg)
 
     @property

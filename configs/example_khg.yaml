@@ -82,5 +82,21 @@ pumping:
   routing: steiner                # steiner | per_target
   allow_gate_addition: false
 
+# OPTIONAL Stage 12: canal blocking optimisation (Urzainki et al. 2020). Off by default. It gives an ALTERNATIVE block plan;
+# the routing and pump stages still assume every proposed sekat is built. Every physical value below is a human decision.
+optimise:
+  enabled: false
+  objective: canal_rise           # canal_rise | pde | screen_then_pde
+  algorithms: [ga, sa]            # ga | sa | greedy
+  n_blocks: null                  # TODO(human): new blocks to choose among the proposed sekat
+  max_evaluations: null           # TODO(human): distinct layouts each algorithm may score
+  canal_drawdown_m: null          # TODO(human): dry-season canal water level below the surrounding land
+  grid_m: null                    # TODO(human), pde objectives
+  dry_days: null                  # TODO(human), pde objectives
+  et_mm_day: null                 # TODO(human), pde objectives
+  transmissivity_multiplier: null # TODO(human), pde objectives; results depend strongly on it
+  seed: 0
+  random_baseline_draws: 10
+
 review:
   auto_accept: []                 # e.g. [2, 6, 9]
