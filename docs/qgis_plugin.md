@@ -32,6 +32,8 @@ Click the water-drop button in the toolbar, or *Plugins > RE-PEAT Pompanisasi > 
 2. Each stage card shows what the stage does (turn on *Learn mode* for the why and the references), the **decisions** that stage
    needs, and a **Run** button. A stage whose required values are empty cannot run; the empty fields are highlighted. The wizard
    never fills these in on its own. Values are saved into `run_config.yaml`.
+   **AHP:** on the Stage 6 card, set *Weighting method* to `ahp` to compare the criteria in pairs in a small grid (type the cells above
+   the diagonal, 1 to 9 or a fraction such as 1/3). Weights and the consistency ratio update as you type; a ratio above 0.10 blocks Run.
    **Optional:** tick *Use the proposed defaults* in the run setup (before *Create run*, or later on an open run) to fill the
    empty decisions with the researched starting values of `docs/proposed_defaults.md`. They are meant for trial runs, are marked
    *Proposed default* on each card, and are listed in the run report. A value you type always wins. Datums, DTM RMSE and the

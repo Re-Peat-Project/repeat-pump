@@ -129,6 +129,8 @@ class Field_:
 
 
 FIELDS: dict[str, Field_] = {f.key: f for f in [
+    Field_("prioritise.weights_mode", "Weighting method", "enum", "",
+           "Direct: type a weight per criterion. AHP: compare the criteria in pairs and the weights follow from the comparisons.", ("direct", "ahp")),
     Field_("run.clip_margin_m", "Clip margin around sub-KHGs", "float", "m", "Extra distance kept around the selected sub-KHGs."),
     Field_("inputs.dtm.vertical_rmse_m", "DTM vertical accuracy (RMSE)", "float", "m", "From the LiDAR provider. Needed to judge if a dA step is larger than the DTM noise."),
     Field_("inputs.moisture.higher_is_wetter", "Moisture index: higher means wetter", "bool", "", "Depends on the index used (check its definition)."),
@@ -186,12 +188,79 @@ def _field_en(key: str) -> Field_:
         return Field_(key, f"Weight: {CRITERIA.get(name, name.replace('_', ' '))}", "float", "",
                       "Relative importance of this criterion. Decided with the team; weights are normalised.")
     if key == "prioritise.ahp_matrix":
-        return Field_(key, "AHP pairwise matrix", "matrix", "", "Edit this in the YAML file (a matrix cannot be typed here).")
+        return Field_(key, "AHP pairwise matrix", "matrix", "", "Row against column: how much more important the row criterion is (1 = equal, 9 = extremely). Fill the cells above the diagonal.")
     return Field_(key, key, "text")
 
 
 # ----------------------------------------------------------------------------- model
 STATUSES = ("locked", "ready", "running", "needs_review", "done", "failed", "stale", "skipped")
+
+
+# ----------------------------------------------------------------------------- AHP pairwise matrix (pure Python)
+# The engine computes the weights itself (core/prioritise.py); this mirrors it only to give live feedback while typing.
+AHP_RI = {1: 0.0, 2: 0.0, 3: 0.58, 4: 0.90, 5: 1.12, 6: 1.24, 7: 1.32, 8: 1.41, 9: 1.45, 10: 1.49}    # Saaty (1980)
+AHP_MAX_CR = 0.10
+
+
+def parse_ratio(text: str) -> Optional[float]:
+    """Saaty-scale entry such as ``3``, ``1/3`` or ``0,5``; None when empty, not a number or outside 1/9..9."""
+    t = text.strip().replace(",", ".")
+    if not t:
+        return None
+    try:
+        a, _, b = t.partition("/")
+        x = float(a) / float(b) if b else float(a)
+    except (ValueError, ZeroDivisionError):
+        return None
+    return x if 1 / 9 - 1e-9 <= x <= 9 + 1e-9 else None
+
+
+def format_ratio(x: float) -> str:
+    """``3``, ``1/3``: what a reciprocal cell shows."""
+    if x >= 1 - 1e-9:
+        return str(int(round(x))) if abs(x - round(x)) < 1e-6 else f"{x:.2f}"
+    inv = 1 / x
+    return f"1/{int(round(inv))}" if abs(inv - round(inv)) < 1e-6 else f"{x:.2f}"
+
+
+def ahp_matrix(n: int, upper: dict[tuple[int, int], float]) -> Optional[list[list[float]]]:
+    """Full reciprocal matrix from the cells above the diagonal; None until every one of them is filled."""
+    if any((i, j) not in upper for i in range(n) for j in range(i + 1, n)):
+        return None
+    m = [[1.0] * n for _ in range(n)]
+    for (i, j), x in upper.items():
+        m[i][j], m[j][i] = x, 1 / x
+    return m
+
+
+def ahp_weights_cr(m: list[list[float]]) -> tuple[list[float], float]:
+    """Normalised principal-eigenvector weights and the consistency ratio (power iteration, no numpy)."""
+    n = len(m)
+    w = [1.0 / n] * n
+    for _ in range(500):
+        v = [sum(m[i][j] * w[j] for j in range(n)) for i in range(n)]
+        s = sum(v)
+        nw = [x / s for x in v]
+        done = max(abs(a - b) for a, b in zip(nw, w)) < 1e-12
+        w = nw
+        if done:
+            break
+    lam = sum(sum(m[i][j] * w[j] for j in range(n)) / w[i] for i in range(n)) / n
+    ri = AHP_RI.get(n, 0.0)
+    cr = ((lam - n) / (n - 1)) / ri if n > 2 and ri else 0.0
+    return w, max(cr, 0.0)
+
+
+def ahp_blocking(matrix) -> str:
+    """Why stage 6 cannot run with this matrix (empty string when it can, or when there is no matrix yet)."""
+    try:
+        m = [[float(x) for x in row] for row in matrix]
+        if not m or any(len(r) != len(m) for r in m):
+            return tr("The AHP matrix is not square.")
+        cr = ahp_weights_cr(m)[1]
+    except (TypeError, ValueError):
+        return ""
+    return tr("The AHP comparisons are not consistent enough (ratio {cr}, must be 0.10 or less). Revise the matrix.").format(cr=f"{cr:.2f}") if cr > AHP_MAX_CR else ""
 
 
 def layers_after(stage: int) -> list[str]:
@@ -364,6 +433,8 @@ class WizardModel:
                 v.blocking = tr("The engine environment is not set up yet.")
             elif status == "stale" and sid != first_stale:
                 v.blocking = tr("Re-run stage {n} first.").format(n=first_stale)
+            elif sid == 6 and (ahp := next((p.value for p in v.params if p.key == "prioritise.ahp_matrix" and p.value is not None), None))                     and ahp_blocking(ahp):
+                v.blocking = ahp_blocking(ahp)
             elif v.missing and status in ("ready", "failed", "done", "needs_review", "stale"):
                 v.blocking = tr("1 required value is empty") if len(v.missing) == 1 else tr("{n} required values are empty").format(n=len(v.missing))
             v.can_run = status in ("ready",) and not v.blocking and not busy

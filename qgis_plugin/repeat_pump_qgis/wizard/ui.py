@@ -116,6 +116,84 @@ def file_widget(mode: str, flt: str = "") -> QgsFileWidget:
     return w
 
 
+# ----------------------------------------------------------------------------- AHP pairwise matrix editor
+class AhpEditor(QWidget):
+    """Grid for the pairwise comparisons: type the cells above the diagonal, the mirrored cells follow as reciprocals.
+    The weights and the consistency ratio update while typing; a complete matrix is saved through ``on_commit``."""
+
+    def __init__(self, matrix, on_commit):
+        super().__init__()
+        ok = isinstance(matrix, list) and matrix and all(isinstance(r, list) and len(r) == len(matrix) for r in matrix)
+        self.n = len(matrix) if ok else len(vm.CRITERIA)
+        self._on_commit = on_commit
+        self._last = [[float(x) for x in r] for r in matrix] if ok else None
+        names = [tr(t) for t in vm.CRITERIA.values()]
+        names += [tr("criterion {n}").format(n=k + 1) for k in range(len(names), self.n)]
+        self.names = names[:self.n]
+        grid = QGridLayout(self)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setSpacing(6)
+        for k, name in enumerate(self.names):
+            grid.addWidget(label(name, "paramHelp", wrap=False), 0, k + 1)
+            grid.addWidget(label(name, "paramHelp", wrap=False), k + 1, 0)
+        self.cells: dict[tuple[int, int], QLineEdit] = {}
+        self.mirror: dict[tuple[int, int], QLabel] = {}
+        for i in range(self.n):
+            for j in range(self.n):
+                if i == j:
+                    grid.addWidget(label("1", "paramHelp", wrap=False), i + 1, j + 1)
+                elif i < j:
+                    le = QLineEdit("" if not ok else vm.format_ratio(float(matrix[i][j])))
+                    le.setPlaceholderText("1-9")
+                    le.setMaximumWidth(64)
+                    le.textChanged.connect(self._changed)
+                    le.editingFinished.connect(self._commit)
+                    self.cells[(i, j)] = le
+                    grid.addWidget(le, i + 1, j + 1)
+                else:
+                    lb = label("", "paramHelp", wrap=False)
+                    self.mirror[(i, j)] = lb
+                    grid.addWidget(lb, i + 1, j + 1)
+        self.summary = label("", "paramHelp")
+        grid.addWidget(self.summary, self.n + 1, 0, 1, self.n + 1)
+        self._changed()
+
+    def _read(self) -> tuple[dict, bool]:
+        upper, bad = {}, False
+        for (i, j), le in self.cells.items():
+            x = vm.parse_ratio(le.text())
+            prop(le, invalid=bool(le.text().strip()) and x is None)
+            bad = bad or (bool(le.text().strip()) and x is None)
+            if x is not None:
+                upper[(i, j)] = x
+        return upper, bad
+
+    def _changed(self) -> None:
+        upper, bad = self._read()
+        for (i, j), lb in self.mirror.items():
+            x = upper.get((j, i))
+            lb.setText("" if x is None else vm.format_ratio(1 / x))
+        m = vm.ahp_matrix(self.n, upper)
+        if bad:
+            self.summary.setText(f"<span style='color:{theme.RED_TEXT}'>{tr('Use a number from 1 to 9, or a fraction such as 1/3.')}</span>")
+        elif m is None:
+            self.summary.setText(tr("Fill every cell above the diagonal to see the weights."))
+        else:
+            w, cr = vm.ahp_weights_cr(m)
+            parts = ", ".join(f"{n} {x * 100:.0f} %" for n, x in zip(self.names, w))
+            verdict = tr("Consistency ratio {cr} (must be 0.10 or less).").format(cr=f"{cr:.2f}")
+            if cr > vm.AHP_MAX_CR:
+                verdict = f"<span style='color:{theme.RED_TEXT}'>{verdict} {tr('Revise the comparisons.')}</span>"
+            self.summary.setText(f"{tr('Weights')}: {parts}. {verdict}")
+
+    def _commit(self) -> None:
+        upper, bad = self._read()
+        m = None if bad else vm.ahp_matrix(self.n, upper)
+        if m is not None and m != self._last:
+            self._last = m
+            self._on_commit(m)
+
+
 # ----------------------------------------------------------------------------- stage rail row
 class StageRow(QPushButton):
     def __init__(self, view: vm.StageView, current: bool, compact: bool):
@@ -726,7 +804,9 @@ class WizardPanel(QWidget):
 
     def _editor(self, p: vm.Param, fld: vm.Field_) -> QWidget:
         if fld.kind == "matrix":
-            return label("Edit this in the run YAML file (a matrix cannot be typed here).", "paramHelp")
+            ed = AhpEditor(p.value, lambda m, k=p.key: self._commit(k, m))
+            prop(ed, missing=p.missing, paramKey=p.key)
+            return ed
         if fld.kind in ("bool", "enum"):
             cb = QComboBox()
             items = [tr("Not decided")] + ([tr("Yes"), tr("No")] if fld.kind == "bool" else list(fld.options))

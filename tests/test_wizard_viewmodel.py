@@ -3,6 +3,7 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
 import yaml
 
 
@@ -381,3 +382,44 @@ def test_params_from_the_preset_are_flagged_and_filled(tmp_path):
 def test_without_a_preset_nothing_is_flagged():
     m = model()
     assert not m.preset_path and not any(x.from_preset for v in m.stages for x in v.params)
+
+
+# ---------------------------------------------------------------- AHP pairwise matrix editor (view-model side)
+def test_parse_ratio_accepts_saaty_entries_only():
+    assert vm.parse_ratio("3") == 3 and vm.parse_ratio("1/3") == pytest.approx(1 / 3) and vm.parse_ratio("0,5") == 0.5
+    assert vm.parse_ratio("") is None and vm.parse_ratio("abc") is None and vm.parse_ratio("1/0") is None
+    assert vm.parse_ratio("10") is None and vm.parse_ratio("1/10") is None
+
+
+def test_ahp_matrix_waits_for_every_cell_above_the_diagonal_and_mirrors_reciprocals():
+    assert vm.ahp_matrix(3, {(0, 1): 3.0, (0, 2): 5.0}) is None
+    m = vm.ahp_matrix(3, {(0, 1): 3.0, (0, 2): 5.0, (1, 2): 2.0})
+    assert m[1][0] == pytest.approx(1 / 3) and m[2][0] == pytest.approx(1 / 5) and [m[i][i] for i in range(3)] == [1, 1, 1]
+    assert vm.format_ratio(1 / 3) == "1/3" and vm.format_ratio(3.0) == "3"
+
+
+def test_ahp_feedback_matches_the_engine():
+    """The wizard may not import the engine, so its small eigenvector routine must agree with core/prioritise.py."""
+    from repeat_pump.core import prioritise
+    for upper in ({(0, 1): 3, (0, 2): 5, (0, 3): 7, (1, 2): 2, (1, 3): 4, (2, 3): 2},
+                  {(0, 1): 9, (0, 2): 1 / 9, (0, 3): 1, (1, 2): 9, (1, 3): 1, (2, 3): 1}):          # one consistent, one not
+        m = vm.ahp_matrix(4, {k: float(v) for k, v in upper.items()})
+        w, cr = vm.ahp_weights_cr(m)
+        ew, ecr = prioritise.ahp_weights(m)
+        assert w == pytest.approx(list(ew), abs=1e-6) and cr == pytest.approx(ecr, abs=1e-6)
+
+
+def test_inconsistent_matrix_blocks_stage_6_with_a_reason():
+    bad = [[1, 9, 1 / 9, 1], [1 / 9, 1, 9, 1], [9, 1 / 9, 1, 1], [1, 1, 1, 1]]
+    assert "not consistent" in vm.ahp_blocking(bad) and vm.ahp_blocking([[1, 3, 5, 7], [1 / 3, 1, 2, 4], [1 / 5, 1 / 2, 1, 2], [1 / 7, 1 / 4, 1 / 2, 1]]) == ""
+    assert vm.ahp_blocking([[1, 2], [3]]) == "The AHP matrix is not square." and vm.ahp_blocking(None) == ""
+
+
+def test_weighting_method_is_a_stage_6_decision_and_ahp_swaps_the_weight_fields(tmp_path):
+    p = {x.key for x in model().stage(6).params}
+    assert "prioritise.weights_mode" in p and "prioritise.criteria.burn_freq.weight" in p and "prioritise.ahp_matrix" not in p
+    d = yaml.safe_load(EXAMPLE.read_text(encoding="utf8"))
+    d["prioritise"]["weights_mode"] = "ahp"
+    f = rc.write_run_config(d, tmp_path / "ahp.yaml")
+    p = {x.key for x in model(cfg_path=f).stage(6).params}
+    assert "prioritise.ahp_matrix" in p and "prioritise.criteria.burn_freq.weight" not in p

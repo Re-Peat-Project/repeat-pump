@@ -216,6 +216,20 @@ ID: dict[str, str] = {
     "Create run": "Buat proses", "Open an existing run...": "Buka proses yang ada...", "Open a run config": "Buka konfigurasi proses",
     "Choose where the output GeoPackage should go.": "Pilih lokasi GeoPackage keluaran.",
     "Choose a starting config (YAML).": "Pilih konfigurasi awal (YAML).",
+    "Weighting method": "Metode pembobotan",
+    "Direct: type a weight per criterion. AHP: compare the criteria in pairs and the weights follow from the comparisons.":
+        "Langsung: ketik bobot untuk setiap kriteria. AHP: bandingkan kriteria berpasangan, bobot mengikuti dari perbandingan itu.",
+    "Row against column: how much more important the row criterion is (1 = equal, 9 = extremely). Fill the cells above the diagonal.":
+        "Baris terhadap kolom: seberapa lebih penting kriteria pada baris (1 = sama, 9 = sangat ekstrem). Isi sel di atas diagonal.",
+    "The AHP matrix is not square.": "Matriks AHP bukan matriks persegi.",
+    "The AHP comparisons are not consistent enough (ratio {cr}, must be 0.10 or less). Revise the matrix.":
+        "Perbandingan AHP kurang konsisten (rasio {cr}, harus 0,10 atau kurang). Perbaiki matriksnya.",
+    "criterion {n}": "kriteria {n}",
+    "Use a number from 1 to 9, or a fraction such as 1/3.": "Gunakan angka 1 sampai 9, atau pecahan seperti 1/3.",
+    "Fill every cell above the diagonal to see the weights.": "Isi setiap sel di atas diagonal untuk melihat bobotnya.",
+    "Weights": "Bobot",
+    "Consistency ratio {cr} (must be 0.10 or less).": "Rasio konsistensi {cr} (harus 0,10 atau kurang).",
+    "Revise the comparisons.": "Perbaiki perbandingannya.",
     "Use the proposed defaults (for trial runs, not team decisions)":
         "Gunakan nilai usulan (untuk uji coba, bukan keputusan tim)",
     "Fills the empty decision fields with researched starting values. Each one stays marked as proposed until you enter a value. Values you type always win.":

@@ -39,7 +39,7 @@ def needs_by_stage(cfg: Config) -> dict[int, list[str]]:
     need[1] = ["run.clip_margin_m", "inputs.dtm.vertical_rmse_m", "inputs.moisture.higher_is_wetter"]
     need[2] = ["topology.snap_tolerance_m"]
     need[3] = ["hydro.breach_max_dist_cells"]
-    need[6] = ["prioritise.ahp_matrix"] if pr.weights_mode == "ahp" else [f"prioritise.criteria.{k}.weight" for k in pr.criteria]
+    need[6] = ["prioritise.weights_mode"] + (["prioritise.ahp_matrix"] if pr.weights_mode == "ahp" else [f"prioritise.criteria.{k}.weight" for k in pr.criteria])
     if pr.upstream_method == "flow_acc":
         need[6].append("prioritise.upstream_buffer_m")
     if cfg.inputs.concession is not None:
