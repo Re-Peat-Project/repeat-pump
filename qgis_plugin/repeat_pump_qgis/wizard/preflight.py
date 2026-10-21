@@ -7,6 +7,7 @@ trainee sees "this layer uses another coordinate system" at once instead of afte
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -43,6 +44,7 @@ class Assessment:
     vertical_datum: str = ""        # from the DTM's metadata, empty when it has none
     river_levels: bool = False      # the rivers layer has a dry_season_wl_m field
     subkhg_id_field: str = ""
+    columns_missing: dict[str, list[tuple[str, bool]]] = field(default_factory=dict)   # role -> [(expected column, required)] to map
 
     @property
     def errors(self) -> list[Finding]:
@@ -50,6 +52,42 @@ class Assessment:
 
 
 REQUIRED = {"dtm", "moisture", "subkhg", "canals", "burn_area", "peat_depth"}
+
+# Columns the engine looks for, per input: expected name -> (required, other names it accepts by itself). The engine ignores case,
+# spaces and punctuation in names (BURN_FREQ is burn_freq). tests/test_wizard_setup.py keeps this equal to the engine's CANONICAL_COLUMNS.
+COLUMNS: dict[str, dict[str, tuple[bool, tuple[str, ...]]]] = {
+    "subkhg": {"subkhg_id": (True, ("unit_id",))},
+    "subkhg_priority": {"subkhg_id": (True, ("unit_id",)), "priority_rank": (False, ()), "deficit_mm": (False, ()), "design_period_days": (False, ())},
+    "canals": {"canal_class": (True, ()), "depth_m": (False, ()), "width_m": (False, ())},
+    "sekat_existing": {"sekat_id": (True, ()), "has_gate": (False, ()), "crest_elev_m": (False, ())},
+    "rivers": {"dry_season_wl_m": (False, ()), "perennial": (False, ())},
+    "burn_area": {"burn_freq": (True, ("burn_frequency",))},
+    "peat_depth": {"peat_thick": (True, ("peat_depth", "peat_class"))},
+}
+STRICT_ROLES = {"subkhg", "canals"}      # reported even when QGIS lists no fields at all; the others are only checked when fields are known
+
+
+def norm(name: str) -> str:
+    """The engine's rule for column names (config.snake_name): lower case, letters and digits only."""
+    n = re.sub(r"[^a-z0-9]+", "_", str(name).strip().lower()).strip("_")[:30] or "col"
+    return "f_" + n if not n[0].isalpha() else n
+
+
+def find_field(role: str, canonical: str, fields: list[str], mapping: Optional[dict[str, str]] = None) -> str:
+    """The actual field of ``fields`` that serves as ``canonical`` for ``role`` ("" when none): the user's mapping first, then the
+    expected name or one of the names the engine accepts on its own."""
+    by_norm = {norm(f): f for f in fields}
+    if mapping and mapping.get(canonical):
+        return by_norm.get(norm(mapping[canonical]), "")
+    for cand in (canonical, *COLUMNS.get(role, {}).get(canonical, (False, ()))[1]):
+        if norm(cand) in by_norm:
+            return by_norm[norm(cand)]
+    return ""
+
+
+def missing_columns(role: str, fields: list[str], mapping: Optional[dict[str, str]] = None) -> list[tuple[str, bool]]:
+    """``[(expected column, required)]`` that cannot be found among ``fields`` even with ``mapping``."""
+    return [(c, req) for c, (req, _a) in COLUMNS.get(role, {}).items() if not find_field(role, c, fields, mapping)]
 
 
 def _area(e: tuple) -> float:
@@ -60,9 +98,11 @@ def _overlap(a: tuple, b: tuple) -> float:
     return _area((max(a[0], b[0]), max(a[1], b[1]), min(a[2], b[2]), min(a[3], b[3])))
 
 
-def assess(layers: dict[str, Optional[LayerInfo]], reproject: bool = False) -> Assessment:
+def assess(layers: dict[str, Optional[LayerInfo]], reproject: bool = False, columns: Optional[dict[str, dict[str, str]]] = None) -> Assessment:
     """Findings for the chosen layers (``None`` = nothing chosen for that role). A layer in another CRS is an error unless
-    ``reproject`` (the engine's auto_reproject) is on, in which case it is only noted."""
+    ``reproject`` (the engine's auto_reproject) is on, in which case it is only noted. ``columns`` is the user's column mapping,
+    ``{role: {expected column: field}}``."""
+    columns = columns or {}
     out = Assessment()
     add = lambda level, role, text: out.findings.append(Finding(level, role, text))
     dtm = layers.get("dtm")
@@ -87,14 +127,24 @@ def assess(layers: dict[str, Optional[LayerInfo]], reproject: bool = False) -> A
                     name=info.name, crs=info.crs, dtm=out.crs))
     sk = layers.get("subkhg")
     if sk is not None:
-        out.subkhg_id_field = next((f for f in ("subkhg_id", "unit_id") if f in sk.fields), "")
-        if not out.subkhg_id_field:
-            add("error", "subkhg", tr("{name} needs a unique id column named subkhg_id (or unit_id).").format(name=sk.name))
-    cn = layers.get("canals")
-    if cn is not None and "canal_class" not in cn.fields:
-        add("error", "canals", tr("{name} needs a canal_class column (primer, sekunder or tersier).").format(name=cn.name))
+        out.subkhg_id_field = find_field("subkhg", "subkhg_id", sk.fields, columns.get("subkhg"))
+    for role, info in layers.items():
+        if info is None or role not in COLUMNS or (not info.fields and role not in STRICT_ROLES):
+            continue
+        miss = missing_columns(role, info.fields, columns.get(role))
+        if miss:
+            out.columns_missing[role] = miss
+        for col, required in miss:
+            if not required:
+                continue
+            if role == "subkhg":
+                add("error", role, tr("{name} needs a unique id column named subkhg_id (or unit_id). Choose which column holds it under Column names below.").format(name=info.name))
+            elif role == "canals":
+                add("error", role, tr("{name} needs a canal_class column (primer, sekunder or tersier). Choose which column holds it under Column names below.").format(name=info.name))
+            else:
+                add("error", role, tr("{name} needs a column for {col}. Choose which column holds it under Column names below.").format(name=info.name, col=col))
     rv = layers.get("rivers")
-    if rv is not None and "dry_season_wl_m" in rv.fields:
+    if rv is not None and find_field("rivers", "dry_season_wl_m", rv.fields, columns.get("rivers")):
         out.river_levels = True
         add("info", "rivers", tr("The rivers have dry-season water levels, so a vertical datum is needed (set it in stage 1)."))
     # coverage: compare extents in the same CRS only (a different CRS is already flagged; the engine checks exact geometry)

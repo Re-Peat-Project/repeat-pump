@@ -59,3 +59,20 @@ def test_bad_action_rejected(world):
     cfg, tmp = world
     with pytest.raises(InputError, match="unknown action"):
         _run(cfg, tmp, [A], [("move", A)])
+
+
+def test_edits_file_as_the_wizard_writes_it(world):
+    """canal_edits.gpkg from the map tools: layer name, empty canal_class/depth/width columns, a delete line that is a copy of the whole canal."""
+    import numpy as np
+    cfg, tmp = world
+    gpd.GeoDataFrame({"action": ["delete"], "canal_class": [None], "depth_m": [np.nan], "width_m": [np.nan]}, geometry=[B], crs=CRS).to_file(
+        tmp / "canal_edits.gpkg", layer="canal_edits", driver="GPKG")
+    cfg["inputs"]["canal_edits"] = {"path": str(tmp / "canal_edits.gpkg"), "layer": "canal_edits"}
+    gpd.GeoDataFrame({"canal_class": ["primer", "primer"], "depth_m": 2.0, "width_m": 4.0}, geometry=[A, B], crs=CRS).to_file(tmp / "canals.gpkg", driver="GPKG")
+    ctx = make_ctx(cfg)
+    io.run_stage1(ctx)
+    topology.run(ctx)
+    clean = ctx.read_layer("canals_clean")
+    assert len(clean) == 1 and abs(clean.length_m.iloc[0] - A.length) < 1e-6
+    edits = ctx.read_layer("qa_topology_edits")
+    assert list(edits.action) == ["delete"] and list(edits.n_affected) == [1]

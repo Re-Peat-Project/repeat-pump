@@ -199,3 +199,53 @@ def test_diagrams_are_well_formed_in_both_languages_and_follow_the_language():
         i18n.set_language("en")
         assert en != id_, stage
     assert "jarak = dA / kemiringan" not in diagrams.svg_for(7)
+
+
+# ---------------------------------------------------------------- column names (same rule as the engine) and the user's mapping
+def test_preflight_accepts_any_spelling_the_engine_accepts():
+    d = good()
+    d["subkhg"] = L("subkhg", fields=["UNIT_ID"], features=2)
+    d["canals"] = L("canals", fields=["Canal Class", "Depth_M"], features=5)
+    d["burn_area"] = L("burn_area", fields=["BURN_FREQ"], features=3)
+    d["peat_depth"] = L("peat_depth", fields=["PEAT_THICK"], features=3)
+    a = pf.assess(d)
+    assert not a.errors and a.subkhg_id_field == "UNIT_ID"
+    assert a.columns_missing["canals"] == [("width_m", False)]       # optional: offered for mapping, not an error
+
+
+def test_a_column_mapping_clears_the_error_and_names_the_field():
+    d = good()
+    d["canals"] = L("canals", fields=["Kelas Kanal"], features=5)
+    d["burn_area"] = L("burn_area", fields=["Frekuensi"], features=3)
+    a = pf.assess(d)
+    assert {f.role for f in a.errors} == {"canals", "burn_area"} and a.columns_missing["burn_area"] == [("burn_freq", True)]
+    b = pf.assess(d, columns={"canals": {"canal_class": "kelas kanal"}, "burn_area": {"burn_freq": "Frekuensi"}})
+    assert not b.errors and "burn_area" not in b.columns_missing
+    assert pf.find_field("canals", "canal_class", ["Kelas Kanal"], {"canal_class": "Kelas Kanal"}) == "Kelas Kanal"
+    assert pf.find_field("canals", "canal_class", ["Kelas Kanal"], {"canal_class": "Elsewhere"}) == ""       # a mapping to a missing field finds nothing
+
+
+def test_the_wizards_column_table_equals_the_engines():
+    from repeat_pump.core.config import CANONICAL_COLUMNS
+    assert {r: {c: req for c, (req, _a) in cols.items()} for r, cols in pf.COLUMNS.items()} == CANONICAL_COLUMNS
+    from repeat_pump.core.config import snake_name
+    for text in ("Kelas Kanal", "BURN_FREQ", "  a--b ", "1x", "x" * 40, "Dalam (m)"):
+        assert pf.norm(text) == snake_name(text)
+
+
+def test_subkhg_field_follows_the_mapping():
+    d = good()
+    d["subkhg"] = L("subkhg", fields=["Kode KHG"], features=2)
+    assert pf.assess(d, columns={"subkhg": {"subkhg_id": "Kode KHG"}}).subkhg_id_field == "Kode KHG"
+
+
+def test_build_run_config_writes_and_clears_the_column_mapping(tmp_path):
+    import yaml
+    f = tmp_path / "c.yaml"
+    f.write_text(yaml.safe_dump({"run": {"name": "x", "output_gpkg": "o.gpkg", "crs": "EPSG:32749"},
+                                 "inputs": {"canals": {"path": "c.gpkg", "columns": {"canal_class": "old"}}, "burn_area": {"path": "b.gpkg"},
+                                            "dtm": {"path": "d.tif", "surface_type": "DTM"}, "moisture": {"paths": ["m.tif"]}}}), encoding="utf8")
+    out = rc.build_run_config(f, columns={"burn_area": {"burn_freq": "Frekuensi"}})
+    assert out["inputs"]["burn_area"]["columns"] == {"burn_freq": "Frekuensi"}
+    assert "columns" not in out["inputs"]["canals"]           # not mapped this time: the old mapping must not linger
+    assert "columns" not in out["inputs"]["dtm"] and "columns" not in out["inputs"]["moisture"]

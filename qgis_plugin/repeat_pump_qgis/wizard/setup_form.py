@@ -2,6 +2,7 @@
 coordinate system and vertical datum read from the DTM, and the early checks of ``preflight``."""
 from __future__ import annotations
 
+import csv
 from typing import Callable, Optional
 
 from qgis.gui import QgsMapLayerComboBox
@@ -10,7 +11,20 @@ from qgis.PyQt.QtWidgets import QCheckBox, QComboBox, QHBoxLayout, QLineEdit, QL
 
 from . import cloudload, preflight, theme
 from .i18n import tr
-from .widgets import button, label, layer_filter
+from .widgets import button, clear, label, layer_filter
+
+ROLE_NAMES = {"subkhg": "Sub-KHG polygons", "subkhg_priority": "Sub-KHG priority table (CSV, optional)", "canals": "Canal lines",
+              "sekat_existing": "Existing sekat (optional)", "rivers": "Rivers", "burn_area": "Burn-scar polygons", "peat_depth": "Peat-depth polygons"}
+
+
+def csv_header(path: str) -> list[str]:
+    """Column names of a CSV file (empty when it cannot be read)."""
+    try:
+        with open(path, newline="", encoding="utf-8-sig") as fh:
+            return next(csv.reader(fh), [])
+    except (OSError, UnicodeDecodeError, csv.Error):
+        return []
+
 
 SELECTION_MODES = [("top_n", "Highest-priority sub-KHGs"), ("ids", "Chosen sub-KHGs"), ("all", "All sub-KHGs")]
 
@@ -20,8 +34,12 @@ class SetupExtras(QWidget):
     changed = pyqtSignal()
 
     def __init__(self, get_layers: Callable[[], dict], on_cloud_raster: Optional[Callable[[str], None]] = None,
-                 on_cloud_burn: Optional[Callable[[str], None]] = None, get_out_dir: Optional[Callable[[], Optional[str]]] = None, parent=None):
+                 on_cloud_burn: Optional[Callable[[str], None]] = None, get_out_dir: Optional[Callable[[], Optional[str]]] = None,
+                 get_priority: Optional[Callable[[], str]] = None, parent=None):
         super().__init__(parent)
+        self._get_priority = get_priority or (lambda: "")
+        self._col_choice: dict[tuple[str, str], str] = {}      # (input, expected column) -> the user's column
+        self._col_signature: tuple = ()
         self._get_layers = get_layers
         self._on_cloud_raster = on_cloud_raster
         self._on_cloud_burn = on_cloud_burn
@@ -65,6 +83,17 @@ class SetupExtras(QWidget):
         lay.addWidget(self.ids)
         lay.addWidget(self.use_selected, 0, Qt.AlignmentFlag.AlignLeft)
 
+        # column names that differ from what the engine expects
+        self.columns_title = label("Column names", "paramLabel")
+        self.columns_note = label("Your data names some columns differently from what the engine expects. Say which of your columns is which.", "paramHelp")
+        self.columns_box = QVBoxLayout()
+        self.columns_box.setSpacing(4)
+        lay.addWidget(self.columns_title)
+        lay.addWidget(self.columns_note)
+        lay.addLayout(self.columns_box)
+        self.columns_title.setVisible(False)
+        self.columns_note.setVisible(False)
+
         # coordinate system and datum
         lay.addWidget(label("Coordinate system and vertical datum", "paramLabel"))
         self.crs_note = label("", "paramHelp")
@@ -96,6 +125,7 @@ class SetupExtras(QWidget):
         self.use_selected.setText(tr("Use the features selected on the map"))
         self.add_moisture.setText(tr("Add another moisture raster (a neighbouring tile)"))
         self.cloud_btn.setText(tr("Load moisture from the cloud..."))
+        self._col_signature = ()                    # rebuild the column rows in the new language
         self.burn_btn.setText(tr("Load burn scars from the cloud..."))
         self._mode_changed()
         self.refresh()
@@ -193,13 +223,63 @@ class SetupExtras(QWidget):
     def _datum_typed(self, _text: str) -> None:
         self._datum_edited = True
 
+    # ------------------------------------------------------------------ column names
+    def _rebuild_columns(self) -> None:
+        """One row per expected column that the chosen layer does not carry under a name the engine recognises."""
+        rows = []
+        for role in preflight.COLUMNS:
+            info = self._infos.get(role)
+            if info is not None and info.fields:
+                rows += [(role, col, req, tuple(info.fields)) for col, req in preflight.missing_columns(role, info.fields)]
+        signature = tuple(rows)
+        if signature == self._col_signature:
+            return
+        self._col_signature = signature
+        clear(self.columns_box)
+        for role, col, required, fields in rows:
+            row = QWidget()
+            h = QHBoxLayout(row)
+            h.setContentsMargins(0, 0, 0, 0)
+            h.addWidget(label(f"{tr(ROLE_NAMES.get(role, role))}: {col}" + (" *" if required else ""), "paramHelp", wrap=False), 1)
+            cb = QComboBox()
+            cb.addItem(tr("Choose a column...") if required else tr("Not available"), "")
+            choices = [f for f in fields if f.lower() != "fid"]          # GeoPackage's own row id is never the answer
+            for f in choices:
+                cb.addItem(f, f)
+            keep = self._col_choice.get((role, col), "")
+            if keep in choices:
+                cb.setCurrentIndex(choices.index(keep) + 1)
+            cb.currentIndexChanged.connect(lambda _i, r=role, c=col, w=cb: self._column_chosen(r, c, w.currentData()))
+            h.addWidget(cb, 2)
+            self.columns_box.addWidget(row)
+        self.columns_title.setVisible(bool(rows))
+        self.columns_note.setVisible(bool(rows))
+
+    def _column_chosen(self, role: str, col: str, field: Optional[str]) -> None:
+        self._col_choice[(role, col)] = field or ""
+        self.refresh()
+
+    def columns(self) -> dict[str, dict[str, str]]:
+        """``{input: {expected column: your column}}`` for the choices made, only for inputs that are still chosen."""
+        out: dict[str, dict[str, str]] = {}
+        for (role, col), field in self._col_choice.items():
+            info = getattr(self, "_infos", {}).get(role)
+            if field and info is not None and field in info.fields:
+                out.setdefault(role, {})[col] = field
+        return out
+
     # ------------------------------------------------------------------ checks
     def refresh(self) -> None:
         layers = self._get_layers()
         infos = {role: preflight.info_from_layer(role, lyr) for role, lyr in layers.items()}
         for k, cb in enumerate(self.extra_moisture):
             infos[f"moisture_{k + 2}"] = preflight.info_from_layer("moisture", cb.currentLayer())
-        a = self.assessment = preflight.assess({r: i for r, i in infos.items() if i is not None}, reproject=self.reproject.isChecked())
+        prio = self._get_priority()
+        if prio:
+            infos["subkhg_priority"] = preflight.LayerInfo("subkhg_priority", prio.replace("\\", "/").rsplit("/", 1)[-1], fields=csv_header(prio))
+        self._infos = {r: i for r, i in infos.items() if i is not None}
+        self._rebuild_columns()
+        a = self.assessment = preflight.assess(self._infos, reproject=self.reproject.isChecked(), columns=self.columns())
         self._fill_ids(layers.get("subkhg"), a.subkhg_id_field)
         self.crs_note.setText(tr("Coordinate system for the run: {crs} (taken from the DTM).").format(crs=a.crs) if a.crs else
                               tr("The run's coordinate system is taken from the DTM once you choose it."))

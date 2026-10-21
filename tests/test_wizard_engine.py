@@ -174,3 +174,24 @@ def test_reset_command_line(world):
     with pytest.raises(ReviewRequired):
         run_pipeline(load_config(cfgfile))
     assert cli.main(["reset", "--config", str(cfgfile)]) == 0 and not list(tmp.rglob("run_state.json"))
+
+
+def test_stage1_fingerprint_follows_the_content_of_the_canal_edits_file(tmp_path):
+    """The edits file keeps its path while it is edited in QGIS: stage 1 (and so every later stage) must still go out of date."""
+    import geopandas as gpd
+    from shapely.geometry import LineString
+
+    from repeat_pump.core.config import Config
+    from repeat_pump.core.requirements import canal_edits_digest, fingerprint
+    from tests.fixtures.synthetic import CRS, X0, Y0, build_world
+    _, cfg = build_world(tmp_path)
+    assert canal_edits_digest(Config.model_validate(cfg)) is None and fingerprint(Config.model_validate(cfg), 1)["canal_edits_digest"] is None
+    path = tmp_path / "edits.gpkg"
+    gpd.GeoDataFrame({"action": ["add"]}, geometry=[LineString([(X0, Y0), (X0 + 10, Y0)])], crs=CRS).to_file(path, layer="canal_edits", driver="GPKG")
+    cfg["inputs"]["canal_edits"] = {"path": str(path), "layer": "canal_edits"}
+    one = fingerprint(Config.model_validate(cfg), 1)
+    assert one["canal_edits_digest"] and fingerprint(Config.model_validate(cfg), 1) == one            # stable while the file is untouched
+    gpd.GeoDataFrame({"action": ["add", "delete"]}, geometry=[LineString([(X0, Y0), (X0 + 10, Y0)]), LineString([(X0, Y0 + 5), (X0 + 10, Y0 + 5)])],
+                     crs=CRS).to_file(path, layer="canal_edits", driver="GPKG")
+    assert fingerprint(Config.model_validate(cfg), 1) != one
+    assert "canal_edits_digest" not in fingerprint(Config.model_validate(cfg), 2)

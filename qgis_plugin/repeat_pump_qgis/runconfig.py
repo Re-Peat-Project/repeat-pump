@@ -61,10 +61,11 @@ def get_dotted(data: dict, key: str) -> Any:
 def build_run_config(config_file: str | Path, output_gpkg: Optional[str] = None, dtm: Optional[str] = None,
                      moisture: Optional[str | list[str]] = None, priority: Optional[str] = None,
                      vectors: Optional[dict[str, LayerRef]] = None, params: Optional[dict[str, Any]] = None,
-                     drop: Optional[list[str]] = None) -> dict:
+                     drop: Optional[list[str]] = None, columns: Optional[dict[str, dict[str, str]]] = None) -> dict:
     """Template YAML -> run config dict. ``vectors`` maps a config key (``canals``) to ``(path, layer_or_None)``;
     ``params`` maps dotted keys to values (e.g. the human-decided policy parameters). ``drop`` lists optional input keys the
-    user left empty: they are removed so a placeholder path from the template cannot reach the engine."""
+    user left empty: they are removed so a placeholder path from the template cannot reach the engine. ``columns`` is the column
+    mapping ``{input: {expected column: your column}}``; an input without one loses any mapping an older config had."""
     config_file = Path(config_file)
     base = config_file.parent
     data = yaml.safe_load(config_file.read_text(encoding="utf8"))
@@ -89,6 +90,12 @@ def build_run_config(config_file: str | Path, output_gpkg: Optional[str] = None,
             entry.pop("layer", None)
     for key in drop or []:
         inp.pop(key, None)
+    for role in ("subkhg", "subkhg_priority", "canals", "sekat_existing", "rivers", "burn_area", "peat_depth"):
+        if role in inp:
+            if (columns or {}).get(role):
+                inp[role]["columns"] = dict(columns[role])
+            else:
+                inp[role].pop("columns", None)
     for k, v in (params or {}).items():
         set_dotted(data, k, v)
     return data

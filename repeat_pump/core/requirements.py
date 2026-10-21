@@ -6,7 +6,7 @@ exists) are reported as ``recommended``.
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 from .config import Config
 
@@ -26,8 +26,10 @@ def _priority_columns(cfg: Config) -> set:
     try:
         import pandas as pd
 
-        from .config import resolve
-        return set(pd.read_csv(resolve(cfg, cfg.inputs.subkhg_priority.path), nrows=0).columns)
+        from .config import resolve, snake_name
+        cols = list(pd.read_csv(resolve(cfg, cfg.inputs.subkhg_priority.path), nrows=0).columns)
+        mapped = {snake_name(src): want for want, src in (cfg.inputs.subkhg_priority.columns or {}).items()}
+        return {mapped.get(snake_name(c), c) for c in cols}      # the names stage 1 will see after the user's column mapping
     except Exception:
         return set()
 
@@ -39,10 +41,15 @@ def rivers_have_levels(cfg: Config) -> bool:
     try:
         import pyogrio
 
-        from .config import resolve
+        from .config import resolve, snake_name
         r = cfg.inputs.rivers
-        df = pyogrio.read_dataframe(resolve(cfg, r.path), layer=r.layer, columns=["dry_season_wl_m"], read_geometry=False)
-        return bool(df["dry_season_wl_m"].notna().any())
+        path = resolve(cfg, r.path)
+        want = snake_name((r.columns or {}).get("dry_season_wl_m", "dry_season_wl_m"))
+        actual = next((f for f in pyogrio.read_info(path, layer=r.layer)["fields"] if snake_name(f) == want), None)
+        if actual is None:
+            return False
+        df = pyogrio.read_dataframe(path, layer=r.layer, columns=[actual], read_geometry=False)
+        return bool(df[actual].notna().any())
     except Exception:       # no such column, unreadable file: the stage itself reports it
         return False
 
@@ -117,6 +124,38 @@ FINGERPRINT_KEYS: dict[int, list[str]] = {
 SECTIONS = FINGERPRINT_KEYS          # kept for older imports
 
 
+def canal_edits_digest(cfg: Config) -> Optional[str]:
+    """Content hash of the canal edits layer (actions and geometries as stored), or None without one.
+
+    The edits file can change while its path stays the same, so stage 1's fingerprint carries this: editing it in QGIS marks
+    stage 1 and every later stage out of date, however it was edited.
+    """
+    return _edits_digest(cfg, cfg.inputs.canal_edits)
+
+
+def sekat_edits_digest(cfg: Config) -> Optional[str]:
+    """The same for the sekat edits (``sekat.edits``), carried by stage 7's fingerprint."""
+    return _edits_digest(cfg, cfg.sekat.edits)
+
+
+def _edits_digest(cfg: Config, sec) -> Optional[str]:
+    if sec is None:
+        return None
+    try:
+        import hashlib
+
+        import pyogrio
+
+        from .config import resolve
+        ed = pyogrio.read_dataframe(resolve(cfg, sec.path), layer=sec.layer)
+        col = next((c for c in ed.columns if c.strip().lower() == "action"), None)
+        if col is None:
+            return "unreadable"
+        return hashlib.sha256("|".join(sorted(f"{str(a).strip().lower()}:{g.wkb_hex}" for a, g in zip(ed[col], ed.geometry))).encode()).hexdigest()
+    except Exception:
+        return "unreadable"             # the stage itself reports what is wrong with the file
+
+
 def fingerprint(cfg: Config, stage: int) -> dict:
     """JSON-ready snapshot of the settings that determine a stage's results. Stored when the stage completes; if the
     current fingerprint differs, the stage's outputs are out of date."""
@@ -124,6 +163,10 @@ def fingerprint(cfg: Config, stage: int) -> dict:
     for key in FINGERPRINT_KEYS[stage]:
         v = get_value(cfg, key)
         out[key] = v.model_dump(mode="json") if hasattr(v, "model_dump") else v
+    if stage == 1:
+        out["canal_edits_digest"] = canal_edits_digest(cfg)
+    if stage == 7:
+        out["sekat_edits_digest"] = sekat_edits_digest(cfg)
     return out
 
 

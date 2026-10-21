@@ -195,6 +195,26 @@ class WizardController(QObject):
         write_run_config(data, self.config_path)
         self.refresh_check()
 
+    def set_params(self, values: dict[str, Any]) -> None:
+        """Write several keys into the run YAML in one go (one re-check)."""
+        if not self.config_path:
+            return
+        data = yaml.safe_load(self.config_path.read_text(encoding="utf8"))
+        for key, value in values.items():
+            set_dotted(data, key, value)
+        write_run_config(data, self.config_path)
+        self.refresh_check()
+
+    def unset_params(self, keys: list[str]) -> None:
+        """Remove keys (or whole sections) from the run YAML."""
+        if not self.config_path:
+            return
+        data = yaml.safe_load(self.config_path.read_text(encoding="utf8"))
+        for key in keys:
+            unset_dotted(data, key)
+        write_run_config(data, self.config_path)
+        self.refresh_check()
+
     def set_option(self, key: str, value: Any) -> None:
         """Like :meth:`set_param` for a setting that has a default: an empty value removes the key instead of writing ``null``."""
         if value is not None:

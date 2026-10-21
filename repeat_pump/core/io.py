@@ -24,7 +24,7 @@ from rasterio.vrt import WarpedVRT
 from shapely import make_valid
 from shapely.geometry import box
 
-from .config import (Config, CRSMismatchError, InputError, NeedsHuman, SurfaceTypeError, require_many, resolve)
+from .config import (Config, CRSMismatchError, InputError, NeedsHuman, SurfaceTypeError, require_many, resolve, snake_name)
 from .context import RunContext
 
 
@@ -54,13 +54,44 @@ def find_col(gdf: pd.DataFrame, candidates: list[str], layer: str) -> str:
     raise InputError(f"{layer}: none of the columns {candidates} found (have {list(gdf.columns)})")
 
 
-def read_vector(cfg: Config, path: str, name: str, ctx: Optional[RunContext] = None, layer: Optional[str] = None) -> gpd.GeoDataFrame:
+def apply_columns(df: pd.DataFrame, columns: Optional[dict[str, str]], name: str, ctx: Optional[RunContext] = None, geom: str = "geometry") -> pd.DataFrame:
+    """Rename the columns the user mapped (``{expected name: name in the data}``). The data's name is matched the way the engine
+    normalises names (case, spaces and punctuation ignored). A mapped column wins over a column that already has the expected
+    name, and says so."""
+    if not columns:
+        return df
+    have = {snake_name(c): c for c in df.columns if c != geom}
+    for want, src in columns.items():
+        actual = have.get(snake_name(src))
+        if actual is None:
+            raise InputError(f"{name}: the column {src!r} (mapped to {want!r}) is not in the data; it has {sorted(have.values())}")
+        if actual == want:
+            continue
+        if want in df.columns:
+            msg = f"{name}: column {src!r} is used as {want!r}; the data's own {want!r} column is ignored"
+            ctx.warn(msg) if ctx is not None else None
+            df = df.drop(columns=[want])
+        df = df.rename(columns={actual: want})
+        have = {snake_name(c): c for c in df.columns if c != geom}
+    return df
+
+
+def read_vector(cfg: Config, path: str, name: str, ctx: Optional[RunContext] = None, layer: Optional[str] = None,
+                columns: Optional[dict[str, str]] = None) -> gpd.GeoDataFrame:
     p = resolve(cfg, path)
     if not p.exists():
         raise InputError(f"{name}: file not found: {p}")
     gdf = pyogrio.read_dataframe(p, layer=layer)
     gdf.columns = _snake(list(gdf.columns), gdf.geometry.name)
+    gdf = apply_columns(gdf, columns, name, ctx, gdf.geometry.name)
     return check_vector_crs(gdf, name, cfg, ctx)
+
+
+def read_priority_table(cfg: Config, ctx: Optional[RunContext] = None) -> pd.DataFrame:
+    """The optional priority CSV with its columns mapped. Its own names are kept as they are (not snake-cased)."""
+    sec = cfg.inputs.subkhg_priority
+    df = pd.read_csv(resolve(cfg, sec.path))
+    return apply_columns(df, sec.columns, "subkhg_priority", ctx)
 
 
 def _unit_id_alias(df):
@@ -75,9 +106,7 @@ def _snake(cols: list[str], geom: str) -> list[str]:
     for c in cols:
         if c == geom:
             out.append(c); continue
-        n = re.sub(r"[^a-z0-9]+", "_", str(c).strip().lower()).strip("_")[:30] or "col"
-        if not n[0].isalpha():
-            n = "f_" + n
+        n = snake_name(c)
         while n in out:
             n = n[:27] + "_x"
         out.append(n)
@@ -270,7 +299,7 @@ def run_stage1(ctx: RunContext) -> None:
         dtm_bounds, dtm_res = d.bounds, d.res
 
     # --- vectors
-    subkhg = _unit_id_alias(read_vector(cfg, cfg.inputs.subkhg.path, "subkhg", ctx, cfg.inputs.subkhg.layer))
+    subkhg = _unit_id_alias(read_vector(cfg, cfg.inputs.subkhg.path, "subkhg", ctx, cfg.inputs.subkhg.layer, cfg.inputs.subkhg.columns))
     if "subkhg_id" not in subkhg or subkhg["subkhg_id"].duplicated().any():
         raise InputError("subkhg: needs a unique 'subkhg_id' column (or 'unit_id', as the RE-PEAT delineation names it)")
     subkhg = subkhg.assign(geometry=make_valid(subkhg.geometry.values))
@@ -279,7 +308,7 @@ def run_stage1(ctx: RunContext) -> None:
     subkhg["subkhg_id"] = subkhg["subkhg_id"].astype(str)
     prio = None
     if cfg.inputs.subkhg_priority is not None:
-        prio = _unit_id_alias(pd.read_csv(resolve(cfg, cfg.inputs.subkhg_priority.path)))
+        prio = _unit_id_alias(read_priority_table(cfg, ctx))
         if "subkhg_id" not in prio:
             raise InputError("subkhg_priority: needs a 'subkhg_id' column (or 'unit_id', as the RE-PEAT prioritisation names it)")
         prio["subkhg_id"] = prio["subkhg_id"].astype(str)
@@ -333,7 +362,7 @@ def run_stage1(ctx: RunContext) -> None:
         return out[~out.geometry.is_empty].reset_index(drop=True)
 
     # canals
-    canals = read_vector(cfg, cfg.inputs.canals.path, "canals", ctx, cfg.inputs.canals.layer)
+    canals = read_vector(cfg, cfg.inputs.canals.path, "canals", ctx, cfg.inputs.canals.layer, cfg.inputs.canals.columns)
     if "canal_class" not in canals:
         raise InputError("canals: needs a 'canal_class' column (primer/sekunder/tersier)")
     for c in ("depth_m", "width_m"):
@@ -363,7 +392,7 @@ def run_stage1(ctx: RunContext) -> None:
 
     # sekat (may be empty / absent)
     if cfg.inputs.sekat_existing is not None:
-        sk = read_vector(cfg, cfg.inputs.sekat_existing.path, "sekat_existing", ctx, cfg.inputs.sekat_existing.layer)
+        sk = read_vector(cfg, cfg.inputs.sekat_existing.path, "sekat_existing", ctx, cfg.inputs.sekat_existing.layer, cfg.inputs.sekat_existing.columns)
         if len(sk):
             if "sekat_id" not in sk:
                 raise InputError("sekat_existing: needs a 'sekat_id' column")
@@ -376,7 +405,7 @@ def run_stage1(ctx: RunContext) -> None:
 
     # rivers
     if cfg.inputs.rivers is not None:
-        rv = read_vector(cfg, cfg.inputs.rivers.path, "rivers", ctx, cfg.inputs.rivers.layer)
+        rv = read_vector(cfg, cfg.inputs.rivers.path, "rivers", ctx, cfg.inputs.rivers.layer, cfg.inputs.rivers.columns)
         rv["perennial"] = _to_bool(rv["perennial"]) if "perennial" in rv else False
         if "dry_season_wl_m" in rv and rv["dry_season_wl_m"].notna().any():
             rv["dry_season_wl_m"] = pd.to_numeric(rv["dry_season_wl_m"], errors="coerce")
@@ -392,7 +421,7 @@ def run_stage1(ctx: RunContext) -> None:
         ctx.write_layer("inputs_clipped_rivers", clip(rv), "1")
 
     # burn area
-    ba = read_vector(cfg, cfg.inputs.burn_area.path, "burn_area", ctx, cfg.inputs.burn_area.layer)
+    ba = read_vector(cfg, cfg.inputs.burn_area.path, "burn_area", ctx, cfg.inputs.burn_area.layer, cfg.inputs.burn_area.columns)
     col = find_col(ba, ["burn_freq", "burn_frequency"], "burn_area")
     ba["burn_freq_n"], bad = parse_burn_freq(ba[col])
     if bad:
@@ -401,7 +430,7 @@ def run_stage1(ctx: RunContext) -> None:
     ctx.write_layer("inputs_clipped_burn_area", clip(ba), "1")
 
     # peat depth
-    pd_ = read_vector(cfg, cfg.inputs.peat_depth.path, "peat_depth", ctx, cfg.inputs.peat_depth.layer)
+    pd_ = read_vector(cfg, cfg.inputs.peat_depth.path, "peat_depth", ctx, cfg.inputs.peat_depth.layer, cfg.inputs.peat_depth.columns)
     col = find_col(pd_, ["peat_thick", "peat_depth", "peat_class"], "peat_depth")
     parsed, bad = parse_peat_class(pd_[col])
     pd_["peat_class"] = pd_[col].astype(str)
@@ -415,7 +444,7 @@ def run_stage1(ctx: RunContext) -> None:
     for key, name in (("concession", "inputs_clipped_concession"), ("tma_obs", "inputs_clipped_tma_obs")):
         sec = getattr(cfg.inputs, key)
         if sec is not None:
-            g = read_vector(cfg, sec.path, key, ctx, sec.layer)
+            g = read_vector(cfg, sec.path, key, ctx, sec.layer, sec.columns)
             ctx.write_layer(name, clip(g), "1")
 
     # --- rasters

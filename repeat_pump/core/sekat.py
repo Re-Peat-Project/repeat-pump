@@ -18,7 +18,7 @@ import pandas as pd
 from shapely import STRtree
 from shapely.geometry import Point
 
-from .config import require
+from .config import InputError, require
 
 
 def place_sekat(d: np.ndarray, z: np.ndarray, dA: float, existing: list[float], min_spacing: float, fine: float,
@@ -75,6 +75,89 @@ def dedup_proposed(rows: list[dict], existing: list, tol: float) -> tuple[list[d
         kept.append(r)
         grid.setdefault((cx, cy), []).append((r["canal_id"], g))
     return kept, len(rows) - len(kept)
+
+
+def respace(rows: list[dict], existing_pos: dict, canals: gpd.GeoDataFrame, dA: float) -> None:
+    """Recompute ``js_m`` (distance to the previous sekat downstream, new or existing) and the height ``ts_m`` after sekat were dropped or
+    added, so every proposal's spacing and height describe the final layout."""
+    depth = dict(zip(canals["canal_id"], canals["depth_m"] if "depth_m" in canals else [np.nan] * len(canals)))
+    by_canal: dict = {}
+    for r in rows:
+        by_canal.setdefault(r["canal_id"], []).append(r)
+    for cid, rs in by_canal.items():
+        positions = sorted([r["dist_down_m"] for r in rs] + list(existing_pos.get(cid, [])))
+        dk = depth.get(cid, np.nan)
+        for r in rs:
+            before = [q for q in positions if q < r["dist_down_m"] - 1e-9]
+            js = r["dist_down_m"] - (before[-1] if before else 0.0)
+            ts = dk + js * r["i_lahan_pct"] / 100 - dA if dk == dk and dk is not None else np.nan
+            r["js_m"] = float(js)
+            r["ts_m"] = float(ts) if ts == ts else np.nan
+            r["ts_flag"] = "" if ts == ts else "no_depth_dk"
+
+
+def apply_sekat_edits(ctx, rows: list[dict], canals: gpd.GeoDataFrame, segs: gpd.GeoDataFrame, by_canal: dict, dA: float) -> tuple[list[dict], dict]:
+    """Apply ``sekat.edits`` (points with ``action`` add or delete) to the proposals.
+
+    * delete: the proposal nearest to the point, if one lies within ``sekat.snap_tolerance_m``, is dropped;
+    * add: the point is snapped onto the nearest canal within the same distance; the sekat gets its chainage, land height and slope from
+      the profile, is marked ``manual`` and is never refused for spacing (the person decided).
+    Deletes are matched before adds are made, so an edits file can never delete its own additions. Unmatched edits are warned about.
+    """
+    from .io import read_vector
+    cfg, sk = ctx.cfg, ctx.cfg.sekat
+    ed = read_vector(cfg, sk.edits.path, "sekat_edits", ctx, sk.edits.layer)
+    if "action" not in ed:
+        raise InputError("sekat_edits: needs an 'action' column with values add or delete")
+    ed["action"] = ed["action"].astype(str).str.strip().str.lower()
+    bad = sorted(set(ed["action"]) - {"add", "delete"})
+    if bad:
+        raise InputError(f"sekat_edits: unknown action value(s) {bad}; use add or delete")
+    if not ed.geom_type.isin(["Point"]).all():
+        raise InputError("sekat_edits: all features must be points")
+    tol = sk.snap_tolerance_m
+    rows = list(rows)
+    stats = {"deleted": 0, "added": 0, "unmatched_deletes": 0, "unsnapped_adds": 0}
+    for g in ed[ed["action"] == "delete"].geometry:
+        near = [(r["geometry"].distance(g), r["sekat_pro_id"], i) for i, r in enumerate(rows) if r["geometry"].distance(g) <= tol]
+        if near:
+            rows.pop(min(near)[2])
+            stats["deleted"] += 1
+        else:
+            stats["unmatched_deletes"] += 1
+    canal_geom = dict(zip(canals["canal_id"], canals.geometry))
+    canal_row = {c["canal_id"]: c for _, c in canals.iterrows()}
+    tree = STRtree(list(canals.geometry))
+    manual_k: dict = {}
+    for g in sorted(ed[ed["action"] == "add"].geometry, key=lambda p: (round(p.x, 3), round(p.y, 3))):
+        near = [j for j in tree.query(g.buffer(tol)) if canals.geometry.iloc[j].distance(g) <= tol]
+        if not near:
+            stats["unsnapped_adds"] += 1
+            continue
+        j = min(near, key=lambda j: (canals.geometry.iloc[j].distance(g), j))
+        cid = canals["canal_id"].iloc[j]
+        if cid not in by_canal:
+            stats["unsnapped_adds"] += 1
+            continue
+        ln, L, direction = canal_geom[cid], canal_geom[cid].length, canals["direction"].iloc[j]
+        d, z, i_loc = canal_arrays(by_canal[cid], direction, L)
+        ch = float(ln.project(g))
+        p = (L - ch) if direction == "forward" else ch
+        i_here = float(np.interp(p, d, i_loc))
+        sidx = segs[(segs.canal_id == cid) & (segs.chain_start_m <= ch + 1e-9) & (segs.chain_end_m >= ch - 1e-9)]
+        manual_k[cid] = manual_k.get(cid, 0) + 1
+        rows.append(dict(sekat_pro_id=f"M{cid}_{manual_k[cid]:03d}", canal_id=cid, seg_id=sidx["seg_id"].iloc[0] if len(sidx) else None,
+                         chainage_m=ch, dist_down_m=float(p), z_land_m=float(np.interp(p, d, z)), i_lahan_pct=i_here * 100,
+                         js_m=np.nan, js_req_m=float(min(dA / i_here, sk.max_spacing_m) if i_here > 1e-9 else sk.max_spacing_m),
+                         ts_m=np.nan, ts_flag="no_depth_dk",
+                         sekat_type="leaky/reinforced" if i_here * 100 >= sk.slope_reinforced_pct else "standard", manual=True,
+                         geometry=ln.interpolate(ch)))
+        stats["added"] += 1
+    if stats["unmatched_deletes"]:
+        ctx.warn(f"Stage 7: {stats['unmatched_deletes']} sekat edit(s) to delete matched no proposed sekat within {tol:g} m")
+    if stats["unsnapped_adds"]:
+        ctx.warn(f"Stage 7: {stats['unsnapped_adds']} sekat edit(s) to add are more than {tol:g} m from any canal and were skipped")
+    return rows, stats
 
 
 def canal_arrays(prof: pd.DataFrame, direction: str, length: float):
@@ -158,6 +241,14 @@ def run(ctx) -> None:
             u["n_proposed"] = sum(1 for r in prop_rows if r["canal_id"] == cid)
         if n_dedup:
             ctx.warn(f"Stage 7: {n_dedup} proposed sekat dropped as duplicates within {sk.dedup_tol_m:g} m of an existing sekat or one on another canal")
+    edit_stats = None
+    if sk.edits is not None:
+        prop_rows, edit_stats = apply_sekat_edits(ctx, prop_rows, canals, segs, by_canal, dA)
+        ctx.report["sekat_edits"] = edit_stats
+        for cid, u in canal_upd.items():
+            u["n_proposed"] = sum(1 for r in prop_rows if r["canal_id"] == cid)
+    if sk.dedup_tol_m or sk.edits is not None:           # spacing and height of what is left, not of what was first proposed
+        respace(prop_rows, {c: [r["dist_down_m"] for r in ex_rows if r["snapped"] and r["canal_id"] == c and "dist_down_m" in r] for c in canal_upd}, canals, dA)
     for cid, u in canal_upd.items():
         for k, v in u.items():
             canals.loc[canals["canal_id"] == cid, k] = v
@@ -169,6 +260,11 @@ def run(ctx) -> None:
     pr_gdf = gpd.GeoDataFrame(prop_rows, geometry="geometry", crs=ctx.crs) if prop_rows else gpd.GeoDataFrame(
         {"sekat_pro_id": []}, geometry=[], crs=ctx.crs)
     ctx.write_layer("sekat_existing_assessed", ex_gdf, "7")
+    if len(pr_gdf) and "manual" in pr_gdf:
+        pr_gdf["manual"] = pr_gdf["manual"].fillna(False).astype(bool)
+    elif len(pr_gdf):
+        pr_gdf["manual"] = False
     ctx.write_layer("sekat_proposed", pr_gdf, "7")
     ctx.write_layer("canals_clean", canals, "7")
-    ctx.set_counts("7", existing=len(ex_rows), unsnapped=len(unsnapped), proposed=len(prop_rows))
+    ctx.set_counts("7", existing=len(ex_rows), unsnapped=len(unsnapped), proposed=len(prop_rows),
+                   **({"edits_added": edit_stats["added"], "edits_deleted": edit_stats["deleted"]} if edit_stats else {}))

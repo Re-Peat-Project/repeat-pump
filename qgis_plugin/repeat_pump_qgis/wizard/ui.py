@@ -19,7 +19,9 @@ from ..runner import split_source
 from . import i18n, styling, theme
 from .i18n import tr
 from . import diagrams, maptools, summary, viewmodel as vm
+from .canal_edit import CanalEditor, SekatEditor
 from .controller import PRESET_RESOURCE, WizardController
+from .explain_tool import SegmentExplainer
 from .setup_form import SetupExtras
 
 COMPACT_BELOW = 760
@@ -180,6 +182,12 @@ class WizardPanel(QWidget):
         self._build_skeleton()
         self._make_setup_card()
         self._make_log_view()
+        self.canal_editor = CanalEditor(iface, self.controller, self)
+        self.canal_editor.notice.connect(self._notice)
+        self.sekat_editor = SekatEditor(iface, self.controller, self)
+        self.sekat_editor.notice.connect(self._notice)
+        self.segment_explainer = SegmentExplainer(iface, self.controller, self)
+        self.segment_explainer.notice.connect(self._notice)
         self.controller.changed.connect(self.render)
         self.controller.notice.connect(self._notice)
         self.controller.stage_finished.connect(self._on_stage_finished)
@@ -353,7 +361,9 @@ class WizardPanel(QWidget):
             self.combos[key] = (cb, optional, text)
             form.addWidget(cb)
         self.extras = SetupExtras(lambda: {k: c.currentLayer() for k, (c, _o, _t) in self.combos.items()}, self._add_cloud_raster, self._add_cloud_burn,
-                                  lambda: str(Path(self.out_file.filePath()).parent) if self.out_file.filePath().strip() else None)
+                                  lambda: str(Path(self.out_file.filePath()).parent) if self.out_file.filePath().strip() else None,
+                                  lambda: self.priority.filePath().strip())
+        self.priority.fileChanged.connect(lambda _p: self.extras.refresh())
         for cb, _o, _t in self.combos.values():
             cb.layerChanged.connect(lambda _l: self.extras.refresh())
         form.addWidget(self.extras)
@@ -441,7 +451,7 @@ class WizardPanel(QWidget):
             cfg_path = Path(out).parent / "run_config.yaml"
             base = cfg_path if cfg_path.exists() else Path(tpl)
             data = build_run_config(base, output_gpkg=str(Path(out)), dtm=dtm, moisture=[moisture] + extra_moisture,
-                                    priority=priority or None, vectors=vectors, drop=drop, params=params)
+                                    priority=priority or None, vectors=vectors, drop=drop, params=params, columns=self.extras.columns())
             if self.use_preset.isChecked():
                 try:
                     attach_preset(data, cfg_path.parent, PRESET_RESOURCE)
@@ -553,7 +563,19 @@ class WizardPanel(QWidget):
         self._last_sig = None
         self.render()
 
+    def hideEvent(self, event) -> None:
+        self.canal_editor.stop()                      # the map tools must not outlive the panel
+        self.sekat_editor.stop()
+        self.segment_explainer.stop()
+        super().hideEvent(event)
+
     def _select(self, sid: int) -> None:
+        if sid != 2:
+            self.canal_editor.stop()
+        if sid != 7:
+            self.sekat_editor.stop()
+        if sid < 6:
+            self.segment_explainer.stop()
         self.selected = sid
         self._last_sig = None
         self.render()
@@ -682,6 +704,10 @@ class WizardPanel(QWidget):
             b.addWidget(self._options_card(view))
         if view.status in ("done", "needs_review", "stale") and (view.layers or view.id in maptools.STAGE_VISIBLE) and self.controller.output_gpkg:
             b.addWidget(self._map_bar(view, model))
+            if view.id == 2:
+                b.addWidget(self._edit_bar())
+            if view.id == 7:
+                b.addWidget(self._sekat_edit_bar())
         if view.id == 11 and view.status == "done" and self.controller.output_gpkg:
             b.addWidget(self._results_card())
         if has_run or c.log:
@@ -953,11 +979,63 @@ class WizardPanel(QWidget):
         row = QHBoxLayout()
         row.addWidget(button("Show this stage on the map", "secondary", lambda sid=view.id: self._show_on_map(sid)))
         row.addWidget(button("Show every layer", "ghost", lambda: self._show_all()))
+        if view.id >= 6:
+            row.addWidget(button("Explain a segment", "secondary", self.segment_explainer.start, self.segment_explainer.available))
         if view.id == 11:
             row.addWidget(button("Export the map...", "secondary", self._export_map))
         row.addStretch(1)
         lay.addLayout(row)
         return f
+
+    def _edit_bar(self) -> QWidget:
+        """Stage 2: fix the canal network on the map (see canal_edit.py)."""
+        f, lay = card()
+        lay.addWidget(label("Fix the canals on the map", "cardTitle"))
+        lay.addWidget(label("Add a canal the data misses, or delete one that should not be there. Your edits are kept in canal_edits.gpkg in the run folder "
+                            "and applied the next time stages 1 and 2 run.", "paramHelp"))
+        ed = self.canal_editor
+        row = QHBoxLayout()
+        row.addWidget(button("Draw a canal to add", "secondary", ed.start_add, ed.available))
+        row.addWidget(button("Click a canal to delete", "secondary", ed.start_delete, ed.available))
+        row.addStretch(1)
+        lay.addLayout(row)
+        row = QHBoxLayout()
+        row.addWidget(button("Save my edits", "primary", self._save_canal_edits, ed.available))
+        row.addWidget(button("Stop editing", "ghost", ed.stop, ed.available))
+        row.addStretch(1)
+        lay.addLayout(row)
+        if not ed.available:
+            lay.addWidget(label("These tools need the QGIS map and an open run.", "paramHelp"))
+        return f
+
+    def _sekat_edit_bar(self) -> QWidget:
+        """Stage 7: change the proposed sekat on the map (see canal_edit.py)."""
+        f, lay = card()
+        lay.addWidget(label("Change the proposed sekat on the map", "cardTitle"))
+        lay.addWidget(label("Add a sekat the head rule did not place, or remove a proposed one. Your edits are kept in sekat_edits.gpkg in the run folder "
+                            "and applied the next time stage 7 runs. Added sekat are marked as manual.", "paramHelp"))
+        ed = self.sekat_editor
+        row = QHBoxLayout()
+        row.addWidget(button("Add a sekat", "secondary", ed.start_add, ed.available))
+        row.addWidget(button("Remove a proposed sekat", "secondary", ed.start_remove, ed.available))
+        row.addStretch(1)
+        lay.addLayout(row)
+        row = QHBoxLayout()
+        row.addWidget(button("Save my edits", "primary", self._save_sekat_edits, ed.available))
+        row.addWidget(button("Stop editing", "ghost", ed.stop, ed.available))
+        row.addStretch(1)
+        lay.addLayout(row)
+        if not ed.available:
+            lay.addWidget(label("These tools need the QGIS map and an open run.", "paramHelp"))
+        return f
+
+    def _save_sekat_edits(self) -> None:
+        if self.sekat_editor.apply():
+            self._select(7)
+
+    def _save_canal_edits(self) -> None:
+        if self.canal_editor.apply():
+            self._select(1)
 
     def _run_name(self) -> str:
         m = self.controller.model

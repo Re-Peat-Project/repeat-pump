@@ -16,7 +16,7 @@ from repeat_pump_qgis.wizard import i18n, viewmodel as vm  # noqa: E402
 EXAMPLE = Path(__file__).parents[1] / "configs" / "example_khg.yaml"
 # literals in the Qt code that are not shown to people (QGIS message levels, file filters, brand name, language codes)
 NOT_UI = {"RE-PEAT", "YAML (*.yaml *.yml)", "GeoPackage (*.gpkg)", "CSV (*.csv)", "EN", "ID", "Info", "Success", "Warning", "Critical",
-          "Engine ready", "Hazen-Williams C", "Segoe UI", "Single Box", "PDF (*.pdf);;PNG (*.png)", "GeoTIFF (*.tif)"}
+          "Engine ready", "Hazen-Williams C", "Segoe UI", "Single Box", "PDF (*.pdf);;PNG (*.png)", "GeoTIFF (*.tif)", "Canal edits (yours)", "Sekat edits (yours)"}
 
 
 @pytest.fixture(autouse=True)
@@ -41,7 +41,7 @@ def _source_strings() -> set[str]:
     out |= {"Weight: {name}", "burn frequency", "peat depth", "dryness", "upstream contribution", "AHP pairwise matrix",
             "Relative importance of this criterion. Decided with the team; weights are normalised.",
             "Edit this in the YAML file (a matrix cannot be typed here)."}
-    for fname in ("ui.py", "controller.py", "setup_form.py", "cloud_dialog.py", "cloudload.py", "preflight.py", "maptools.py", "widgets.py", "summary.py", "diagrams.py"):
+    for fname in ("ui.py", "controller.py", "setup_form.py", "cloud_dialog.py", "cloudload.py", "canal_edit.py", "explain.py", "explain_tool.py", "preflight.py", "maptools.py", "widgets.py", "summary.py", "diagrams.py"):
         tree = ast.parse((PLUGIN / "wizard" / fname).read_text(encoding="utf8"))
         skip = {id(c) for n in ast.walk(tree) if isinstance(n, ast.JoinedStr) for c in ast.walk(n)}
         skip |= {id(n.value) for n in ast.walk(tree) if isinstance(n, ast.Expr)}          # docstrings

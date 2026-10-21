@@ -42,6 +42,26 @@ class _M(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+# Columns an input may carry under another name, per input (``inputs.<role>.columns`` maps expected name -> your name).
+# Value: True when the stage cannot run without it. The wizard keeps a copy (wizard/preflight.py); a test keeps them equal.
+CANONICAL_COLUMNS: dict[str, dict[str, bool]] = {
+    "subkhg": {"subkhg_id": True},
+    "subkhg_priority": {"subkhg_id": True, "priority_rank": False, "deficit_mm": False, "design_period_days": False},
+    "canals": {"canal_class": True, "depth_m": False, "width_m": False},
+    "sekat_existing": {"sekat_id": True, "has_gate": False, "crest_elev_m": False},
+    "rivers": {"dry_season_wl_m": False, "perennial": False},
+    "burn_area": {"burn_freq": True},
+    "peat_depth": {"peat_thick": True},
+}
+
+
+def snake_name(c: str) -> str:
+    """The name the engine gives a column when it reads a vector layer: lower case, letters and digits only, at most 30 characters."""
+    import re
+    n = re.sub(r"[^a-z0-9]+", "_", str(c).strip().lower()).strip("_")[:30] or "col"
+    return "f_" + n if not n[0].isalpha() else n
+
+
 class SubKhgSelection(_M):
     """``top_n``: the N highest-ranked sub-KHGs of the priority table; ``ids``: the listed ones; ``all``: every sub-KHG in the layer.
     Without a priority ranking, ``top_n`` falls back to ``all`` (equal priority) and says so in the report."""
@@ -75,12 +95,14 @@ class MoistureCfg(_M):
 class RiversCfg(_M):
     path: str
     layer: Optional[str] = None
+    columns: Optional[dict[str, str]] = None   # {expected column: column in your layer}, see PathCfg
     vertical_datum: Optional[str] = None  # TODO(human): datum of dry_season_wl_m
 
 
 class PathCfg(_M):
     path: str
     layer: Optional[str] = None   # layer name inside a multi-layer file (e.g. GeoPackage)
+    columns: Optional[dict[str, str]] = None   # {expected column: column in your layer} when your data names it differently (CANONICAL_COLUMNS)
 
 
 class InputsCfg(_M):
@@ -130,6 +152,7 @@ class SekatCfg(_M):
     snap_tolerance_m: Optional[float] = None  # TODO(human)
     min_spacing_m: Optional[float] = None  # TODO(human)
     min_new_spacing_m: Optional[float] = None  # no two NEW sekat closer than this along a canal (legacy JARAK_MIN, 500 m); null = off. Overrides the head rule on steep land
+    edits: Optional[PathCfg] = None        # manual changes to the proposals: points with an action column, add | delete (see core/sekat.py)
     dedup_tol_m: Optional[float] = None    # a proposed sekat within this distance of an existing one, or of one proposed on another canal, is dropped (legacy DEDUP_TOL, 50 m); null = off
 
 
