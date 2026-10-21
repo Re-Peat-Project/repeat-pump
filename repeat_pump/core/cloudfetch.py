@@ -123,10 +123,10 @@ def asset_scaling(item: dict, key: str) -> tuple[float, float]:
 class BandReader:
     """One COG warped lazily onto the grid; ``read(window)`` returns raw values (0 = no data)."""
 
-    def __init__(self, stack: ExitStack, href: str, grid: Grid, resampling: Resampling):
+    def __init__(self, stack: ExitStack, href: str, grid: Grid, resampling: Resampling, nodata: Optional[int] = 0):
         src = stack.enter_context(rasterio.open(href))
         self._vrt = stack.enter_context(WarpedVRT(src, crs=grid.crs, transform=grid.transform, width=grid.width, height=grid.height,
-                                                  resampling=resampling, src_nodata=0, nodata=0))
+                                                  resampling=resampling, src_nodata=nodata, nodata=nodata))
 
     def read(self, window: Window) -> np.ndarray:
         return self._vrt.read(1, window=window)

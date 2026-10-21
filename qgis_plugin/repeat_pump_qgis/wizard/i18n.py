@@ -548,4 +548,23 @@ ID: dict[str, str] = {
     "A window ends before it starts.": "Ada jendela yang berakhir sebelum dimulai.",
     "The fallback window must contain the primary window.": "Jendela cadangan harus mencakup jendela utama.",
     "{product}. Scenes: {n}. Valid pixels: {pct}.": "{product}. Citra: {n}. Piksel valid: {pct}.",
+    # --- load burn scars from the cloud
+    "Load burn scars from the cloud...": "Muat bekas terbakar dari cloud...",
+    "Load burn scars from the cloud": "Muat bekas terbakar dari cloud",
+    "Counts, for every cell, the years in which the MODIS burned-area product saw a fire. It is coarse (about 460 m) and misses small and smouldering peat fires: use your own burn-scar layer when you have one.":
+        "Menghitung, untuk setiap sel, jumlah tahun ketika produk area terbakar MODIS mendeteksi kebakaran. Resolusinya kasar (sekitar 460 m) dan melewatkan kebakaran gambut kecil serta membara: pakai layer bekas terbakar Anda sendiri bila ada.",
+    "Years to count (first and last, both included)": "Tahun yang dihitung (pertama dan terakhir, keduanya dimasukkan)",
+    "First year, for example 2015": "Tahun pertama, misalnya 2015", "Last year": "Tahun terakhir", "First year": "Tahun pertama",
+    "The period is your decision: it sets what burn frequency means, so there is no default.":
+        "Periode ini keputusan Anda: menentukan arti frekuensi kebakaran, jadi tidak ada nilai bawaan.",
+    "Save the burn scars as": "Simpan bekas terbakar sebagai",
+    "Choose where to save the burn scars.": "Pilih tempat menyimpan bekas terbakar.",
+    "Searching for burned-area products.": "Mencari produk area terbakar.",
+    "{what}: write a four-digit year such as 2019.": "{what}: tulis tahun empat angka seperti 2019.",
+    "The last year is before the first year.": "Tahun terakhir lebih awal dari tahun pertama.",
+    "The burned-area product covers 2000 to this year.": "Produk area terbakar mencakup tahun 2000 sampai tahun ini.",
+    "{product}. Products: {n}. Burned at least once: {pct}. Highest burn frequency: {mx}.":
+        "{product}. Produk: {n}. Terbakar sedikitnya sekali: {pct}. Frekuensi kebakaran tertinggi: {mx}.",
+    "No products for: {years}.": "Tidak ada produk untuk: {years}.",
+    "QGIS could not open the downloaded layer: {path}": "QGIS tidak dapat membuka layer yang diunduh: {path}",
 }

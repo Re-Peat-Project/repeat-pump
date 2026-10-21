@@ -23,6 +23,7 @@ Keys cited in module docstrings (from AGENTS.md section 12). Verify volume and p
 - **Tarboton1997**: Tarboton (1997). Water Resources Research 33(2), 309-319.
 - **McFeeters1996**: McFeeters (1996). The use of the Normalized Difference Water Index (NDWI) in the delineation of open water features. International Journal of Remote Sensing 17(7), 1425-1432.
 - **Gao1996**: Gao (1996). NDWI, a normalized difference water index for remote sensing of vegetation liquid water from space. Remote Sensing of Environment 58(3), 257-266 (the NIR/SWIR1 index used here as NDMI).
+- **Giglio2018**: Giglio, Boschetti, Roy, Humber & Justice (2018). The Collection 6 MODIS burned area mapping algorithm and product. Remote Sensing of Environment 217, 72-85 (MCD64A1).
 - **Holland1975**: Holland (1975). Adaptation in Natural and Artificial Systems. University of Michigan Press.
 - **Kirkpatrick1983**: Kirkpatrick, Gelatt & Vecchi (1983). Science 220(4598), 671-680.
 - **Urzainki2020**: Urzainki et al. (2020). Biogeosciences 17, 4769-4784, doi:10.5194/bg-17-4769-2020. Peat tables and scheme from LukeEcomod/blopti (MIT); see `repeat_pump/data/NOTICE-urzainki2020.md`.

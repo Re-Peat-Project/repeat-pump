@@ -62,7 +62,25 @@ def main(argv=None) -> int:
     f.add_argument("--memory-gb", type=float, default=4.0)
     f.add_argument("--ee-project", help="Earth Engine Cloud project id (--source ee)")
     f.add_argument("--ee-authenticate", action="store_true", help="one-time Earth Engine sign-in, then exit")
+    g = sub.add_parser("fetch-burn", help="build burn_area polygons (burn_freq) from MODIS MCD64A1, a coarse automatic fallback")
+    g.add_argument("--bounds", nargs=4, type=float, metavar=("X0", "Y0", "X1", "Y1"))
+    g.add_argument("--crs")
+    g.add_argument("--out", help="output GeoPackage (layer burn_area)")
+    g.add_argument("--years", nargs=2, type=int, metavar=("FIRST", "LAST"), help="inclusive year window")
     a = ap.parse_args(argv)
+    if a.cmd == "fetch-burn":
+        missing = [n for n, v in (("--bounds", a.bounds), ("--crs", a.crs), ("--out", a.out), ("--years", a.years)) if not v]
+        if missing:
+            g.error("required: " + ", ".join(missing))
+        from .core import burnfetch
+        from .core.cloudfetch import FetchError
+        try:
+            prov = burnfetch.fetch_burn_frequency(a.bounds, a.crs, a.out, tuple(a.years))
+        except FetchError as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 1
+        print(f"wrote {a.out}: {prov['polygons']} polygons, {prov['burned_fraction']:.1%} of the area burned at least once, max burn_freq {prov['max_burn_freq']}")
+        return 0
     if a.cmd == "fetch-moisture":
         return _fetch_moisture(a, f)
     if a.cmd == "reset":

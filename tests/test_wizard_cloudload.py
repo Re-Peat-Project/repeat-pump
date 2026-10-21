@@ -53,3 +53,17 @@ def test_provenance_is_read_from_the_sidecar_only(tmp_path):
     assert prov["higher_is_wetter"] is True and "Scenes: 7" in cl.summary(prov) and "50%" in cl.summary(prov)
     (tmp_path / "m.tif.provenance.json").write_text("{broken")
     assert cl.read_provenance(str(tif)) is None
+
+
+def test_years_are_checked_and_the_burn_command_built():
+    assert cl.check_years("2015", " 2019 ") == (2015, 2019)
+    for a, b, msg in (("15", "2019", "four-digit"), ("2019", "2015", "before the first"), ("1999", "2005", "covers 2000"), ("2015", "2999", "covers 2000"), ("", "", "four-digit")):
+        with pytest.raises(ValueError, match=msg):
+            cl.check_years(a, b)
+    args = cl.burn_args((1.0, 2.0, 3.0, 4.0), "EPSG:32749", "b.gpkg", (2015, 2019))
+    assert args[0] == "fetch-burn" and args[-3:] == ["--years", "2015", "2019"] and args[args.index("--crs") + 1] == "EPSG:32749"
+
+
+def test_burn_summary_lists_years_without_products():
+    s = cl.burn_summary({"product": "P", "products": 12, "burned_fraction": 0.04, "max_burn_freq": 2, "years_without_products": [2016]})
+    assert "4.0%" in s and "2016" in s and "Highest burn frequency: 2" in s

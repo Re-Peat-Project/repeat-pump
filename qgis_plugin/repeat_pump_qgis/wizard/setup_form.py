@@ -20,10 +20,11 @@ class SetupExtras(QWidget):
     changed = pyqtSignal()
 
     def __init__(self, get_layers: Callable[[], dict], on_cloud_raster: Optional[Callable[[str], None]] = None,
-                 get_out_dir: Optional[Callable[[], Optional[str]]] = None, parent=None):
+                 on_cloud_burn: Optional[Callable[[str], None]] = None, get_out_dir: Optional[Callable[[], Optional[str]]] = None, parent=None):
         super().__init__(parent)
         self._get_layers = get_layers
         self._on_cloud_raster = on_cloud_raster
+        self._on_cloud_burn = on_cloud_burn
         self._get_out_dir = get_out_dir or (lambda: None)
         self._datum_edited = False
         self._ids_for: tuple = ()
@@ -39,6 +40,8 @@ class SetupExtras(QWidget):
         lay.addLayout(self.moisture_box)
         self.cloud_btn = button("Load moisture from the cloud...", "secondary", self._open_cloud)
         lay.addWidget(self.cloud_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        self.burn_btn = button("Load burn scars from the cloud...", "secondary", self._open_burn)
+        lay.addWidget(self.burn_btn, 0, Qt.AlignmentFlag.AlignLeft)
         self.add_moisture = button("Add another moisture raster (a neighbouring tile)", "link", self._add_moisture)
         lay.addWidget(self.add_moisture, 0, Qt.AlignmentFlag.AlignLeft)
 
@@ -93,6 +96,7 @@ class SetupExtras(QWidget):
         self.use_selected.setText(tr("Use the features selected on the map"))
         self.add_moisture.setText(tr("Add another moisture raster (a neighbouring tile)"))
         self.cloud_btn.setText(tr("Load moisture from the cloud..."))
+        self.burn_btn.setText(tr("Load burn scars from the cloud..."))
         self._mode_changed()
         self.refresh()
 
@@ -134,6 +138,13 @@ class SetupExtras(QWidget):
         self.refresh()
         dlg = CloudLoadDialog(self._cloud_extent(), self.assessment.crs, self._get_out_dir(), self)
         dlg.loaded.connect(lambda path: self._on_cloud_raster(path) if self._on_cloud_raster else None)
+        dlg.exec()
+
+    def _open_burn(self) -> None:
+        from .cloud_dialog import BurnLoadDialog
+        self.refresh()
+        dlg = BurnLoadDialog(self._cloud_extent(), self.assessment.crs, self._get_out_dir(), self)
+        dlg.loaded.connect(lambda path: self._on_cloud_burn(path) if self._on_cloud_burn else None)
         dlg.exec()
 
     def cloud_provenance(self) -> Optional[dict]:

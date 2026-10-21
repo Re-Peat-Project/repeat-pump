@@ -162,22 +162,23 @@ def crop_rasters(cfg: Config, paths: list[str], name: str, bounds: tuple, dst: P
     return dst
 
 
-def _note_cloud_moisture(cfg: Config, ctx: RunContext) -> None:
-    """Moisture rasters built by ``repeat-pump fetch-moisture`` carry a ``<file>.provenance.json``: put it in the report and
-    warn about every deviation from the team's Earth Engine CPWI, so an approximation is never mistaken for it."""
-    found = []
-    for path in cfg.inputs.moisture.paths:
-        sidecar = Path(str(resolve(cfg, path)) + ".provenance.json")
-        if not sidecar.is_file():
-            continue
-        prov = json.loads(sidecar.read_text(encoding="utf8"))
-        found.append({"file": str(path), **prov})
-        for d in prov.get("deviations", []):
-            ctx.warn(f"moisture {Path(path).name} ({prov.get('product')}): {d}")
-        if prov.get("higher_is_wetter") is not None and prov["higher_is_wetter"] != cfg.inputs.moisture.higher_is_wetter:
-            ctx.warn(f"moisture {Path(path).name}: built with higher_is_wetter={prov['higher_is_wetter']} but the config says {cfg.inputs.moisture.higher_is_wetter}")
-    if found:
-        ctx.report["moisture_provenance"] = found
+def _note_cloud_inputs(cfg: Config, ctx: RunContext) -> None:
+    """Rasters and layers built by ``repeat-pump fetch-moisture`` / ``fetch-burn`` carry a ``<file>.provenance.json``: put it in the
+    report and warn about every deviation, so an approximation is never mistaken for the team's own data."""
+    for key, paths in (("moisture", cfg.inputs.moisture.paths), ("burn_area", [cfg.inputs.burn_area.path])):
+        found = []
+        for path in paths:
+            sidecar = Path(str(resolve(cfg, path)) + ".provenance.json")
+            if not sidecar.is_file():
+                continue
+            prov = json.loads(sidecar.read_text(encoding="utf8"))
+            found.append({"file": str(path), **prov})
+            for d in prov.get("deviations", []):
+                ctx.warn(f"{key} {Path(path).name} ({prov.get('product')}): {d}")
+            if key == "moisture" and prov.get("higher_is_wetter") is not None and prov["higher_is_wetter"] != cfg.inputs.moisture.higher_is_wetter:
+                ctx.warn(f"moisture {Path(path).name}: built with higher_is_wetter={prov['higher_is_wetter']} but the config says {cfg.inputs.moisture.higher_is_wetter}")
+        if found:
+            ctx.report[f"{key}_provenance"] = found
 
 
 # ----------------------------------------------------------------------------- attribute parsing
@@ -430,5 +431,5 @@ def run_stage1(ctx: RunContext) -> None:
         "dtm": str(crop_rasters(cfg, [dtm_cfg.path], "dtm", bounds, clip_dir / "dtm.tif", Resampling.bilinear, ctx)),
         "moisture": str(crop_rasters(cfg, cfg.inputs.moisture.paths, "moisture", bounds, clip_dir / "moisture.tif", Resampling.bilinear, ctx)),
     }
-    _note_cloud_moisture(cfg, ctx)
+    _note_cloud_inputs(cfg, ctx)
     ctx.set_counts("1", subkhg_selected=len(ids), canals=int(len(ctx.read_layer("inputs_clipped_canals"))))

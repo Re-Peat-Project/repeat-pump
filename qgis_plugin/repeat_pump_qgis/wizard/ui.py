@@ -352,7 +352,7 @@ class WizardPanel(QWidget):
             cb.setLayer(None)
             self.combos[key] = (cb, optional, text)
             form.addWidget(cb)
-        self.extras = SetupExtras(lambda: {k: c.currentLayer() for k, (c, _o, _t) in self.combos.items()}, self._add_cloud_raster,
+        self.extras = SetupExtras(lambda: {k: c.currentLayer() for k, (c, _o, _t) in self.combos.items()}, self._add_cloud_raster, self._add_cloud_burn,
                                   lambda: str(Path(self.out_file.filePath()).parent) if self.out_file.filePath().strip() else None)
         for cb, _o, _t in self.combos.values():
             cb.layerChanged.connect(lambda _l: self.extras.refresh())
@@ -377,6 +377,17 @@ class WizardPanel(QWidget):
             return
         QgsProject.instance().addMapLayer(layer)
         self.combos["moisture"][0].setLayer(layer)
+        self.extras.refresh()
+
+    def _add_cloud_burn(self, path: str) -> None:
+        """The burn_area layer the cloud dialog wrote: put it on the map and choose it as the burn-scar layer."""
+        from qgis.core import QgsVectorLayer
+        layer = QgsVectorLayer(f"{path}|layername=burn_area", Path(path).stem, "ogr")
+        if not layer.isValid():
+            self.setup_msg.setText(f"<span style='color:{theme.RED_TEXT}'>{tr('QGIS could not open the downloaded layer: {path}').format(path=path)}</span>")
+            return
+        QgsProject.instance().addMapLayer(layer)
+        self.combos["burn_area"][0].setLayer(layer)
         self.extras.refresh()
 
     def _toggle_setup(self) -> None:

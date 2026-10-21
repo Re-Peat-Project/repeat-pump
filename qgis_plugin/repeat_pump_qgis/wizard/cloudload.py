@@ -37,6 +37,20 @@ def check_windows(p_start: str, p_end: str, f_start: str, f_end: str) -> tuple[t
     return (ps.isoformat(), pe.isoformat()), (fs.isoformat(), fe.isoformat())
 
 
+def check_years(first: str, last: str) -> tuple[int, int]:
+    """Inclusive year window for the burn-scar count; MODIS burned area starts in 2000."""
+    out = []
+    for text, what in ((first, tr("First year")), (last, tr("Last year"))):
+        if not re.fullmatch(r"\d{4}", text.strip()):
+            raise ValueError(tr("{what}: write a four-digit year such as 2019.").format(what=what))
+        out.append(int(text))
+    if out[1] < out[0]:
+        raise ValueError(tr("The last year is before the first year."))
+    if out[0] < 2000 or out[1] > date.today().year:
+        raise ValueError(tr("The burned-area product covers 2000 to this year."))
+    return out[0], out[1]
+
+
 def with_margin(bounds: tuple[float, float, float, float], margin_m: float) -> tuple[float, float, float, float]:
     x0, y0, x1, y1 = bounds
     return (x0 - margin_m, y0 - margin_m, x1 + margin_m, y1 + margin_m)
@@ -60,6 +74,10 @@ def fetch_args(source: str, bounds, crs: str, out: str, primary, fallback, max_c
     return args
 
 
+def burn_args(bounds, crs: str, out: str, years: tuple[int, int]) -> list[str]:
+    return ["fetch-burn", "--bounds", *[f"{v:.3f}" for v in bounds], "--crs", crs, "--out", out, "--years", str(years[0]), str(years[1])]
+
+
 def sidecar_path(raster_path: str) -> Path:
     return Path(str(raster_path) + ".provenance.json")
 
@@ -77,3 +95,10 @@ def summary(prov: dict) -> str:
     s = tr("{product}. Scenes: {n}. Valid pixels: {pct}.").format(product=prov.get("product", ""), n=prov.get("scenes_total", "n/a"),
                                                                  pct=f"{float(prov.get('valid_fraction', 0)):.0%}")
     return s
+
+
+def burn_summary(prov: dict) -> str:
+    s = tr("{product}. Products: {n}. Burned at least once: {pct}. Highest burn frequency: {mx}.").format(
+        product=prov.get("product", ""), n=prov.get("products", "n/a"), pct=f"{float(prov.get('burned_fraction', 0)):.1%}", mx=prov.get("max_burn_freq", 0))
+    gaps = prov.get("years_without_products") or []
+    return s + (" " + tr("No products for: {years}.").format(years=", ".join(map(str, gaps))) if gaps else "")
