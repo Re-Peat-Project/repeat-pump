@@ -567,4 +567,34 @@ ID: dict[str, str] = {
         "{product}. Produk: {n}. Terbakar sedikitnya sekali: {pct}. Frekuensi kebakaran tertinggi: {mx}.",
     "No products for: {years}.": "Tidak ada produk untuk: {years}.",
     "QGIS could not open the downloaded layer: {path}": "QGIS tidak dapat membuka layer yang diunduh: {path}",
+    # --- options that follow the KLH guide
+    "Canal classes to analyse": "Kelas kanal yang dianalisis",
+    "Only these classes are analysed; leave none ticked to use every class. The KLH guide uses primary and secondary canals.":
+        "Hanya kelas ini yang dianalisis; jangan centang apa pun untuk memakai semua kelas. Panduan KLH memakai kanal primer dan sekunder.",
+    "Primary (primer)": "Primer", "Secondary (sekunder)": "Sekunder", "Tertiary (tersier)": "Tersier",
+    "River reaches a canal within": "Sungai dianggap bertemu kanal dalam jarak",
+    "A river that stops this close to a canal still counts as meeting it, and becomes a water source. The KLH guide uses 30 m. Empty: the river must cross the canal.":
+        "Sungai yang berhenti sedekat ini dari kanal tetap dianggap bertemu kanal dan menjadi sumber air. Panduan KLH memakai 30 m. Kosong: sungai harus memotong kanal.",
+    "Move river points onto the kept canals within": "Pindahkan titik sungai ke kanal terpilih dalam jarak",
+    "Used with the class filter: river points found on a left-out canal are moved onto the nearest kept canal within this distance, or dropped. The KLH guide uses 50 m.":
+        "Dipakai bersama filter kelas: titik sungai pada kanal yang dikeluarkan dipindahkan ke kanal terpilih terdekat dalam jarak ini, atau dibuang. Panduan KLH memakai 50 m.",
+    "Minimum distance between new sekat": "Jarak minimum antar sekat baru",
+    "Empty: the head rule alone decides. The KLH guide uses 500 m, which overrides the head rule on steep land and gives fewer sekat there.":
+        "Kosong: aturan beda tinggi saja yang menentukan. Panduan KLH memakai 500 m, yang mengalahkan aturan beda tinggi di lahan curam sehingga sekat lebih sedikit.",
+    "Merge proposed sekat closer than": "Gabungkan sekat usulan yang lebih dekat dari",
+    "A proposal this close to an existing sekat, or to one on another canal, is dropped. The KLH guide uses 50 m. Empty: keep all.":
+        "Usulan sedekat ini dengan sekat yang ada, atau dengan usulan di kanal lain, dibuang. Panduan KLH memakai 50 m. Kosong: pertahankan semua.",
+    "KLH guide scoring (1 to 3 per criterion)": "Skoring panduan KLH (1 sampai 3 per kriteria)",
+    "Direct: type a weight per criterion. AHP: compare the criteria in pairs and the weights follow from the comparisons. KLH guide: the 1 to 3 class scores of the KLH technical guide, added up (to reproduce the guide, not the module's default).":
+        "Langsung: ketik bobot per kriteria. AHP: bandingkan kriteria berpasangan dan bobot mengikuti. Panduan KLH: skor kelas 1 sampai 3 dari panduan teknis KLH dijumlahkan (untuk mereproduksi panduan, bukan metode bawaan modul).",
+    "Moisture class breaks (KLH scoring)": "Batas kelas kelembapan (skoring KLH)",
+    "Two values of the moisture index, for example 0.8; 1.5: below the first is the driest class (3), up to the second 2, above 1. The guide says to fit them to the quartiles of your KHG.":
+        "Dua nilai indeks kelembapan, misalnya 0,8; 1,5: di bawah yang pertama kelas terkering (3), sampai yang kedua 2, di atasnya 1. Panduan menyarankan menyesuaikannya dengan kuartil KHG Anda.",
+    "Flow accumulation class breaks (KLH scoring)": "Batas kelas akumulasi aliran (skoring KLH)",
+    "Two values, for example 1.5; 3.0: above the second scores 3, above the first 2, otherwise 1. Use values in the units of your flow accumulation raster.":
+        "Dua nilai, misalnya 1,5; 3,0: di atas yang kedua skor 3, di atas yang pertama 2, selain itu 1. Pakai nilai dalam satuan raster akumulasi aliran Anda.",
+    "Minimum score to select (KLH scoring)": "Skor minimum untuk dipilih (skoring KLH)",
+    "Segments with at least this total become targets. The guide uses 10 and calls it temporary.":
+        "Segmen dengan total sedikitnya ini menjadi target. Panduan memakai 10 dan menyebutnya sementara.",
+    "of 12": "dari 12",
 }

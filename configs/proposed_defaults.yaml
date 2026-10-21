@@ -13,6 +13,9 @@ run:
 
 topology:
   snap_tolerance_m: 1.0           # HIGH. Legacy NODE_TOL (segment end matching). Snaps above this need review in qa_topology_dangles
+  canal_classes: [primer, sekunder]   # HIGH. Panduan Teknis GIS step 1.2: analyse primary and secondary canals only
+  river_buffer_m: 30              # HIGH. Panduan Teknis GIS step 8.2: river mouths are found with a 30 m canal buffer
+  source_snap_m: 50               # HIGH. Legacy SNAP_MUARA: a river point must lie within 50 m of the kept canal network
 
 hydro:
   breach_max_dist_cells: 100      # LOW. About 100 m at 1 m LiDAR cells; scale it down for 8 m DEMNAS cells (about 12)
@@ -30,6 +33,7 @@ prioritise:
     peat_depth:       {weight: 0.25}
     dryness:          {weight: 0.25}
     upstream_contrib: {weight: 0.25}
+  klh_min_score: 10               # POLICY. Panduan Teknis GIS step 7.2 ("score >= 10", marked temporary there). Used only with weights_mode: klh
   upstream_buffer_m: 50           # HIGH. KLH workflow extraction buffer of 50 m (Panduan Teknis GIS, step 6.1)
   feasibility:
     concession_mode: flag         # POLICY. Flag, do not exclude: nothing disappears silently and the reviewer decides

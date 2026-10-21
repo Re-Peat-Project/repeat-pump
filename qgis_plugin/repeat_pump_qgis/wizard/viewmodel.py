@@ -133,10 +133,15 @@ class Field_:
     labels: tuple = ()
 
 
+EMPTY_OK = {"topology.canal_classes"}      # multi fields where "nothing ticked" is a real choice (no filter) and removes the key
+
 FIELDS: dict[str, Field_] = {f.key: f for f in [
     Field_("prioritise.weights_mode", "Weighting method", "enum", "",
-           "Direct: type a weight per criterion. AHP: compare the criteria in pairs and the weights follow from the comparisons.", ("direct", "ahp"),
-           ("Direct weights", "AHP pairwise comparisons")),
+           "Direct: type a weight per criterion. AHP: compare the criteria in pairs and the weights follow from the comparisons. KLH guide: the 1 to 3 class scores of the KLH technical guide, added up (to reproduce the guide, not the module's default).", ("direct", "ahp", "klh"),
+           ("Direct weights", "AHP pairwise comparisons", "KLH guide scoring (1 to 3 per criterion)")),
+    Field_("prioritise.klh_cpwi_breaks", "Moisture class breaks (KLH scoring)", "floatlist", "", "Two values of the moisture index, for example 0.8; 1.5: below the first is the driest class (3), up to the second 2, above 1. The guide says to fit them to the quartiles of your KHG."),
+    Field_("prioritise.klh_flow_breaks", "Flow accumulation class breaks (KLH scoring)", "floatlist", "", "Two values, for example 1.5; 3.0: above the second scores 3, above the first 2, otherwise 1. Use values in the units of your flow accumulation raster."),
+    Field_("prioritise.klh_min_score", "Minimum score to select (KLH scoring)", "float", "of 12", "Segments with at least this total become targets. The guide uses 10 and calls it temporary."),
     Field_("run.clip_margin_m", "Clip margin around sub-KHGs", "float", "m", "Extra distance kept around the selected sub-KHGs."),
     Field_("inputs.dtm.vertical_rmse_m", "DTM vertical accuracy (RMSE)", "float", "m", "From the LiDAR provider. Needed to judge if a dA step is larger than the DTM noise."),
     Field_("inputs.moisture.higher_is_wetter", "Moisture index: higher means wetter", "bool", "", "Depends on the index used (check its definition)."),
@@ -180,6 +185,10 @@ FIELDS: dict[str, Field_] = {f.key: f for f in [
            ("Highest-priority sub-KHGs", "Chosen sub-KHGs", "All sub-KHGs")),
     Field_("run.subkhg_selection.n", "How many sub-KHGs", "int", "", "Used by the highest-priority choice."),
     Field_("run.subkhg_selection.ids", "Chosen sub-KHG ids", "idlist", "", "Separate the ids with commas. Used by the chosen-sub-KHGs choice."),
+    Field_("topology.canal_classes", "Canal classes to analyse", "multi", "", "Only these classes are analysed; leave none ticked to use every class. The KLH guide uses primary and secondary canals.", ("primer", "sekunder", "tersier"),
+           ("Primary (primer)", "Secondary (sekunder)", "Tertiary (tersier)")),
+    Field_("topology.river_buffer_m", "River reaches a canal within", "float", "m", "A river that stops this close to a canal still counts as meeting it, and becomes a water source. The KLH guide uses 30 m. Empty: the river must cross the canal."),
+    Field_("topology.source_snap_m", "Move river points onto the kept canals within", "float", "m", "Used with the class filter: river points found on a left-out canal are moved onto the nearest kept canal within this distance, or dropped. The KLH guide uses 50 m."),
     Field_("topology.overshoot_max_m", "Trim canal overshoots up to", "float", "m", "Leave empty to keep overshoots."),
     Field_("hydro.burn_depth_default_m", "Default canal burn depth", "float", "m", "Used only where a canal has no depth of its own."),
     Field_("hydro.flow_algorithm", "Flow direction method", "enum", "", "How water is routed across the DTM.", ("dinf", "mfd", "d8"),
@@ -194,6 +203,8 @@ FIELDS: dict[str, Field_] = {f.key: f for f in [
     Field_("prioritise.upstream_method", "Upstream contribution from", "enum", "", "Flow accumulation reads the conditioned DTM; the network method adds up canal length upstream.", ("flow_acc", "graph"),
            ("Flow accumulation raster", "Canal network (upstream length)")),
     Field_("sekat.dA_m", "Head step between sekat (dA)", "float", "m", "Maximum water-table depth below the surface. PP 57/2016 uses 0.4 m."),
+    Field_("sekat.min_new_spacing_m", "Minimum distance between new sekat", "float", "m", "Empty: the head rule alone decides. The KLH guide uses 500 m, which overrides the head rule on steep land and gives fewer sekat there."),
+    Field_("sekat.dedup_tol_m", "Merge proposed sekat closer than", "float", "m", "A proposal this close to an existing sekat, or to one on another canal, is dropped. The KLH guide uses 50 m. Empty: keep all."),
     Field_("sekat.slope_reinforced_pct", "Slope for reinforced blocks", "float", "%", "From this land slope a block is flagged leaky or reinforced instead of standard."),
     Field_("pumping.routing", "How routes are built", "enum", "", "One shared network connects all targets to the sources at the least cost; the other mode routes each target alone (the old method, for comparison).", ("steiner", "per_target"),
            ("One shared network (Steiner tree)", "Each target on its own (old method)")),

@@ -899,6 +899,9 @@ class WizardPanel(QWidget):
 
         def changed(_state, boxes=boxes, key=p.key, codes=list(fld.options), option=p.option):
             picked = [c for c, b in zip(codes, boxes) if b.isChecked()]
+            if not picked and key in vm.EMPTY_OK:          # nothing ticked means "no filter": the engine default applies again
+                self._commit(key, None, option)
+                return
             if not picked:                                 # at least one method must stay on
                 boxes[0].blockSignals(True)
                 boxes[0].setChecked(True)

@@ -101,6 +101,9 @@ class InputsCfg(_M):
 class TopologyCfg(_M):
     snap_tolerance_m: Optional[float] = None  # TODO(human)
     overshoot_max_m: Optional[float] = None   # TODO(human): null = overshoot trimming off
+    canal_classes: Optional[list[str]] = None  # canal_class values kept for the analysis (Panduan 1.2: primer, sekunder); null = every class
+    river_buffer_m: Optional[float] = None    # a river within this distance of a canal counts as meeting it (Panduan 8.2: 30 m); null = exact crossing only
+    source_snap_m: Optional[float] = None     # with canal_classes: river points found on the full canal set are moved onto the kept network within this distance (SNAP_MUARA, 50 m)
 
 
 class HydroCfg(_M):
@@ -126,6 +129,8 @@ class SekatCfg(_M):
     slope_reinforced_pct: float = 5.0
     snap_tolerance_m: Optional[float] = None  # TODO(human)
     min_spacing_m: Optional[float] = None  # TODO(human)
+    min_new_spacing_m: Optional[float] = None  # no two NEW sekat closer than this along a canal (legacy JARAK_MIN, 500 m); null = off. Overrides the head rule on steep land
+    dedup_tol_m: Optional[float] = None    # a proposed sekat within this distance of an existing one, or of one proposed on another canal, is dropped (legacy DEDUP_TOL, 50 m); null = off
 
 
 class CriterionCfg(_M):
@@ -144,8 +149,11 @@ def _criteria() -> dict[str, CriterionCfg]:
 class PrioritiseCfg(_M):
     ring_buffer_m: list[float] = [15, 100]
     criteria: dict[str, CriterionCfg] = Field(default_factory=_criteria)
-    weights_mode: Literal["direct", "ahp"] = "direct"
+    weights_mode: Literal["direct", "ahp", "klh"] = "direct"
     ahp_matrix: Optional[list[list[float]]] = None
+    klh_cpwi_breaks: Optional[list[float]] = None   # TODO(human), klh mode: [wet, dry-edge] break values of the moisture index, scored 3 / 2 / 1
+    klh_flow_breaks: Optional[list[float]] = None   # TODO(human), klh mode: [low, high] breaks of the flow accumulation maximum, scored 1 / 2 / 3
+    klh_min_score: Optional[float] = None           # TODO(human), klh mode: segments scoring at least this (of 12) become targets
     feasibility: FeasibilityCfg = Field(default_factory=FeasibilityCfg)
     top_fraction: float = 0.2
     upstream_method: Literal["flow_acc", "graph"] = "flow_acc"

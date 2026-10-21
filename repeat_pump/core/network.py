@@ -9,14 +9,17 @@ import numpy as np
 import pandas as pd
 from shapely import STRtree
 from shapely.geometry import Point
+from shapely.ops import nearest_points
 
 
-def river_canal_points(canals: gpd.GeoDataFrame, rivers: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+def river_canal_points(canals: gpd.GeoDataFrame, rivers: gpd.GeoDataFrame, tol: float = 0.0) -> gpd.GeoDataFrame:
     """River-canal intersection points (candidate water sources, spec Stage 9).
 
     For polygon rivers the point is where the canal crosses the river boundary; a
     canal lying wholly inside a polygon contributes its end points. For line rivers
-    the point is the line-line intersection.
+    the point is the line-line intersection. With ``tol`` > 0 a river that stops short of a canal but lies within ``tol``
+    metres of it also counts (KLH guide step 8.2 buffers the canal by 30 m); the point is the nearest point on the canal
+    and ``gap_m`` records the distance. ``tol`` = 0 keeps the exact-crossing behaviour.
     """
     rows = []
     if rivers is None or len(rivers) == 0:
@@ -24,12 +27,16 @@ def river_canal_points(canals: gpd.GeoDataFrame, rivers: gpd.GeoDataFrame) -> gp
     rtree = STRtree(list(rivers.geometry))
     for cid, ln in zip(canals["canal_id"], canals.geometry):
         seen: list[Point] = []
-        for ri in rtree.query(ln):
+        for ri in rtree.query(ln.buffer(tol) if tol > 0 else ln):
             r = rivers.geometry.iloc[ri]
-            if not r.intersects(ln):
-                continue
             pts: list[Point] = []
-            if r.geom_type in ("Polygon", "MultiPolygon"):
+            gap = 0.0
+            if not r.intersects(ln):
+                gap = float(r.distance(ln))
+                if tol <= 0 or gap > tol:
+                    continue
+                pts = [nearest_points(ln, r)[0]]
+            elif r.geom_type in ("Polygon", "MultiPolygon"):
                 inter = ln.intersection(r.boundary)
                 pts = [g for g in getattr(inter, "geoms", [inter]) if g.geom_type == "Point"]
                 if not pts:
@@ -43,13 +50,60 @@ def river_canal_points(canals: gpd.GeoDataFrame, rivers: gpd.GeoDataFrame) -> gp
                 if any(p.distance(q) < 1e-3 for q in seen):
                     continue
                 seen.append(p)
-                row = {"canal_id": cid, "chainage_m": float(ln.project(p)), "river_idx": int(ri), "geometry": p}
+                row = {"canal_id": cid, "chainage_m": float(ln.project(p)), "river_idx": int(ri), "gap_m": gap, "geometry": p}
                 for c in ("perennial", "dry_season_wl_m"):
                     if c in rivers:
                         row[c] = rivers[c].iloc[ri]
                 rows.append(row)
     return gpd.GeoDataFrame(rows, geometry="geometry", crs=canals.crs) if rows else gpd.GeoDataFrame(
         {"canal_id": [], "chainage_m": [], "river_idx": []}, geometry=[], crs=canals.crs)
+
+
+def snap_points_to_canals(pts: gpd.GeoDataFrame, canals: gpd.GeoDataFrame, snap_m: float) -> tuple[gpd.GeoDataFrame, int]:
+    """Move river points onto the nearest kept canal within ``snap_m`` (legacy SNAP_MUARA); returns the points and how many were dropped."""
+    tol = max(snap_m, 1e-3)
+    tree = STRtree(list(canals.geometry))
+    rows, seen, dropped = [], set(), 0
+    for _, r in pts.iterrows():
+        near = [j for j in tree.query(r.geometry.buffer(tol)) if canals.geometry.iloc[j].distance(r.geometry) <= tol]
+        if not near:
+            dropped += 1
+            continue
+        j = min(near, key=lambda j: (canals.geometry.iloc[j].distance(r.geometry), j))
+        ln = canals.geometry.iloc[j]
+        ch = float(ln.project(r.geometry))
+        key = (canals["canal_id"].iloc[j], round(ch), int(r["river_idx"]))
+        if key in seen:
+            continue
+        seen.add(key)
+        row = {c: r[c] for c in pts.columns if c not in ("geometry", "canal_id", "chainage_m")}
+        row.update(canal_id=canals["canal_id"].iloc[j], chainage_m=ch, snap_dist_m=float(ln.distance(r.geometry)), geometry=ln.interpolate(ch))
+        rows.append(row)
+    return (gpd.GeoDataFrame(rows, geometry="geometry", crs=canals.crs) if rows else
+            gpd.GeoDataFrame({"canal_id": [], "chainage_m": [], "river_idx": []}, geometry=[], crs=canals.crs)), dropped
+
+
+def river_sources(ctx, canals: gpd.GeoDataFrame, rivers: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """River-canal points on the analysis canals, following the KLH guide when settings ask for it.
+
+    Without ``topology.canal_classes``: river points on ``canals`` within ``topology.river_buffer_m`` (exact crossing when null).
+    With it, as in step 8.2 the points are found on the FULL canal set (``inputs_clipped_canals``) and then moved onto the kept
+    network within ``topology.source_snap_m``; points with no kept canal that close are dropped and counted in the report.
+    """
+    t = ctx.cfg.topology
+    tol = t.river_buffer_m or 0.0
+    if not t.canal_classes or not ctx.has_layer("inputs_clipped_canals"):
+        return river_canal_points(canals, rivers, tol)
+    full = ctx.read_layer("inputs_clipped_canals")
+    full = gpd.GeoDataFrame(full[["geometry"]], geometry="geometry", crs=full.crs).explode(index_parts=False).reset_index(drop=True)
+    full = full[full.geom_type == "LineString"].reset_index(drop=True)
+    full["canal_id"] = range(len(full))
+    found = river_canal_points(full, rivers, tol)
+    kept, dropped = snap_points_to_canals(found, canals, t.source_snap_m or 0.0)
+    ctx.report["river_sources"] = {"found_on_full_network": int(len(found)), "dropped_not_on_kept_network": int(dropped), "kept": int(len(kept))}
+    if dropped:
+        ctx.warn(f"{dropped} river point(s) found on canals left out by the class filter are more than {t.source_snap_m or 0:g} m from the kept network and were dropped")
+    return kept
 
 
 def endpoint_distance_to_rivers(canals: gpd.GeoDataFrame, river_pts: gpd.GeoDataFrame) -> dict:
@@ -167,7 +221,7 @@ def run(ctx):
         cuts.append(dict(canal_id=r["canal_id"], chainage_m=float(r["chainage_m"]), kind="sekat_proposed",
                          attrs=dict(sekat_id=str(r["sekat_pro_id"]), has_gate=False)))
     if ctx.has_layer("inputs_clipped_rivers"):
-        rp = river_canal_points(canals, ctx.read_layer("inputs_clipped_rivers"))
+        rp = river_sources(ctx, canals, ctx.read_layer("inputs_clipped_rivers"))
         for k, r in rp.reset_index(drop=True).iterrows():
             cuts.append(dict(canal_id=r["canal_id"], chainage_m=float(r["chainage_m"]), kind="river",
                              attrs=dict(river_idx=int(r["river_idx"]), perennial=bool(r.get("perennial", False)),

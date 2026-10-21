@@ -14,12 +14,16 @@ retrieved source (replace before real use); **POLICY** a choice, not a measureme
 |---|---|---|---|
 | `run.clip_margin_m` | 600 | MED | Block effects reach about 600 m from a canal (Urzainki 2023); a margin of that size keeps edge effects out of the sub-KHG. |
 | `topology.snap_tolerance_m` | 1.0 m | HIGH | Legacy `NODE_TOL`. Larger snaps appear in `qa_topology_dangles` for review. |
+| `topology.canal_classes` | `[primer, sekunder]` | HIGH | KLH guide step 1.2: analyse primary and secondary canals only. The full canal set stays in `inputs_clipped_canals` because river mouths are found on it (step 8.2). |
+| `topology.river_buffer_m` | 30 m | HIGH | KLH guide step 8.2: river mouths are found with a 30 m canal buffer, so a river that stops short of a canal still supplies it. |
+| `topology.source_snap_m` | 50 m | HIGH | Legacy `SNAP_MUARA`: with the class filter, river points found on a left-out canal must lie within 50 m of the kept network. |
 | `hydro.breach_max_dist_cells` | 100 | LOW | About 100 m at 1 m LiDAR cells. Use about 12 for 8 m DEMNAS cells. No source retrieved (the Whitebox manual page was unavailable). |
 | `sekat.max_spacing_m` | 500 m | HIGH | KLH workflow: sekat spacing about 500 m. |
 | `sekat.min_spacing_m` | 100 m | LOW | The legacy script used 500 m as the *minimum*. That overrides the head rule (`js = dA/i`) wherever the slope exceeds 0.08 %, so 100 m is proposed instead. The team should decide which rule governs. |
 | `sekat.snap_tolerance_m` | 30 m | MED | The 30 m the KLH workflow uses to match river points to canals. |
 | `prioritise.criteria.*.weight` | 0.25 each | POLICY | Equal weights, as in legacy scoring. AHP is the alternative (`weights_mode: ahp`). Who signs off is still open. |
 | `prioritise.upstream_buffer_m` | 50 m | HIGH | KLH workflow extraction buffer (step 6.1). |
+| `prioritise.klh_min_score` | 10 | POLICY | KLH guide step 7.2 (score of 10 or more, marked temporary there). Used only with `weights_mode: klh`. The class breaks of that mode (`klh_cpwi_breaks`, `klh_flow_breaks`) are not proposed: the guide's 0.8/1.5 and 1.5/3.0 depend on the units of its own rasters and it says to fit them to the quartiles of each KHG. |
 | `prioritise.feasibility.concession_mode` | `flag` | POLICY | Nothing is dropped silently; the reviewer decides. |
 | `pumping.conveyance` | `canal` | POLICY | Uses the existing network; pipes need new infrastructure. |
 | `pumping.manning_n` | 0.035 | MED | Earth canal, winding, dense weeds or aquatic plants: 0.030 to 0.040 (Chow 1959, Table 5-6). |
@@ -32,6 +36,31 @@ retrieved source (replace before real use); **POLICY** a choice, not a measureme
 | `pumping.specific_yield` | 0.30 | MED | Near-surface peat 0.29 to 0.71 (Hooijer 2005, as cited), below 0.15 with a deep water table (Cobb 2019). The value matters most in `specific_yield` demand mode. |
 | `pumping.water_table_rise_m` | 0.40 m | LOW | Restores a 0.8 m dry-season water table to the 0.4 m limit of PP 57/2016. Set per site. |
 | `pumping.design_period_days` | 120 | MED | Dry season July to October (Ritzema 2014). Used only where the priority table has none. |
+
+## KLH guide and legacy-script parameters, and where they went
+
+From the technical guide (Panduan Teknis GIS Rewetting KLH, Appendix A) and the two legacy scripts. "Opt-in" means the key is empty by default, so existing runs do not change.
+
+| Guide / script | Value | In the module |
+|---|---|---|
+| Segment length (3.3) | 500 m | `segments.max_length_m`, default 500 |
+| Sliver threshold (3.4) | 25 m | `segments.min_length_m`, default 25 |
+| Stream-burn depth (4.1) | 2 m | `hydro.burn_depth_default_m`, default 2 (used where a canal has no depth) |
+| Extraction buffer (6.1) | 50 m | `prioritise.upstream_buffer_m` (preset). With `weights_mode: klh` the moisture mean is also read in this full buffer, as in the guide |
+| Canal classes (1.2) | primer, sekunder | `topology.canal_classes`, opt-in, in the preset |
+| River-mouth buffer (8.2) | 30 m | `topology.river_buffer_m`, opt-in, in the preset |
+| `SNAP_MUARA` | 50 m | `topology.source_snap_m`, opt-in, in the preset |
+| `NODE_TOL` | 1 m | `topology.snap_tolerance_m`, in the preset |
+| `JARAK_MIN` | 500 m | `sekat.max_spacing_m` (the head rule `js = dA/i` capped at 500 m, in the preset) and, if you want the guide's behaviour of never placing two new sekat closer than that, `sekat.min_new_spacing_m` (opt-in, not in the preset: it overrides the head rule on steep land) |
+| `DEDUP_TOL` | 50 m | `sekat.dedup_tol_m`, opt-in |
+| `SLOPE_MIN_PCT`, mode "tandai" | 5 %, mark only | `sekat.slope_reinforced_pct`, default 5: the type is marked, never used as a filter |
+| `SLOPE_OFFSETS` | 6 and 10 m | `profiles.bank_offsets_m`, default `[6, 10]` |
+| `SLOPE_ALONG` | -40 to +40 m | Roughly `profiles.smoothing_window_m` (median over 50 m along the canal), not a separate key |
+| Priority threshold (7.2) | score >= 10 | `prioritise.klh_min_score` (with `weights_mode: klh`) |
+| CPWI breaks 0.8 / 1.5, flow breaks 1.5 / 3.0 (7.1) | fixed | `prioritise.klh_cpwi_breaks`, `klh_flow_breaks`, required, never defaulted |
+| `SNAP_START` | 150 m | Not needed: routing targets are nodes of the canal network, there is nothing to snap |
+| `ANGLE_MIN`, `OSC_DIST` | 30 degrees, 300 m | Not needed: both exist to reject contour lines that run along the canal; placement walks the land profile and only a net rise of `dA` counts |
+| Contour interval (2.3, 10.3) | 0.5 m | Replaced by `sekat.dA_m` (0.40 m, PP 57/2016), without vector contours |
 
 ## Not in the preset: facts about the data
 

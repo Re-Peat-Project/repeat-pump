@@ -56,7 +56,10 @@ def needs_by_stage(cfg: Config) -> dict[int, list[str]]:
         need[1] += ["run.vertical_datum", "inputs.rivers.vertical_datum"]
     need[2] = ["topology.snap_tolerance_m"]
     need[3] = ["hydro.breach_max_dist_cells"]
-    need[6] = ["prioritise.weights_mode"] + (["prioritise.ahp_matrix"] if pr.weights_mode == "ahp" else [f"prioritise.criteria.{k}.weight" for k in pr.criteria])
+    if pr.weights_mode == "klh":
+        need[6] = ["prioritise.weights_mode", "prioritise.klh_cpwi_breaks", "prioritise.klh_flow_breaks", "prioritise.klh_min_score"]
+    else:
+        need[6] = ["prioritise.weights_mode"] + (["prioritise.ahp_matrix"] if pr.weights_mode == "ahp" else [f"prioritise.criteria.{k}.weight" for k in pr.criteria])
     if pr.upstream_method == "flow_acc":
         need[6].append("prioritise.upstream_buffer_m")
     if cfg.inputs.concession is not None:
@@ -89,12 +92,12 @@ def needs_by_stage(cfg: Config) -> dict[int, list[str]]:
 OPTIONS_BY_STAGE: dict[int, list[str]] = {
     1: ["run.crs", "run.auto_reproject", "run.memory_budget_gb", "run.subkhg_selection.mode", "run.subkhg_selection.n",
         "run.subkhg_selection.ids"],
-    2: ["topology.overshoot_max_m"],
+    2: ["topology.overshoot_max_m", "topology.canal_classes", "topology.river_buffer_m", "topology.source_snap_m"],
     3: ["hydro.burn_depth_default_m", "hydro.flow_algorithm"],
     4: ["segments.max_length_m", "segments.min_length_m"],
     5: ["profiles.bank_offsets_m", "profiles.sample_step_m", "profiles.smoothing_window_m"],
     6: ["prioritise.ring_buffer_m", "prioritise.top_fraction", "prioritise.upstream_method"],
-    7: ["sekat.dA_m", "sekat.slope_reinforced_pct"],
+    7: ["sekat.dA_m", "sekat.slope_reinforced_pct", "sekat.min_new_spacing_m", "sekat.dedup_tol_m"],
     8: [],
     9: ["pumping.routing", "pumping.allow_gate_addition"],
     10: ["pumping.demand_mode", "pumping.max_units_per_station"],

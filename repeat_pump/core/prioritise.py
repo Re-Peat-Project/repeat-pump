@@ -9,6 +9,12 @@
   weights direct or AHP (Saaty1980, CR must be <= 0.10), sensitivity analysis by
   one-at-a-time weight perturbation (Chen2010).
 * feasibility (concession) is applied AFTER scoring, never inside the need score.
+
+``weights_mode: klh`` is an opt-in alternative that reproduces steps 7.1 and 7.2 of the KLH technical guide ([PanduanKLH]):
+four ordinal criteria scored 1 to 3 and added (maximum 12), segments with a total of at least ``klh_min_score`` selected. The
+class breaks are fixed numbers, not min-max normalised, and the moisture mean is read in the full ``upstream_buffer_m`` buffer
+including the canal water. It deliberately keeps those two choices (AGENTS.md section 9, bugs 4 and 5) because the guide does;
+the default method is unchanged and the report warns whenever the mode is used.
 """
 from __future__ import annotations
 
@@ -117,6 +123,37 @@ def minmax(x: np.ndarray, higher_is_worse: bool) -> np.ndarray:
     return n if higher_is_worse else 1 - n
 
 
+def klh_breaks(values, name: str) -> tuple[float, float]:
+    if not isinstance(values, (list, tuple)) or len(values) != 2 or not values[0] < values[1]:
+        raise ConfigError(f"prioritise.{name} must be two increasing numbers, for example [0.8, 1.5]; got {values!r}")
+    return float(values[0]), float(values[1])
+
+
+KLH_MAX_SCORE = 12
+
+
+def klh_scores(burn: np.ndarray, peat_min_m: np.ndarray, moisture: np.ndarray, flow: np.ndarray, cpwi_breaks, flow_breaks,
+               higher_is_wetter: bool) -> dict[str, np.ndarray]:
+    """Step 7.1 of the KLH guide, each criterion 1 to 3 (a missing value scores 1, like ``ELSE 1`` in the guide's expression).
+
+    * burn: 2 or more burn years 3, one year 2, none 1 (the guide's 2x, 3x, 4x -> 3, 1x -> 2, else 1, on the parsed count);
+    * peat: shallowest depth of the class 3 m or more 3, 1 m or more 2, otherwise 1 (the guide lists the classes, this is the same rule);
+    * dryness: the moisture mean below the first break 3, up to the second 2, above 1; mirrored when a higher value means drier;
+    * flow: maximum flow accumulation above the second break 3, above the first 2, otherwise 1.
+    """
+    b0, b1 = cpwi_breaks
+    f0, f1 = flow_breaks
+    burn_s = np.where(burn >= 2, 3, np.where(burn >= 1, 2, 1))
+    peat_s = np.where(peat_min_m >= 3, 3, np.where(peat_min_m >= 1, 2, 1))
+    with np.errstate(invalid="ignore"):
+        if higher_is_wetter:
+            dry_s = np.where(moisture < b0, 3, np.where((moisture >= b0) & (moisture <= b1), 2, 1))
+        else:
+            dry_s = np.where(moisture > b1, 3, np.where((moisture >= b0) & (moisture <= b1), 2, 1))
+        flow_s = np.where(flow > f1, 3, np.where(flow > f0, 2, 1))
+    return {"klh_burn": burn_s, "klh_peat": peat_s, "klh_dryness": dry_s, "klh_flow": flow_s}
+
+
 def rank_scores(score: pd.Series) -> pd.Series:
     """Unique rank (1 = highest need), ties broken by seg_id for determinism."""
     order = sorted(score.index, key=lambda i: (-score[i], i))
@@ -148,8 +185,13 @@ def run(ctx) -> None:
     segs = ctx.read_layer("canal_segments").sort_values("seg_id").reset_index(drop=True)
     names = list(pc.criteria.keys())
     # ---- null parameters, reported together (weights, buffer, concession mode)
+    klh = pc.weights_mode == "klh"
     missing = []
-    if pc.weights_mode == "ahp":
+    if klh:
+        missing += [f"prioritise.{k}" for k in ("klh_cpwi_breaks", "klh_flow_breaks", "klh_min_score") if getattr(pc, k) is None]
+        if pc.upstream_method != "flow_acc":
+            raise ConfigError("prioritise.weights_mode klh scores the flow accumulation maximum: set prioritise.upstream_method to flow_acc")
+    elif pc.weights_mode == "ahp":
         if pc.ahp_matrix is None:
             missing.append("prioritise.ahp_matrix")
     else:
@@ -160,7 +202,14 @@ def run(ctx) -> None:
         missing.append("prioritise.feasibility.concession_mode")
     if missing:
         raise MissingParameters("Stage 6 needs these parameters (TODO(human), see spec section 11): " + ", ".join(missing))
-    if pc.weights_mode == "ahp":
+    if klh:
+        cpwi_breaks, flow_breaks = klh_breaks(pc.klh_cpwi_breaks, "klh_cpwi_breaks"), klh_breaks(pc.klh_flow_breaks, "klh_flow_breaks")
+        w = np.zeros(len(names))
+        ctx.warn("Stage 6: KLH scoring (weights_mode klh) reproduces the guide: fixed class breaks instead of min-max normalisation and the "
+                 "moisture read in the full buffer including the canal water. Use the default method for new analyses.")
+        ctx.report["scoring"] = {"method": "klh", "cpwi_breaks": list(cpwi_breaks), "flow_breaks": list(flow_breaks),
+                                 "min_score": pc.klh_min_score, "max_score": KLH_MAX_SCORE}
+    elif pc.weights_mode == "ahp":
         w, cr = ahp_weights(pc.ahp_matrix)
         if len(w) != len(names):
             raise ConfigError("ahp_matrix size must equal the number of criteria")
@@ -170,7 +219,7 @@ def run(ctx) -> None:
     else:
         w = np.array([pc.criteria[k].weight for k in names], float)
         w = w / w.sum()
-    ctx.report["weights"] = dict(zip(names, map(float, w)))
+    ctx.report["weights"] = {} if klh else dict(zip(names, map(float, w)))
 
     # ---- categorical transfer (length-weighted)
     ba = ctx.read_layer("inputs_clipped_burn_area")
@@ -184,6 +233,7 @@ def run(ctx) -> None:
     segs["peat_share_dom"] = segs["seg_id"].map(d["share_dominant"]).fillna(0.0)
     cls = pe.drop_duplicates("peat_class").set_index("peat_class")
     segs["peat_depth_mid_m"] = segs["peat_class"].map(cls["_mid"]).fillna(0.0)
+    segs["peat_depth_min_m"] = segs["peat_class"].map(cls["depth_min_m"]).fillna(0.0)
     sk = ctx.read_layer("subkhg_selected")
     d = dominant_by_length(segs, sk[["subkhg_id", "geometry"]], "subkhg_id")
     segs["subkhg_id"] = segs["seg_id"].map(d["subkhg_id"])
@@ -194,7 +244,7 @@ def run(ctx) -> None:
         ring_mean = []
         for k, g in enumerate(segs.geometry):
             ctx.progress(k / max(len(segs), 1) * 0.5, f"moisture ring, segment {k + 1} of {len(segs)}")
-            ring_mean.append(zonal(m, ring(g, inner, outer), "mean"))
+            ring_mean.append(zonal(m, g.buffer(pc.upstream_buffer_m) if klh else ring(g, inner, outer), "mean"))
     sign = -1.0 if cfg.inputs.moisture.higher_is_wetter else 1.0
     segs["moisture_ring_mean"] = ring_mean
     segs["dryness_raw"] = sign * segs["moisture_ring_mean"]
@@ -215,18 +265,31 @@ def run(ctx) -> None:
     # ---- scoring on segments with status_mcda == 1
     ok = (segs["status_mcda"] == 1) & segs["subkhg_id"].notna()   # margin canals outside the sub-KHGs are not scored
     norm = pd.DataFrame(index=segs.index[ok])
-    for k in names:
-        x = raw[k][ok].astype(float)
-        nan = int(x.isna().sum())
-        if nan:
-            ctx.warn(f"Stage 6: {nan} segment(s) without {k} data; filled with the median")
-            x = x.fillna(x.median())
-        n = minmax(x.to_numpy(), pc.criteria[k].direction == "higher_is_worse")
-        norm[k] = n
-        segs.loc[ok, f"{k}_norm"] = n
-        segs[f"{k}_raw"] = raw[k]
-    score = pd.Series(norm.to_numpy() @ w, index=segs.loc[ok, "seg_id"].to_numpy())
-    segs["need_score"] = segs["seg_id"].map(score)
+    if klh:
+        parts = klh_scores(segs["burn_freq_n"].to_numpy(float), segs["peat_depth_min_m"].to_numpy(float), segs["moisture_ring_mean"].to_numpy(float),
+                           segs["flow_acc_max"].to_numpy(float), cpwi_breaks, flow_breaks, bool(cfg.inputs.moisture.higher_is_wetter))
+        for k, v in parts.items():
+            segs[k] = np.where(ok, v, 0).astype(int)
+        segs["klh_score"] = np.where(ok, sum(parts.values()), 0).astype(int)        # StatusMCDA = 0 scores 0, as in the guide
+        nodata = int((ok & (segs["moisture_ring_mean"].isna() | segs["flow_acc_max"].isna())).sum())
+        if nodata:
+            ctx.warn(f"Stage 6: {nodata} segment(s) without moisture or flow data scored 1 for it (the guide's ELSE branch)")
+        for k in names:
+            segs[f"{k}_raw"] = raw[k]
+        score = pd.Series((segs.loc[ok, "klh_score"] / KLH_MAX_SCORE).to_numpy(), index=segs.loc[ok, "seg_id"].to_numpy())
+    else:
+        for k in names:
+            x = raw[k][ok].astype(float)
+            nan = int(x.isna().sum())
+            if nan:
+                ctx.warn(f"Stage 6: {nan} segment(s) without {k} data; filled with the median")
+                x = x.fillna(x.median())
+            n = minmax(x.to_numpy(), pc.criteria[k].direction == "higher_is_worse")
+            norm[k] = n
+            segs.loc[ok, f"{k}_norm"] = n
+            segs[f"{k}_raw"] = raw[k]
+        score = pd.Series(norm.to_numpy() @ w, index=segs.loc[ok, "seg_id"].to_numpy())
+    segs["need_score"] = segs["seg_id"].map(score)             # KLH mode: total / 12, so maps and stage 12 keep working on 0-1
     segs["need_rank"] = segs["seg_id"].map(rank_scores(score)).astype("Int64")
 
     # ---- feasibility, after scoring
@@ -246,13 +309,15 @@ def run(ctx) -> None:
                 segs["feasible"] = ~inside
     segs["selected"] = False
     cand = segs[ok & segs["feasible"]].sort_values("need_rank")
-    n_sel = math.ceil(pc.top_fraction * len(cand))
-    segs.loc[cand.index[:n_sel], "selected"] = True
+    if klh:
+        segs.loc[cand.index[cand["klh_score"] >= pc.klh_min_score], "selected"] = True
+    else:
+        segs.loc[cand.index[:math.ceil(pc.top_fraction * len(cand))], "selected"] = True
 
     # ---- sensitivity
     norm.index = segs.loc[ok, "seg_id"].to_numpy()
     feas = pd.Series(segs.loc[ok, "feasible"].to_numpy(), index=norm.index)
-    sens = sensitivity(norm, w, names, pc.top_fraction, feas) if len(norm) > 2 and feas.any() else pd.DataFrame(
+    sens = sensitivity(norm, w, names, pc.top_fraction, feas) if not klh and len(norm) > 2 and feas.any() else pd.DataFrame(
         {"criterion": [], "delta_pct": [], "spearman_rho": [], "top_share_retained": []})
     ctx.write_layer("canal_segments", segs, "6")
     ctx.write_layer("qa_sensitivity", sens, "6")

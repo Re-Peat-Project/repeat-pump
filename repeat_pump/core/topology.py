@@ -16,8 +16,8 @@ from shapely.ops import nearest_points
 
 import networkx as nx
 
-from .config import require
-from .network import river_canal_points
+from .config import InputError, require
+from .network import river_sources
 
 
 def explode_lines(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
@@ -52,11 +52,33 @@ def snap_endpoints(lines: list[LineString], tol: float) -> tuple[list[LineString
     return out, gaps
 
 
+def filter_canal_classes(raw: gpd.GeoDataFrame, classes: list[str], ctx) -> gpd.GeoDataFrame:
+    """Keep the canals whose ``canal_class`` is listed (case and spaces ignored), as step 1.2 of the KLH guide does for primary and
+    secondary canals. What is left out is counted per class in the report; the full set stays in ``inputs_clipped_canals`` because
+    river mouths are found on it (step 8.2). Canals added by ``canal_edits`` are not filtered."""
+    want = {c.strip().lower() for c in classes}
+    cls = raw["canal_class"].astype(str).str.strip().str.lower()
+    keep = cls.isin(want)
+    found = {k: int(v) for k, v in cls.value_counts().items()}
+    dropped = {k: v for k, v in found.items() if k not in want}
+    if not keep.any():
+        raise InputError(f"Stage 2: no canal has a class in {sorted(want)}; the layer has {sorted(found)}")
+    ctx.report["canal_class_filter"] = {"kept_classes": sorted(want), "kept": int(keep.sum()), "dropped": dropped}
+    if dropped:
+        ctx.warn(f"Stage 2: {sum(dropped.values())} canal piece(s) left out by the class filter ({', '.join(f'{k}: {v}' for k, v in sorted(dropped.items()))}); kept: {', '.join(sorted(want))}")
+    absent = sorted(want - set(found))
+    if absent:
+        ctx.warn(f"Stage 2: canal class(es) {absent} are listed in topology.canal_classes but do not occur in the canal layer")
+    return raw[keep].reset_index(drop=True)
+
+
 def run(ctx) -> None:
     cfg = ctx.cfg
     require(cfg.topology, ["snap_tolerance_m"], "Stage 2", "topology")
     tol = cfg.topology.snap_tolerance_m
     raw = explode_lines(ctx.read_layer("inputs_clipped_canals"))
+    if cfg.topology.canal_classes:
+        raw = filter_canal_classes(raw, cfg.topology.canal_classes, ctx)
     attrs = [c for c in raw.columns if c != "geometry" and c not in ("run_name", "stage")]
     edit_rows = []
     if ctx.has_layer("inputs_clipped_canal_edits"):
@@ -162,7 +184,7 @@ def run(ctx) -> None:
     empty = lambda k: gpd.GeoDataFrame({k: []}, geometry=[], crs=ctx.crs)
     qa = empty("canal_id")
     if ctx.has_layer("inputs_clipped_rivers") and len(clean):
-        rp = river_canal_points(clean, ctx.read_layer("inputs_clipped_rivers"))
+        rp = river_sources(ctx, clean, ctx.read_layer("inputs_clipped_rivers"))
         with_river = {int(clean.loc[clean.canal_id == c, "component_id"].iloc[0]) for c in rp["canal_id"]} if len(rp) else set()
         clean["reaches_river"] = clean["component_id"].isin(with_river)
         disc = clean[~clean["reaches_river"]]

@@ -16,7 +16,7 @@ import rasterio
 from scipy.ndimage import map_coordinates, median_filter
 from shapely.geometry import Point
 
-from .network import endpoint_distance_to_rivers, river_canal_points
+from .network import endpoint_distance_to_rivers, river_sources
 
 
 def stations(length: float, step: float) -> np.ndarray:
@@ -99,7 +99,7 @@ def run(ctx) -> None:
 
     # resolve ambiguous direction by network distance to the nearest river point
     rivers = ctx.read_layer("inputs_clipped_rivers") if ctx.has_layer("inputs_clipped_rivers") else None
-    rpts = river_canal_points(canals, rivers) if rivers is not None else None
+    rpts = river_sources(ctx, canals, rivers) if rivers is not None else None
     dist = endpoint_distance_to_rivers(canals, rpts) if rpts is not None and len(rpts) else {}
     n_unres = 0
     for cid, line in zip(canals["canal_id"], canals.geometry):

@@ -21,12 +21,14 @@ from shapely.geometry import Point
 from .config import require
 
 
-def place_sekat(d: np.ndarray, z: np.ndarray, dA: float, existing: list[float], min_spacing: float, fine: float) -> list[tuple[float, float]]:
+def place_sekat(d: np.ndarray, z: np.ndarray, dA: float, existing: list[float], min_spacing: float, fine: float,
+                min_new: float | None = None) -> list[tuple[float, float]]:
     """Walk from the downstream end (d=0) upstream and return [(d_m, z_m)] of new sekat.
 
     ``d`` ascending distance from the downstream end, ``z`` land elevation. A sekat is
     placed when z has risen ``dA`` above the previous sekat (existing sekat reset the
-    baseline). New sekat never lie within ``min_spacing`` of an existing one.
+    baseline). New sekat never lie within ``min_spacing`` of an existing one. With ``min_new`` the next new sekat is also at least
+    that far along the canal from the previous new one (legacy JARAK_MIN); off by default because it overrides the head rule.
     """
     if len(d) < 2:
         return []
@@ -52,8 +54,27 @@ def place_sekat(d: np.ndarray, z: np.ndarray, dA: float, existing: list[float], 
             continue
         out.append((p, float(zz[j])))
         z_prev = float(zz[j])
-        i = j + 1
+        i = j + 1 if not min_new else max(j + 1, int(math.ceil((p + min_new) / fine - 1e-9)))
     return out
+
+
+def dedup_proposed(rows: list[dict], existing: list, tol: float) -> tuple[list[dict], int]:
+    """Drop proposals within ``tol`` of an existing sekat, or of an earlier proposal on a different canal (legacy DEDUP_TOL, which merged
+    points that different routes put at the same junction). Rows are taken in ``sekat_pro_id`` order, so the result is deterministic."""
+    cell = lambda g: (int(g.x // tol), int(g.y // tol))
+    grid: dict = {}
+    for g in existing:
+        grid.setdefault(cell(g), []).append((None, g))
+    kept = []
+    for r in sorted(rows, key=lambda r: r["sekat_pro_id"]):
+        g = r["geometry"]
+        cx, cy = cell(g)
+        near = [(c, q) for dx in (-1, 0, 1) for dy in (-1, 0, 1) for c, q in grid.get((cx + dx, cy + dy), []) if g.distance(q) <= tol]
+        if any(c is None or c != r["canal_id"] for c, _ in near):
+            continue
+        kept.append(r)
+        grid.setdefault((cx, cy), []).append((r["canal_id"], g))
+    return kept, len(rows) - len(kept)
 
 
 def canal_arrays(prof: pd.DataFrame, direction: str, length: float):
@@ -108,7 +129,7 @@ def run(ctx) -> None:
         flag = "adverse_profile" if (z_up - z_down) < -rmse else ""
         e_here = [r for r in ex_rows if r["snapped"] and r["canal_id"] == cid]
         ex_pos = [(L - r["chainage_m"]) if direction == "forward" else r["chainage_m"] for r in e_here]
-        new = place_sekat(d, z, dA, ex_pos, sk.min_spacing_m, fine)
+        new = place_sekat(d, z, dA, ex_pos, sk.min_spacing_m, fine, sk.min_new_spacing_m)
         canal_upd[cid] = dict(n_req=n_req, n_existing=len(e_here), ipg=(len(e_here) / n_req if n_req > 0 else np.nan), n_proposed=len(new), sekat_flag=flag)
         for r, dpos in zip(e_here, ex_pos):
             r["dist_down_m"] = float(dpos)
@@ -130,6 +151,13 @@ def run(ctx) -> None:
                                   ts_flag="" if ts == ts else "no_depth_dk",
                                   sekat_type="leaky/reinforced" if i_here * 100 >= sk.slope_reinforced_pct else "standard",
                                   geometry=c.geometry.interpolate(ch)))
+    n_dedup = 0
+    if sk.dedup_tol_m and prop_rows:
+        prop_rows, n_dedup = dedup_proposed(prop_rows, [r["geometry"] for r in ex_rows if r["snapped"]], sk.dedup_tol_m)
+        for cid, u in canal_upd.items():
+            u["n_proposed"] = sum(1 for r in prop_rows if r["canal_id"] == cid)
+        if n_dedup:
+            ctx.warn(f"Stage 7: {n_dedup} proposed sekat dropped as duplicates within {sk.dedup_tol_m:g} m of an existing sekat or one on another canal")
     for cid, u in canal_upd.items():
         for k, v in u.items():
             canals.loc[canals["canal_id"] == cid, k] = v

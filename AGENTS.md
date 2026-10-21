@@ -222,6 +222,8 @@ Each stage lists its purpose, method, references, outputs, and human checkpoint.
 - Assign stable `canal_id` per cleaned feature.
 - **Output:** `canals_clean`, `qa_topology_dangles`, `qa_topology_gaps`.
 
+- **Canal classes (optional):** `topology.canal_classes` keeps only the listed `canal_class` values (the KLH guide, step 1.2: primer and sekunder), case-insensitive, counted per class in the report. The full set stays in `inputs_clipped_canals`. River mouths follow guide step 8.2: found on the full set within `topology.river_buffer_m` (30 m), then moved onto the kept network within `topology.source_snap_m` (50 m); points with no kept canal that close are dropped and counted in `report.river_sources`. Both keys are null (off) by default, which keeps the exact river-canal crossing.
+
 ### Stage 3: Hydro-conditioning (flow routing only)
 - Input is the corrected DTM. Produce a **separate** conditioned raster. **The unconditioned DTM is used for all elevation/slope/profile work in Stages 5 and 7** (legacy rule: slope from DTM_smooth, never from the burned DTM).
 - Depression handling: least-cost breaching with fill fallback (`BreachDepressionsLeastCost`, Lindsay, 2016a), or priority-flood (Barnes et al., 2014).
@@ -256,6 +258,8 @@ Run only inside the selected priority sub-KHGs.
 - If any weight is `null`, stop and ask (§0 rule 2).
 - **Sensitivity analysis:** one-at-a-time perturbation of each weight by ±10% and ±20% (renormalised). Report Spearman rank correlation of segment ranks against the baseline, and the share of top-fraction segments that remain selected (Chen et al., 2010).
 
+**KLH scoring (opt-in, `weights_mode: klh`):** reproduces steps 7.1 and 7.2 of the KLH guide so trainees can compare with it: burn count (2 or more = 3, 1 = 2), shallowest peat depth of the class (3 m or more = 3, 1 m or more = 2), moisture mean in the full `upstream_buffer_m` buffer against `klh_cpwi_breaks`, flow accumulation maximum against `klh_flow_breaks`; total 4 to 12 (0 for slivers), `klh_score` and per-criterion columns, `need_score` = total / 12, selected where the total reaches `klh_min_score`. The two break pairs and the minimum are required nulls (no defaults: the guide says to fit them to each KHG). It needs `upstream_method: flow_acc`, writes an empty `qa_sensitivity`, and the report warns that the mode keeps fixed class breaks and the canal-water buffer (section 9, bugs 4 and 5) because the guide does. The default method is unchanged.
+
 **Feasibility (kept separate from need):** concession and accessibility are applied **after** scoring as filters or flags according to `feasibility.concession_mode`. Never add them into the need score.
 
 - **Output:** `canal_segments` gains `need_score`, `need_rank`, `feasible`, criterion raw/normalised fields; `qa_sensitivity` table.
@@ -268,6 +272,7 @@ Head-based design following the team's 2021 KHG Kahayan–Sebangau report, Ritze
 - **Gap analysis (existing sekat first):** snap `sekat_existing` to canals (tolerance in config; log unsnapped points). Compute the IPG metric = `n_existing / n_req` per canal (report §5.3.4; > 1 = adequate).
 - **Placement of new sekat:** walk each canal from downstream to upstream. Starting from the downstream end or the last existing sekat, place a new sekat where the cumulative land-elevation rise since the previous sekat reaches `dA` (equivalent to crossing a `dA`-interval contour, without generating vector contours). Never place within `min_spacing` of an existing sekat (config).
 - **Sekat height:** `ts = dk + js·tan α − dA` (report eq. 4.18); requires `canals.depth_m` (`dk`), else leave null and flag.
+- **Spacing options (opt-in):** `sekat.min_new_spacing_m` (legacy `JARAK_MIN`) keeps new sekat at least that far apart along a canal, which overrides the head rule on steep land. `sekat.dedup_tol_m` (legacy `DEDUP_TOL`) drops a proposal within that distance of an existing sekat or of an earlier proposal on another canal.
 - **Type flag:** `leaky/reinforced` if local slope ≥ `slope_reinforced_pct`, else `standard` (legacy rule).
 - **Output:** `sekat_existing_assessed` (with IPG per canal), `sekat_proposed` (with `ts`, type, `z_land`, chainage).
 
