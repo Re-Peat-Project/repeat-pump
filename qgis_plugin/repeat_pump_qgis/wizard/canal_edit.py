@@ -9,6 +9,9 @@ The wizard changes nothing itself: the engine reads the file and reports what it
   canal is the whole line of the user's canal layer that was clicked.
 * sekat: ``sekat_edits.gpkg``, points with an ``action`` of add or delete (``sekat.edits``, read by stage 7). Removing a proposal writes a
   delete at its place; removing a sekat that an earlier edit added removes that add instead.
+* route: ``route_edits.gpkg``, points with an ``action`` (add or delete) and a ``kind`` (source or target), plus ``z_src_m`` for the water
+  level of an added source (``pumping.route_edits``, read by stage 8). Clicking a source or target you added drops that edit; clicking an
+  excluded source again restores it.
 
 Map tools look their layers up by name on every click (a re-run replaces the run's layers) and are kept alive by a Python reference.
 """
@@ -31,6 +34,9 @@ EDITS_TITLE = "Canal edits (yours)"
 SEKAT_FILE = "sekat_edits.gpkg"
 SEKAT_LAYER = "sekat_edits"
 SEKAT_TITLE = "Sekat edits (yours)"
+ROUTE_FILE = "route_edits.gpkg"
+ROUTE_LAYER = "route_edits"
+ROUTE_TITLE = "Route edits (yours)"
 PIXEL_TOLERANCE = 8                 # a click this close (screen pixels) to a feature picks it
 
 
@@ -187,13 +193,15 @@ class EditsEditor(QObject):
                     best, best_d = f, d
         return best
 
-    def _add_edit(self, geometry, action: str) -> None:
+    def _add_edit(self, geometry, action: str, **attrs) -> None:
         lyr = self.edits_layer()
         if not lyr.isEditable():
             lyr.startEditing()
         feat = QgsFeature(lyr.fields())
         feat.setGeometry(geometry)
         feat["action"] = action
+        for k, v in attrs.items():
+            feat[k] = v
         lyr.addFeature(feat)
         lyr.triggerRepaint()
         self.state_changed.emit()
@@ -379,3 +387,154 @@ class SekatEditor(EditsEditor):
         self._add_edit(geom, "delete")
         self.notice.emit("success", tr("Sekat marked for removal. Click another, or save your edits."))
         return "deleted"
+
+
+class RouteEditor(EditsEditor):
+    """Stage 9: add a water source or a target the engine did not find, exclude a source, remove a computed target."""
+    FILE, LAYER, TITLE, GEOMETRY = ROUTE_FILE, ROUTE_LAYER, ROUTE_TITLE, "Point"
+    FIELDS = (("action", "String"), ("kind", "String"), ("z_src_m", "Real"))
+    CONFIG_ROOT = "pumping.route_edits"
+    SAVED = "Route edits saved. Run stage 8 again, then stage 9, to apply them."
+    ADD_COLOR, DELETE_COLOR = "#1B6FA8", "#C0392B"
+
+    def _style(self, layer) -> None:
+        def marker(shape, color, size="4", outline="#FFFFFF", width="0.4"):
+            return QgsMarkerSymbol.createSimple({"name": shape, "color": color, "outline_color": outline, "outline_width": width, "size": size})
+        cats = [("source_add", marker("circle", "#1B6FA8", "3.8"), tr("Water source to add")),
+                ("source_delete", marker("cross2", "#1B6FA8", "4.4", "#1B6FA8", "0.9"), tr("Water source to exclude")),
+                ("target_add", marker("star", "#2E9E7B", "4.4"), tr("Target to add")),
+                ("target_delete", marker("cross2", "#C0392B", "4.4", "#C0392B", "0.9"), tr("Target to remove"))]
+        layer.setRenderer(QgsCategorizedSymbolRenderer("\"kind\" || '_' || \"action\"", [QgsRendererCategory(v, sym, label) for v, sym, label in cats]))
+        layer.triggerRepaint()
+
+    # ------------------------------------------------------------------ helpers
+    def _tolerance(self) -> float:
+        return float((self._cfg().get("sekat") or {}).get("snap_tolerance_m") or 50.0)
+
+    def _datum(self) -> str:
+        return str((self._cfg().get("run") or {}).get("vertical_datum") or "")
+
+    def _drop_nearest(self, kind: str, action: str, geom) -> bool:
+        """Remove the edit of this kind and action nearest to ``geom`` (run CRS), if there is one."""
+        lyr = self.edits_layer()
+        cand = [f for f in lyr.getFeatures() if f["kind"] == kind and f["action"] == action]
+        if not cand:
+            return False
+        nearest = min(cand, key=lambda f: f.geometry().distance(geom))
+        if not lyr.isEditable():
+            lyr.startEditing()
+        lyr.deleteFeature(nearest.id())
+        lyr.triggerRepaint()
+        self.state_changed.emit()
+        return True
+
+    def _has_edit(self, kind: str, action: str, geom, tol: float = 0.5) -> bool:
+        return any(f["kind"] == kind and f["action"] == action and f.geometry().distance(geom) < tol for f in self.edits_layer().getFeatures())
+
+    def _start(self, callback, hint: str, needs_layer: str = "", needs_field: str = "", missing: str = "") -> None:
+        if not self.available:
+            return
+        if needs_layer and self.run_layer(needs_layer, needs_field) is None:
+            self.notice.emit("warning", tr(missing))
+            return
+        if self.edits_layer() is None:
+            self.notice.emit("error", tr("The edits layer could not be created in the run folder."))
+            return
+        self._remember_tool()
+        self._set_tool(callback)
+        self.notice.emit("info", tr(hint))
+        self.state_changed.emit()
+
+    # ------------------------------------------------------------------ sources
+    def start_add_source(self) -> None:
+        self._start(self.ask_source, "Click the canal where water can be taken in (a pond, a gate, an existing pump). The engine places it on the nearest canal.")
+
+    def ask_source(self, point) -> str:
+        """Ask for the water level (optional) of a new source, then add it. The level is never prefilled."""
+        from qgis.PyQt.QtWidgets import QInputDialog, QLineEdit
+        datum = self._datum()
+        parent = self.iface.mainWindow() if hasattr(self.iface, "mainWindow") else None
+        text, ok = QInputDialog.getText(parent, tr("Water source"),
+                                        tr("Dry-season water level of this source in metres, in the same vertical datum as the DTM ({datum}). "
+                                           "Leave empty if you do not know it: stage 10 will then stop and ask for it.").format(datum=datum or tr("not set yet")),
+                                        QLineEdit.EchoMode.Normal, "")
+        if not ok:
+            return ""
+        z = None
+        if text.strip():
+            try:
+                z = float(text.strip().replace(",", "."))
+            except ValueError:
+                self.notice.emit("error", tr("That is not a number: {text}").format(text=text))
+                return ""
+        return self.handle_add_source(point, z)
+
+    def handle_add_source(self, point, z=None) -> str:
+        if self.edits_layer() is None:
+            return ""
+        self._add_edit(self._to_run_crs(point), "add", kind="source", z_src_m=z)
+        self.notice.emit("success", tr("Water source added. Click another, or save your edits."))
+        return "added"
+
+    def start_exclude_source(self) -> None:
+        self._start(self.handle_exclude_source, "Click the water source to exclude (click an excluded one again to bring it back).",
+                    "pump_sources", "status", "Run stage 9 first: the water sources are not on the map yet.")
+
+    def handle_exclude_source(self, point) -> str:
+        src = self.run_layer("pump_sources", "status")
+        if src is None or self.edits_layer() is None:
+            self.notice.emit("warning", tr("The water sources are no longer on the map. Run stage 9 again."))
+            return ""
+        best = self._pick_nearest(src, point)
+        if best is None:
+            self.notice.emit("warning", tr("No water source near that click."))
+            return ""
+        geom = QgsGeometry(best.geometry())
+        geom.transform(QgsCoordinateTransform(src.crs(), QgsCoordinateReferenceSystem(self.run_crs()), QgsProject.instance()))
+        names = [f.name() for f in src.fields()]
+        if "manual" in names and best["manual"] not in (None, False, 0) and str(best["manual"]) != "NULL":
+            if self._drop_nearest("source", "add", geom):
+                self.notice.emit("success", tr("The source you added is removed. Save your edits to apply it."))
+                return "removed_add"
+        if self._has_edit("source", "delete", geom, self._tolerance()) and self._drop_nearest("source", "delete", geom):     # clicked again: undo the exclusion
+            self.notice.emit("success", tr("The source is brought back. Save your edits to apply it."))
+            return "restored"
+        self._add_edit(geom, "delete", kind="source")
+        self.notice.emit("success", tr("Water source excluded. Click another, or save your edits."))
+        return "excluded"
+
+    # ------------------------------------------------------------------ targets
+    def start_add_target(self) -> None:
+        self._start(self.handle_add_target, "Click the canal where water must arrive. On a selected stretch it replaces that stretch's target.")
+
+    def handle_add_target(self, point) -> str:
+        if self.edits_layer() is None:
+            return ""
+        self._add_edit(self._to_run_crs(point), "add", kind="target")
+        self.notice.emit("success", tr("Target added. Click another, or save your edits."))
+        return "added"
+
+    def start_remove_target(self) -> None:
+        self._start(self.handle_remove_target, "Click the target to remove.", "pump_targets", "target_id", "Run stage 9 first: the targets are not on the map yet.")
+
+    def handle_remove_target(self, point) -> str:
+        tgt = self.run_layer("pump_targets", "target_id")
+        if tgt is None or self.edits_layer() is None:
+            self.notice.emit("warning", tr("The targets are no longer on the map. Run stage 9 again."))
+            return ""
+        best = self._pick_nearest(tgt, point)
+        if best is None:
+            self.notice.emit("warning", tr("No target near that click."))
+            return ""
+        geom = QgsGeometry(best.geometry())
+        geom.transform(QgsCoordinateTransform(tgt.crs(), QgsCoordinateReferenceSystem(self.run_crs()), QgsProject.instance()))
+        names = [f.name() for f in tgt.fields()]
+        if "manual" in names and best["manual"] not in (None, False, 0) and str(best["manual"]) != "NULL" and self._drop_nearest("target", "add", geom):
+            self.notice.emit("success", tr("The target you added is removed. Save your edits to apply it."))
+            return "removed_add"
+        if self._has_edit("target", "delete", geom, self._tolerance()):
+            self.notice.emit("info", tr("That target is already marked for removal."))
+            return "duplicate"
+        self._add_edit(geom, "delete", kind="target")
+        self.notice.emit("success", tr("Target marked for removal. Its segments will no longer be served unless another target covers them."))
+        return "removed"

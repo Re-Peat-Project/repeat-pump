@@ -106,18 +106,28 @@ def run(ctx) -> None:
     with open(ctx.work / "network.pkl", "rb") as fh:
         G = pickle.load(fh)
     # ---- sources: river-canal nodes on perennial rivers or with a known dry-season level
-    src_rows, sources = [], []
+    edits = G.graph.get("route_edits")             # manual sources and targets, read once by stage 8
+    src_rows, sources, n_excluded = [], [], 0
     for n, d in G.nodes(data=True):
         if "river" not in d.get("kinds", []):
             continue
         wl = d.get("dry_season_wl_m", np.nan)
+        manual = bool(d.get("manual", False))
         ok = bool(d.get("perennial", False)) or (wl == wl and wl is not None)
-        src_rows.append(dict(node_id=n, status="ok" if ok else "flagged_not_perennial_no_wl", z_src_m=wl if wl == wl else np.nan,
+        if d.get("excluded"):
+            status, ok = "excluded_by_user", False
+            n_excluded += 1
+        else:
+            status = ("manual" if manual else "ok") if ok else "flagged_not_perennial_no_wl"
+        src_rows.append(dict(node_id=n, status=status, manual=manual, z_src_m=wl if wl == wl else np.nan,
                              z_land_m=d.get("z_land_m", np.nan), geometry=Point(d["x"], d["y"])))
         if ok:
             sources.append(n)
     if not sources:
-        raise RuntimeError("Stage 9: no usable water source (river-canal intersection on a perennial river or with dry_season_wl_m)")
+        ctx.write_layer("pump_sources", gpd.GeoDataFrame(src_rows, geometry="geometry", crs=ctx.crs) if src_rows else
+                        gpd.GeoDataFrame({"node_id": []}, geometry=[], crs=ctx.crs), "9")
+        raise RuntimeError("Stage 9: no usable water source (river-canal intersection on a perennial river or with dry_season_wl_m)"
+                           + (f"; your route edits excluded {n_excluded} source(s), remove an exclusion or add a source" if n_excluded else ""))
     ctx.write_layer("pump_sources", gpd.GeoDataFrame(src_rows, geometry="geometry", crs=ctx.crs), "9")
 
     # ---- targets: highest node of each connected cluster of selected segments
@@ -126,13 +136,53 @@ def run(ctx) -> None:
         if d["selected"]:
             E.add_edge(u, v)
     tgt_rows, targets = [], {}
+    manual_nodes = sorted(n for n, d in G.nodes(data=True) if "manual_target" in d.get("kinds", []))
+    del_pts = [Point(p) for p in (edits or {}).get("deletes", {}).get("target", [])]
+    tol = (edits or {}).get("tolerance", 0.0)
+    used_manual, removed, served_after, deleted_and_replaced = set(), [], set(), 0
+    m_serial = 0
     for k, comp in enumerate(sorted(nx.connected_components(E), key=lambda c: min(c)), start=1):
         node = max(sorted(comp), key=lambda n: (G.nodes[n].get("z_land_m", -np.inf), -n))
         segs = sorted({d["seg_id"] for u, v, d in G.edges(data=True) if d["selected"] and u in comp and v in comp})
-        tid = f"T{k:03d}"
+        here = [m for m in manual_nodes if m in comp]
+        if here:                                   # a manual target on a selected cluster replaces that cluster's computed target and serves its segments
+            if len(here) > 1:
+                ctx.warn(f"Stage 9: {len(here)} manual targets lie in one selected cluster; only the first is used, the others are ignored")
+            used_manual.update(here)
+            if del_pts and any(Point(G.nodes[node]["x"], G.nodes[node]["y"]).distance(p) <= tol for p in del_pts):
+                deleted_and_replaced += 1              # removed and replaced in one go: the manual target stands for it
+            m_serial += 1
+            tid, node, manual = f"M{m_serial:03d}", here[0], True
+        elif del_pts and any(Point(G.nodes[node]["x"], G.nodes[node]["y"]).distance(p) <= tol for p in del_pts):
+            removed.append((f"T{k:03d}", segs))    # the person removed this target: its segments are no longer served
+            continue
+        else:
+            tid, manual = f"T{k:03d}", False
+        served_after.update(segs)
         targets[tid] = node
         tgt_rows.append(dict(target_id=tid, node_id=node, z_land_m=G.nodes[node].get("z_land_m", np.nan), n_segments=len(segs),
-                             seg_ids=";".join(segs), geometry=Point(G.nodes[node]["x"], G.nodes[node]["y"])))
+                             seg_ids=";".join(segs), manual=manual, geometry=Point(G.nodes[node]["x"], G.nodes[node]["y"])))
+    for m in manual_nodes:                         # manual targets on unselected segments serve only the segment(s) they sit on
+        if m in used_manual:
+            continue
+        segs = sorted({d["seg_id"] for _, _, d in G.edges(m, data=True)})
+        m_serial += 1
+        tid = f"M{m_serial:03d}"
+        targets[tid] = m
+        served_after.update(segs)
+        tgt_rows.append(dict(target_id=tid, node_id=m, z_land_m=G.nodes[m].get("z_land_m", np.nan), n_segments=len(segs), seg_ids=";".join(segs),
+                             manual=True, geometry=Point(G.nodes[m]["x"], G.nodes[m]["y"])))
+        ctx.warn(f"Stage 9: manual target {tid} is not on a selected segment, so it serves only the segment(s) it sits on ({', '.join(segs)})")
+    if edits is not None:
+        unserved = sorted({s for _, ss in removed for s in ss} - served_after)
+        ctx.report["route_edits"] = {**edits["stats"], "sources_excluded_nodes": n_excluded, "targets_removed": len(removed),
+                                     "selected_segments_no_longer_served": len(unserved)}
+        if removed:
+            ctx.warn(f"Stage 9: {len(removed)} computed target(s) removed by your route edits; {len(unserved)} selected segment(s) are no longer served")
+        if edits["stats"].get("target_deletes", 0) and not removed and not deleted_and_replaced:
+            ctx.warn(f"Stage 9: the route edits remove a target, but no computed target lies within {tol:g} m of it")
+    if not targets and removed:
+        raise RuntimeError("Stage 9: no target left; your route edits removed every computed target")
     ctx.write_layer("pump_targets", gpd.GeoDataFrame(tgt_rows, geometry="geometry", crs=ctx.crs), "9")
 
     R = routing_graph(G, pc.uphill_penalty_lambda, pc.allow_gate_addition)

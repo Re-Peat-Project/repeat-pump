@@ -198,6 +198,7 @@ class PumpingCfg(_M):
     water_table_rise_m: Optional[float] = None  # TODO(human): delta h, specific_yield mode
     design_period_days: Optional[float] = None  # TODO(human): needed only where the priority table gives no design_period_days
     influence_distance_m: Optional[float] = None
+    route_edits: Optional[PathCfg] = None   # manual water sources and targets: points with action add|delete and kind source|target (core/network.py)
     routing: Literal["steiner", "per_target"] = "steiner"
     allow_gate_addition: bool = False
 

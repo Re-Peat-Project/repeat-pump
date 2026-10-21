@@ -206,6 +206,68 @@ def build_graph(segs: gpd.GeoDataFrame, prof: pd.DataFrame, cuts: list[dict]) ->
     return H, ids
 
 
+def read_route_edits(ctx, canals: gpd.GeoDataFrame) -> tuple[list[dict], dict, dict]:
+    """Manual water sources and targets (``pumping.route_edits``): ``(cuts, deletes, stats)``.
+
+    The file holds points with ``action`` (add | delete) and ``kind`` (source | target); an added source may carry ``z_src_m``, its water
+    level in the DTM's vertical datum (never guessed: without it stage 10 stops and asks, as for a river without a level).
+    * add: the point is snapped onto the nearest canal within ``sekat.snap_tolerance_m``; a source becomes a ``river`` node marked ``manual``
+      (usable, as the person says it is), a target a ``manual_target`` node. Points farther from every canal are skipped with a warning.
+    * delete: kept as coordinates for stage 9 to match against the computed targets, and used here to exclude river nodes within the same distance.
+    Stage 8 is the only reader of the file: deletes travel inside the graph, so a later stage never applies a newer file than the graph was built from.
+    """
+    from .config import InputError, NeedsHuman, require
+    from .io import read_vector
+    cfg = ctx.cfg
+    require(cfg.sekat, ["snap_tolerance_m"], "Stage 8 (route edits)", "sekat")
+    sec, tol = cfg.pumping.route_edits, cfg.sekat.snap_tolerance_m
+    ed = read_vector(cfg, sec.path, "route_edits", ctx, sec.layer)
+    for col in ("action", "kind"):
+        if col not in ed:
+            raise InputError(f"route_edits: needs an '{col}' column")
+    ed["action"] = ed["action"].astype(str).str.strip().str.lower()
+    ed["kind"] = ed["kind"].astype(str).str.strip().str.lower()
+    if sorted(set(ed["action"]) - {"add", "delete"}):
+        raise InputError(f"route_edits: unknown action value(s) {sorted(set(ed['action']) - {'add', 'delete'})}; use add or delete")
+    if sorted(set(ed["kind"]) - {"source", "target"}):
+        raise InputError(f"route_edits: unknown kind value(s) {sorted(set(ed['kind']) - {'source', 'target'})}; use source or target")
+    if not ed.geom_type.isin(["Point"]).all():
+        raise InputError("route_edits: all features must be points")
+    ed["z_src_m"] = pd.to_numeric(ed["z_src_m"], errors="coerce") if "z_src_m" in ed else np.nan
+    adds = ed[ed["action"] == "add"].copy()
+    adds["_k"] = list(zip(adds["kind"], adds.geometry.x.round(3), adds.geometry.y.round(3)))
+    adds = adds.sort_values("_k")
+    if adds[(adds["kind"] == "source")]["z_src_m"].notna().any() and cfg.run.vertical_datum is None:
+        raise NeedsHuman("route_edits: a water source has a z_src_m level, but the vertical datum of the DTM (run.vertical_datum) is unknown. "
+                         "Stop and ask (spec section 11.1): the level must be in the same datum as the DTM.")
+    tree = STRtree(list(canals.geometry))
+    cuts, stats = [], {"sources_added": 0, "targets_added": 0, "adds_skipped": 0,
+                       "source_deletes": int(((ed["action"] == "delete") & (ed["kind"] == "source")).sum()),
+                       "target_deletes": int(((ed["action"] == "delete") & (ed["kind"] == "target")).sum())}
+    for _, r in adds.iterrows():
+        g = r.geometry
+        near = [j for j in tree.query(g.buffer(tol)) if canals.geometry.iloc[j].distance(g) <= tol]
+        if not near:
+            stats["adds_skipped"] += 1
+            continue
+        j = min(near, key=lambda j: (canals.geometry.iloc[j].distance(g), j))
+        ln = canals.geometry.iloc[j]
+        ch = float(ln.project(g))
+        if r["kind"] == "source":
+            z = r["z_src_m"]
+            cuts.append(dict(canal_id=canals["canal_id"].iloc[j], chainage_m=ch, kind="river",
+                             attrs=dict(perennial=True, dry_season_wl_m=float(z) if z == z else np.nan, manual=True)))
+            stats["sources_added"] += 1
+        else:
+            cuts.append(dict(canal_id=canals["canal_id"].iloc[j], chainage_m=ch, kind="manual_target", attrs=dict(manual=True)))
+            stats["targets_added"] += 1
+    if stats["adds_skipped"]:
+        ctx.warn(f"Stage 8: {stats['adds_skipped']} route edit(s) to add are more than {tol:g} m from any canal and were skipped")
+    dels = ed[ed["action"] == "delete"]
+    deletes = {kind: [(float(g.x), float(g.y)) for g in dels[dels["kind"] == kind].geometry] for kind in ("source", "target")}
+    return cuts, deletes, stats
+
+
 def run(ctx):
     segs = ctx.read_layer("canal_segments").sort_values("seg_id").reset_index(drop=True)
     canals = ctx.read_layer("canals_clean")
@@ -226,17 +288,37 @@ def run(ctx):
             cuts.append(dict(canal_id=r["canal_id"], chainage_m=float(r["chainage_m"]), kind="river",
                              attrs=dict(river_idx=int(r["river_idx"]), perennial=bool(r.get("perennial", False)),
                                         dry_season_wl_m=float(r["dry_season_wl_m"]) if "dry_season_wl_m" in r and r["dry_season_wl_m"] == r["dry_season_wl_m"] else np.nan)))
+    route_edits = None
+    if ctx.cfg.pumping.route_edits is not None:
+        edit_cuts, deletes, edit_stats = read_route_edits(ctx, canals)
+        cuts += edit_cuts
+        route_edits = dict(deletes=deletes, tolerance=float(ctx.cfg.sekat.snap_tolerance_m), stats=edit_stats)
     G, ids = build_graph(segs, prof, cuts)
+    if route_edits is not None:
+        tol = route_edits["tolerance"]
+        hit = 0
+        for n, d in G.nodes(data=True):               # exclude the computed river nodes the person marked (every node within the click tolerance)
+            if "river" in d.get("kinds", []) and not d.get("manual") and any(Point(d["x"], d["y"]).distance(Point(p)) <= tol for p in route_edits["deletes"]["source"]):
+                d["excluded"] = True
+                hit += 1
+        route_edits["stats"]["sources_excluded"] = hit
+        unmatched = len(route_edits["deletes"]["source"]) and hit == 0
+        G.graph["route_edits"] = route_edits
+        ctx.report["route_edits"] = route_edits["stats"]
+        if unmatched:
+            ctx.warn(f"Stage 8: the route edits exclude a water source, but no river-canal point lies within {tol:g} m of it")
     # nodes of the graph keep a boolean has_gate only for sekat nodes
     with open(ctx.work / "network.pkl", "wb") as fh:
         pickle.dump(G, fh)
     nodes = gpd.GeoDataFrame(
         [dict(node_id=n, kinds=",".join(d["kinds"]), z_land_m=d.get("z_land_m", np.nan), sekat_id=d.get("sekat_id"),
               has_gate=d.get("has_gate"), perennial=d.get("perennial"), dry_season_wl_m=d.get("dry_season_wl_m", np.nan),
+              manual=bool(d.get("manual", False)), excluded=bool(d.get("excluded", False)),
               geometry=Point(d["x"], d["y"])) for n, d in G.nodes(data=True)], geometry="geometry", crs=ctx.crs)
     edges = gpd.GeoDataFrame(
         [dict(from_node=u, to_node=v, seg_id=d["seg_id"], length_m=d["length_m"], z_from_m=d["z_from_m"], z_to_m=d["z_to_m"], dz_m=d["dz_m"],
               selected=d["selected"], geometry=d["geom"]) for u, v, d in G.edges(data=True)], geometry="geometry", crs=ctx.crs)
     ctx.write_layer("network_nodes", nodes, "8")
     ctx.write_layer("network_edges", edges, "8")
-    ctx.set_counts("8", nodes=G.number_of_nodes(), edges=G.number_of_edges())
+    ctx.set_counts("8", nodes=G.number_of_nodes(), edges=G.number_of_edges(),
+                   **({"manual_sources": route_edits["stats"]["sources_added"], "manual_targets": route_edits["stats"]["targets_added"]} if route_edits else {}))

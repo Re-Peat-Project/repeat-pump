@@ -19,7 +19,7 @@ from ..runner import split_source
 from . import i18n, styling, theme
 from .i18n import tr
 from . import diagrams, maptools, summary, viewmodel as vm
-from .canal_edit import CanalEditor, SekatEditor
+from .canal_edit import CanalEditor, RouteEditor, SekatEditor
 from .controller import PRESET_RESOURCE, WizardController
 from .explain_tool import SegmentExplainer
 from .setup_form import SetupExtras
@@ -186,6 +186,8 @@ class WizardPanel(QWidget):
         self.canal_editor.notice.connect(self._notice)
         self.sekat_editor = SekatEditor(iface, self.controller, self)
         self.sekat_editor.notice.connect(self._notice)
+        self.route_editor = RouteEditor(iface, self.controller, self)
+        self.route_editor.notice.connect(self._notice)
         self.segment_explainer = SegmentExplainer(iface, self.controller, self)
         self.segment_explainer.notice.connect(self._notice)
         self.controller.changed.connect(self.render)
@@ -566,6 +568,7 @@ class WizardPanel(QWidget):
     def hideEvent(self, event) -> None:
         self.canal_editor.stop()                      # the map tools must not outlive the panel
         self.sekat_editor.stop()
+        self.route_editor.stop()
         self.segment_explainer.stop()
         super().hideEvent(event)
 
@@ -574,6 +577,8 @@ class WizardPanel(QWidget):
             self.canal_editor.stop()
         if sid != 7:
             self.sekat_editor.stop()
+        if sid != 9:
+            self.route_editor.stop()
         if sid < 6:
             self.segment_explainer.stop()
         self.selected = sid
@@ -708,6 +713,8 @@ class WizardPanel(QWidget):
                 b.addWidget(self._edit_bar())
             if view.id == 7:
                 b.addWidget(self._sekat_edit_bar())
+            if view.id == 9:
+                b.addWidget(self._route_edit_bar())
         if view.id == 11 and view.status == "done" and self.controller.output_gpkg:
             b.addWidget(self._results_card())
         if has_run or c.log:
@@ -1028,6 +1035,33 @@ class WizardPanel(QWidget):
         if not ed.available:
             lay.addWidget(label("These tools need the QGIS map and an open run.", "paramHelp"))
         return f
+
+    def _route_edit_bar(self) -> QWidget:
+        """Stage 9: change the water sources and targets on the map (see canal_edit.py)."""
+        f, lay = card()
+        lay.addWidget(label("Change the water sources and targets on the map", "cardTitle"))
+        lay.addWidget(label("Add a water source the river layer misses, exclude one you cannot use (for example salty or tidal), add a target where water must arrive, "
+                            "or remove a computed one. Your edits are kept in route_edits.gpkg in the run folder and applied the next time stages 8 and 9 run.", "paramHelp"))
+        ed = self.route_editor
+        for pair in ((("Add a water source", ed.start_add_source), ("Exclude a water source", ed.start_exclude_source)),
+                     (("Add a target", ed.start_add_target), ("Remove a target", ed.start_remove_target))):
+            row = QHBoxLayout()
+            for text, slot in pair:
+                row.addWidget(button(text, "secondary", slot, ed.available))
+            row.addStretch(1)
+            lay.addLayout(row)
+        row = QHBoxLayout()
+        row.addWidget(button("Save my edits", "primary", self._save_route_edits, ed.available))
+        row.addWidget(button("Stop editing", "ghost", ed.stop, ed.available))
+        row.addStretch(1)
+        lay.addLayout(row)
+        if not ed.available:
+            lay.addWidget(label("These tools need the QGIS map and an open run.", "paramHelp"))
+        return f
+
+    def _save_route_edits(self) -> None:
+        if self.route_editor.apply():
+            self._select(8)
 
     def _save_sekat_edits(self) -> None:
         if self.sekat_editor.apply():

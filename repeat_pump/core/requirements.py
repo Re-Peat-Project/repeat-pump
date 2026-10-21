@@ -72,6 +72,8 @@ def needs_by_stage(cfg: Config) -> dict[int, list[str]]:
     if cfg.inputs.concession is not None:
         need[6].append("prioritise.feasibility.concession_mode")
     need[7] = ["sekat.max_spacing_m", "sekat.snap_tolerance_m", "sekat.min_spacing_m"]
+    if cfg.pumping.route_edits is not None:
+        need[8] = ["sekat.snap_tolerance_m"] + (["run.vertical_datum"] if route_edits_have_levels(cfg) else [])
     need[9] = ["pumping.uphill_penalty_lambda"]
     p = ["conveyance", "pump_efficiency", "max_head_per_station_m", "pump_capacity_m3s", "influence_distance_m"]
     if pc.conveyance == "canal":
@@ -117,7 +119,7 @@ OPTIONS_BY_STAGE: dict[int, list[str]] = {
 # settings whose values change a stage's own results: whole sections (``topology``) or single keys (``pumping.routing``).
 # A stage that is out of date makes every later one out of date, so each stage lists only what it reads itself.
 FINGERPRINT_KEYS: dict[int, list[str]] = {
-    1: ["run", "inputs"], 2: ["topology"], 3: ["hydro"], 4: ["segments"], 5: ["profiles"], 6: ["prioritise"], 7: ["sekat"], 8: [],
+    1: ["run", "inputs"], 2: ["topology"], 3: ["hydro"], 4: ["segments"], 5: ["profiles"], 6: ["prioritise"], 7: ["sekat"], 8: ["pumping.route_edits"],
     9: ["pumping.uphill_penalty_lambda", "pumping.routing", "pumping.allow_gate_addition"],
     10: ["pumping", "sekat.dA_m"], 11: [], 12: ["optimise", "sekat.dA_m"],
 }
@@ -131,6 +133,30 @@ def canal_edits_digest(cfg: Config) -> Optional[str]:
     stage 1 and every later stage out of date, however it was edited.
     """
     return _edits_digest(cfg, cfg.inputs.canal_edits)
+
+
+def route_edits_digest(cfg: Config) -> Optional[str]:
+    """The same for the manual water sources and targets (``pumping.route_edits``), carried by stage 8's fingerprint."""
+    return _edits_digest(cfg, cfg.pumping.route_edits)
+
+
+def route_edits_have_levels(cfg: Config) -> bool:
+    """True if the route edits add a water source with a ``z_src_m`` level: stage 8 then needs the vertical datum, like river levels."""
+    sec = cfg.pumping.route_edits
+    if sec is None:
+        return False
+    try:
+        import pyogrio
+
+        from .config import resolve
+        df = pyogrio.read_dataframe(resolve(cfg, sec.path), layer=sec.layer, read_geometry=False)
+        low = {c.strip().lower(): c for c in df.columns}
+        if not {"z_src_m", "action", "kind"} <= set(low):
+            return False
+        add_src = df[(df[low["action"]].astype(str).str.strip().str.lower() == "add") & (df[low["kind"]].astype(str).str.strip().str.lower() == "source")]
+        return bool(add_src[low["z_src_m"]].notna().any())
+    except Exception:
+        return False
 
 
 def sekat_edits_digest(cfg: Config) -> Optional[str]:
@@ -148,10 +174,11 @@ def _edits_digest(cfg: Config, sec) -> Optional[str]:
 
         from .config import resolve
         ed = pyogrio.read_dataframe(resolve(cfg, sec.path), layer=sec.layer)
-        col = next((c for c in ed.columns if c.strip().lower() == "action"), None)
-        if col is None:
+        if not any(c.strip().lower() == "action" for c in ed.columns):
             return "unreadable"
-        return hashlib.sha256("|".join(sorted(f"{str(a).strip().lower()}:{g.wkb_hex}" for a, g in zip(ed[col], ed.geometry))).encode()).hexdigest()
+        cols = sorted(c for c in ed.columns if c != ed.geometry.name)           # every attribute counts: a water level or a kind changes the result too
+        rows = ["|".join([str(ed[c].iloc[i]).strip().lower() if ed[c].iloc[i] == ed[c].iloc[i] else "" for c in cols] + [g.wkb_hex]) for i, g in enumerate(ed.geometry)]
+        return hashlib.sha256("|".join(sorted(rows)).encode()).hexdigest()
     except Exception:
         return "unreadable"             # the stage itself reports what is wrong with the file
 
@@ -167,6 +194,8 @@ def fingerprint(cfg: Config, stage: int) -> dict:
         out["canal_edits_digest"] = canal_edits_digest(cfg)
     if stage == 7:
         out["sekat_edits_digest"] = sekat_edits_digest(cfg)
+    if stage == 8:
+        out["route_edits_digest"] = route_edits_digest(cfg)
     return out
 
 
