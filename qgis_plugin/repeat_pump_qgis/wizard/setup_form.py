@@ -8,7 +8,7 @@ from qgis.gui import QgsMapLayerComboBox
 from qgis.PyQt.QtCore import Qt, pyqtSignal
 from qgis.PyQt.QtWidgets import QCheckBox, QComboBox, QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QSpinBox, QVBoxLayout, QWidget
 
-from . import preflight, theme
+from . import cloudload, preflight, theme
 from .i18n import tr
 from .widgets import button, label, layer_filter
 
@@ -19,9 +19,12 @@ class SetupExtras(QWidget):
     """``get_layers`` returns ``{config key: QgsMapLayer or None}`` for the layers chosen in the main form."""
     changed = pyqtSignal()
 
-    def __init__(self, get_layers: Callable[[], dict], parent=None):
+    def __init__(self, get_layers: Callable[[], dict], on_cloud_raster: Optional[Callable[[str], None]] = None,
+                 get_out_dir: Optional[Callable[[], Optional[str]]] = None, parent=None):
         super().__init__(parent)
         self._get_layers = get_layers
+        self._on_cloud_raster = on_cloud_raster
+        self._get_out_dir = get_out_dir or (lambda: None)
         self._datum_edited = False
         self._ids_for: tuple = ()
         self.assessment = preflight.Assessment()
@@ -34,6 +37,8 @@ class SetupExtras(QWidget):
         self.moisture_box = QVBoxLayout()
         self.moisture_box.setSpacing(6)
         lay.addLayout(self.moisture_box)
+        self.cloud_btn = button("Load moisture from the cloud...", "secondary", self._open_cloud)
+        lay.addWidget(self.cloud_btn, 0, Qt.AlignmentFlag.AlignLeft)
         self.add_moisture = button("Add another moisture raster (a neighbouring tile)", "link", self._add_moisture)
         lay.addWidget(self.add_moisture, 0, Qt.AlignmentFlag.AlignLeft)
 
@@ -87,6 +92,7 @@ class SetupExtras(QWidget):
         self.datum.setPlaceholderText(tr("Vertical datum, for example EGM2008"))
         self.use_selected.setText(tr("Use the features selected on the map"))
         self.add_moisture.setText(tr("Add another moisture raster (a neighbouring tile)"))
+        self.cloud_btn.setText(tr("Load moisture from the cloud..."))
         self._mode_changed()
         self.refresh()
 
@@ -102,6 +108,38 @@ class SetupExtras(QWidget):
 
     def moisture_layers(self) -> list:
         return [cb.currentLayer() for cb in self.extra_moisture if cb.currentLayer() is not None]
+
+    # ------------------------------------------------------------------ moisture from the cloud
+    def _cloud_extent(self) -> Optional[tuple]:
+        """Bounding box (x0, y0, x1, y1) of the sub-KHGs that will be analysed, in the run's coordinate system."""
+        from qgis.core import QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsProject, QgsRectangle
+        layer, crs = self._get_layers().get("subkhg"), self.assessment.crs
+        if layer is None or not crs:
+            return None
+        box = None
+        if self.mode.currentData() == "ids" and self.checked_ids():
+            want, field = set(self.checked_ids()), self.assessment.subkhg_id_field
+            for f in layer.getFeatures():
+                if str(f[field]) in want and f.hasGeometry():
+                    r = f.geometry().boundingBox()
+                    box = QgsRectangle(r) if box is None else (box.combineExtentWith(r) or box)
+        if box is None:
+            box = layer.extent()
+        if layer.crs().authid() != crs:
+            box = QgsCoordinateTransform(layer.crs(), QgsCoordinateReferenceSystem(crs), QgsProject.instance()).transformBoundingBox(box)
+        return (box.xMinimum(), box.yMinimum(), box.xMaximum(), box.yMaximum())
+
+    def _open_cloud(self) -> None:
+        from .cloud_dialog import CloudLoadDialog
+        self.refresh()
+        dlg = CloudLoadDialog(self._cloud_extent(), self.assessment.crs, self._get_out_dir(), self)
+        dlg.loaded.connect(lambda path: self._on_cloud_raster(path) if self._on_cloud_raster else None)
+        dlg.exec()
+
+    def cloud_provenance(self) -> Optional[dict]:
+        """Provenance of the chosen moisture layer when it came from the cloud button, else ``None``."""
+        layer = self._get_layers().get("moisture")
+        return cloudload.read_provenance(layer.source().split("|")[0]) if layer is not None else None
 
     # ------------------------------------------------------------------ selection
     def _mode_changed(self, *_a) -> None:
@@ -187,6 +225,9 @@ class SetupExtras(QWidget):
             p["run.subkhg_selection.n"] = int(self.n.value())
         elif mode == "ids":
             p["run.subkhg_selection.ids"] = self.checked_ids()
+        prov = self.cloud_provenance()
+        if prov and "higher_is_wetter" in prov:
+            p["inputs.moisture.higher_is_wetter"] = bool(prov["higher_is_wetter"])        # a fact about the index the engine just built
         datum = self.datum.text().strip()
         if datum:
             p["run.vertical_datum"] = datum

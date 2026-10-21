@@ -504,4 +504,48 @@ ID: dict[str, str] = {
         "Mengalikan transmisivitas pada tabel gambut bawaan. Hasil sangat bergantung padanya, jadi tetapkan sesuai lokasi Anda.",
     " · OPTIONAL": " · OPSIONAL",
     "This optional stage is switched off. Choose Yes under Decisions to use it.": "Tahap opsional ini nonaktif. Pilih Ya di bawah Keputusan untuk memakainya.",
+    # --- load moisture from the cloud
+    "Load moisture from the cloud...": "Muat kelembapan dari cloud...",
+    "Load moisture from the cloud": "Muat kelembapan dari cloud",
+    "Builds a moisture raster for your sub-KHGs from satellite images stored online. Nothing is installed in QGIS: the engine does the download.":
+        "Membuat raster kelembapan untuk sub-KHG Anda dari citra satelit yang tersimpan daring. Tidak ada yang dipasang di QGIS: unduhan dilakukan oleh mesin.",
+    "Source": "Sumber",
+    "Open Sentinel-2 (no login)": "Sentinel-2 terbuka (tanpa login)",
+    "Google Earth Engine (exact CPWI v2)": "Google Earth Engine (CPWI v2 persis)",
+    "Needs a free Earth Engine account and the earthengine-api package in the engine environment. Gives exactly the CPWI of the team's Earth Engine script, with radar.":
+        "Perlu akun Earth Engine gratis dan paket earthengine-api di lingkungan mesin. Menghasilkan CPWI yang persis sama dengan skrip Earth Engine tim, dengan radar.",
+    "Sentinel-2 only: no radar and a different cloud mask than the Earth Engine script, so values differ from CPWI. The result is labelled as an approximation.":
+        "Hanya Sentinel-2: tanpa radar dan dengan masker awan yang berbeda dari skrip Earth Engine, sehingga nilainya berbeda dari CPWI. Hasilnya diberi label sebagai pendekatan.",
+    "Earth Engine project id": "ID proyek Earth Engine",
+    "Sign in to Earth Engine": "Masuk ke Earth Engine",
+    "Earth Engine sign-in": "Masuk Earth Engine",
+    "A browser window opens for the Google sign-in. Come back here when it says it is done.":
+        "Jendela peramban terbuka untuk masuk ke Google. Kembali ke sini setelah selesai.",
+    "Signed in to Earth Engine.": "Berhasil masuk ke Earth Engine.",
+    "Primary window (the dry months you want to represent)": "Jendela utama (bulan kering yang ingin diwakili)",
+    "Fallback window (wider; fills the gaps clouds leave in the primary one)": "Jendela cadangan (lebih lebar; mengisi celah akibat awan di jendela utama)",
+    "These dates are your decision: they depend on the site and the year, so there is no default.":
+        "Tanggal ini keputusan Anda: bergantung pada lokasi dan tahun, jadi tidak ada nilai bawaan.",
+    "Start: YYYY-MM-DD": "Mulai: YYYY-MM-DD", "End: YYYY-MM-DD": "Akhir: YYYY-MM-DD",
+    "Skip scenes cloudier than": "Lewati citra yang lebih berawan dari",
+    "Margin around the sub-KHGs": "Margin di sekitar sub-KHG",
+    "Save the raster as": "Simpan raster sebagai",
+    "Load": "Muat", "Close": "Tutup",
+    "Searching for scenes. This can take several minutes: the images are downloaded window by window.":
+        "Mencari citra. Ini bisa memakan beberapa menit: citra diunduh per jendela.",
+    "The engine environment is not set up yet.": "Lingkungan mesin belum disiapkan.",
+    "The engine stopped with exit code {code}.": "Mesin berhenti dengan kode keluar {code}.",
+    "Choose where to save the raster.": "Pilih tempat menyimpan raster.",
+    "Choose the DTM and the sub-KHG polygons first: they give the area and the coordinate system.":
+        "Pilih DTM dan poligon sub-KHG lebih dulu: keduanya menentukan wilayah dan sistem koordinat.",
+    "Enter your Earth Engine project id.": "Masukkan ID proyek Earth Engine Anda.",
+    "Done.": "Selesai.",
+    "QGIS could not open the downloaded raster: {path}": "QGIS tidak dapat membuka raster yang diunduh: {path}",
+    "{what}: write the date as YYYY-MM-DD.": "{what}: tulis tanggal sebagai YYYY-MM-DD.",
+    "{what}: {text} is not a real date.": "{what}: {text} bukan tanggal yang valid.",
+    "Primary window start": "Awal jendela utama", "Primary window end": "Akhir jendela utama",
+    "Fallback window start": "Awal jendela cadangan", "Fallback window end": "Akhir jendela cadangan",
+    "A window ends before it starts.": "Ada jendela yang berakhir sebelum dimulai.",
+    "The fallback window must contain the primary window.": "Jendela cadangan harus mencakup jendela utama.",
+    "{product}. Scenes: {n}. Valid pixels: {pct}.": "{product}. Citra: {n}. Piksel valid: {pct}.",
 }

@@ -120,6 +120,13 @@ def run_cli(python: str, config: str, cwd: str, first, last, accept, feedback, r
 CANCELLED = 130
 
 
+def run_engine(python: str, args: list[str], cwd: str, feedback) -> int:
+    """Run any engine command (``repeat-pump <args>``), streaming its output like ``run_cli``; returns the exit code."""
+    cmd = [python, "-u", "-m", "repeat_pump.cli", *args]
+    feedback.pushInfo("Running: " + " ".join(cmd))
+    return stream_process(cmd, cwd, clean_env(), feedback)
+
+
 def kill_tree(p: subprocess.Popen) -> None:
     """Stop the process and everything it started (WhiteboxTools runs as a child and would otherwise keep files locked)."""
     if sys.platform == "win32":

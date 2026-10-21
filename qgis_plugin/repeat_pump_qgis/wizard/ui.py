@@ -352,7 +352,8 @@ class WizardPanel(QWidget):
             cb.setLayer(None)
             self.combos[key] = (cb, optional, text)
             form.addWidget(cb)
-        self.extras = SetupExtras(lambda: {k: c.currentLayer() for k, (c, _o, _t) in self.combos.items()})
+        self.extras = SetupExtras(lambda: {k: c.currentLayer() for k, (c, _o, _t) in self.combos.items()}, self._add_cloud_raster,
+                                  lambda: str(Path(self.out_file.filePath()).parent) if self.out_file.filePath().strip() else None)
         for cb, _o, _t in self.combos.values():
             cb.layerChanged.connect(lambda _l: self.extras.refresh())
         form.addWidget(self.extras)
@@ -366,6 +367,17 @@ class WizardPanel(QWidget):
         row.addStretch(1)
         form.addLayout(row)
         lay.addWidget(self.setup_body)
+
+    def _add_cloud_raster(self, path: str) -> None:
+        """The moisture raster the cloud dialog wrote: put it on the map and choose it as the moisture layer."""
+        from qgis.core import QgsProject, QgsRasterLayer
+        layer = QgsRasterLayer(path, Path(path).stem)
+        if not layer.isValid():
+            self.setup_msg.setText(f"<span style='color:{theme.RED_TEXT}'>{tr('QGIS could not open the downloaded raster: {path}').format(path=path)}</span>")
+            return
+        QgsProject.instance().addMapLayer(layer)
+        self.combos["moisture"][0].setLayer(layer)
+        self.extras.refresh()
 
     def _toggle_setup(self) -> None:
         self._setup_open = not self.setup_body.isVisible()

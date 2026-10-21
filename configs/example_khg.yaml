@@ -1,102 +1,117 @@
-# Example run config. Every `null` is a TODO(human) from AGENTS.md section 11:
-# the stage that needs it stops with one message listing the missing keys. Do not invent values.
 run:
   name: khg_kahayan_sebangau_pilot
   output_gpkg: out/pilot.gpkg
   crs: EPSG:32749
   auto_reproject: false
-  vertical_datum: null            # TODO(human): datum of the DTM
+  vertical_datum: null
   memory_budget_gb: 8
-  subkhg_selection: {mode: top_n, n: 3}   # or {mode: ids, ids: [...]}
-  clip_margin_m: null             # TODO(human): Stage 1 margin around the selected sub-KHGs
-
+  subkhg_selection:
+    mode: top_n
+    n: 3
+  clip_margin_m: 20.0
 inputs:
-  dtm: {path: data/dtm.tif, surface_type: DTM, vertical_rmse_m: null}   # TODO(human)
-  subkhg: {path: data/subkhg.gpkg}
-  subkhg_priority: {path: data/subkhg_priority.csv}   # OPTIONAL (delete the line if there is no neraca air): subkhg_id (or unit_id), priority_rank, deficit_mm, design_period_days
-  canals: {path: data/canals.gpkg}
-  canal_edits: {path: data/canal_edits.gpkg}   # optional: lines with action = add | delete
-  sekat_existing: {path: data/sekat_existing.gpkg}
-  rivers: {path: data/rivers.gpkg, vertical_datum: null}   # TODO(human): datum of dry_season_wl_m
-  burn_area: {path: data/burn_area.gpkg}
-  peat_depth: {path: data/peat_depth.gpkg}
-  moisture: {paths: [data/cpwi.tif], higher_is_wetter: null}   # TODO(human): true/false
-  # concession: {path: data/concession.gpkg}
-  # tma_obs: {path: data/tma_obs.gpkg}
-
+  dtm:
+    path: data/dtm.tif
+    surface_type: DTM
+    vertical_rmse_m: 1.0
+  subkhg:
+    path: data/subkhg.gpkg
+  subkhg_priority:
+    path: data/subkhg_priority.csv
+  canals:
+    path: data/canals.gpkg
+  canal_edits:
+    path: data/canal_edits.gpkg
+  sekat_existing:
+    path: data/sekat_existing.gpkg
+  rivers:
+    path: data/rivers.gpkg
+    vertical_datum: null
+  burn_area:
+    path: data/burn_area.gpkg
+  peat_depth:
+    path: data/peat_depth.gpkg
+  moisture:
+    paths:
+    - data/cpwi.tif
+    higher_is_wetter: true
 topology:
-  snap_tolerance_m: null          # TODO(human)
-  overshoot_max_m: null           # TODO(human): null = overshoot trimming off
-
+  snap_tolerance_m: null
+  overshoot_max_m: null
 hydro:
-  breach_max_dist_cells: null     # TODO(human); passed to Whitebox BreachDepressionsLeastCost
-  burn_depth_default_m: 2.0       # used only where canals.depth_m is missing
-  flow_algorithm: dinf            # dinf | mfd | d8
-
+  breach_max_dist_cells: null
+  burn_depth_default_m: 2.0
+  flow_algorithm: dinf
 segments:
   max_length_m: 500
-  min_length_m: 25                # shorter pieces flagged, excluded from scoring
-
+  min_length_m: 25
 profiles:
-  bank_offsets_m: [6, 10]
+  bank_offsets_m:
+  - 6
+  - 10
   sample_step_m: 5
   smoothing_window_m: 50
-
 sekat:
-  dA_m: 0.40                      # PP 57/2016
-  max_spacing_m: null             # TODO(human)
+  dA_m: 0.4
+  max_spacing_m: null
   slope_reinforced_pct: 5.0
-  snap_tolerance_m: null          # TODO(human): existing sekat -> canal
-  min_spacing_m: null             # TODO(human): no new sekat closer than this to an existing one
-
+  snap_tolerance_m: null
+  min_spacing_m: null
 prioritise:
-  ring_buffer_m: [15, 100]
+  ring_buffer_m:
+  - 15
+  - 100
   criteria:
-    burn_freq:        {weight: null, direction: higher_is_worse}
-    peat_depth:       {weight: null, direction: higher_is_worse}
-    dryness:          {weight: null, direction: higher_is_worse}
-    upstream_contrib: {weight: null, direction: higher_is_worse}
-  weights_mode: direct            # direct | ahp
-  ahp_matrix: null                # required if weights_mode == ahp
+    burn_freq:
+      weight: null
+      direction: higher_is_worse
+    peat_depth:
+      weight: null
+      direction: higher_is_worse
+    dryness:
+      weight: null
+      direction: higher_is_worse
+    upstream_contrib:
+      weight: null
+      direction: higher_is_worse
+  weights_mode: ahp
+  ahp_matrix: null
   feasibility:
-    concession_mode: null         # TODO(human): exclude | flag | ignore (the Panduan review excluded concession for now = ignore)
+    concession_mode: null
   top_fraction: 0.2
-  upstream_method: flow_acc       # flow_acc | graph
-  upstream_buffer_m: null         # TODO(human): narrow buffer for flow_acc
-
+  upstream_method: flow_acc
+  upstream_buffer_m: null
 pumping:
-  conveyance: null                # TODO(human): canal | pipe
+  conveyance: null
   manning_n: null
   hazen_williams_c: null
   pipe_diameter_m: null
   pump_efficiency: null
   max_head_per_station_m: null
   pump_capacity_m3s: null
-  max_units_per_station: null     # null = unbounded
-  uphill_penalty_lambda: null     # TODO(human)
-  demand_mode: deficit            # deficit | specific_yield
+  max_units_per_station: null
+  uphill_penalty_lambda: null
+  demand_mode: deficit
   specific_yield: null
-  water_table_rise_m: null        # TODO(human): required for specific_yield mode
-  design_period_days: null        # TODO(human): only needed when there is no priority table (no neraca air); days to deliver the water
-  influence_distance_m: null      # TODO(human): calibrate with tma_obs
-  routing: steiner                # steiner | per_target
+  water_table_rise_m: null
+  design_period_days: null
+  influence_distance_m: null
+  routing: steiner
   allow_gate_addition: false
-
-# OPTIONAL Stage 12: canal blocking optimisation (Urzainki et al. 2020). Off by default. It gives an ALTERNATIVE block plan;
-# the routing and pump stages still assume every proposed sekat is built. Every physical value below is a human decision.
 optimise:
   enabled: false
-  objective: canal_rise           # canal_rise | pde | screen_then_pde
-  algorithms: [ga, sa]            # ga | sa | greedy
-  n_blocks: null                  # TODO(human): new blocks to choose among the proposed sekat
-  max_evaluations: null           # TODO(human): distinct layouts each algorithm may score
-  canal_drawdown_m: null          # TODO(human): dry-season canal water level below the surrounding land
-  grid_m: null                    # TODO(human), pde objectives
-  dry_days: null                  # TODO(human), pde objectives
-  et_mm_day: null                 # TODO(human), pde objectives
-  transmissivity_multiplier: null # TODO(human), pde objectives; results depend strongly on it
+  objective: canal_rise
+  algorithms:
+  - ga
+  - sa
+  n_blocks: null
+  max_evaluations: null
+  canal_drawdown_m: null
+  grid_m: null
+  dry_days: null
+  et_mm_day: null
+  transmissivity_multiplier: null
   seed: 0
   random_baseline_draws: 10
-
 review:
-  auto_accept: []                 # e.g. [2, 6, 9]
+  auto_accept: []

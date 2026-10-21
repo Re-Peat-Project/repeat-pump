@@ -161,8 +161,8 @@ def slide1():
         cx_end, cx_start = xs[3] + bw / 2, xs[0] + bw / 2
         yb = ys[j] + bh
         g.append(poly([(cx_end, yb + 2), (cx_end, yb + gy / 2), (cx_start, yb + gy / 2), (cx_start, ys[j + 1] - 4)], CHEV, 5, arrow=True))
-    return slide("Alur analisis SIG dan data: ", "11 tahap", g,
-                 "Setiap tahap membaca layer tahap sebelumnya dari satu GeoPackage; tahap bertanda \"tinjau\" berhenti sampai Anda menyetujui.")
+    return slide("Alur analisis SIG dan data: ", "11 tahap + 1 opsional", g,
+                 "Tiap tahap membaca layer tahap sebelumnya dari satu GeoPackage; \"tinjau\" berhenti sampai disetujui. Tahap 12 (optimasi blok) opsional.")
 
 
 # =============================================================================== SLIDE 2

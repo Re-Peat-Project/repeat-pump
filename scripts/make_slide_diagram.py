@@ -89,7 +89,7 @@ RW = W - 60 - RX
 g.append(rect(RX, TOP, RW, BOT - TOP, GREEN_L, GREEN, 3))
 g.append(t(RX + 24, TOP + 50, "RESULTS", 31, 700, GREEN_D))
 g.append(t(RX + 24, TOP + 88, "one GeoPackage + report", 22, 400, MUTED))
-res = ["Canal priority map", "Sekat: place, height, type", "Water sources and routes", "Pump stations + power", "Gates to add", "Layers to double-check", "Run report"]
+res = ["Canal priority map", "Sekat: place, height, type", "Water sources and routes", "Pump stations + power", "Gates to add", "Layers to double-check", "Run report", "Optional: Stage 12"]
 y = TOP + 168
 for r in res:
     g.append(f'<circle cx="{RX + 30}" cy="{y - 7}" r="5" fill="{GREEN}"/>')

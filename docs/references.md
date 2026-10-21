@@ -21,6 +21,8 @@ Keys cited in module docstrings (from AGENTS.md section 12). Verify volume and p
 - **Saaty1980**: Saaty (1980). The Analytic Hierarchy Process. McGraw-Hill.
 - **Takahashi1980**: Takahashi & Matsuyama (1980). Mathematica Japonica 24(6), 573-577.
 - **Tarboton1997**: Tarboton (1997). Water Resources Research 33(2), 309-319.
+- **McFeeters1996**: McFeeters (1996). The use of the Normalized Difference Water Index (NDWI) in the delineation of open water features. International Journal of Remote Sensing 17(7), 1425-1432.
+- **Gao1996**: Gao (1996). NDWI, a normalized difference water index for remote sensing of vegetation liquid water from space. Remote Sensing of Environment 58(3), 257-266 (the NIR/SWIR1 index used here as NDMI).
 - **Holland1975**: Holland (1975). Adaptation in Natural and Artificial Systems. University of Michigan Press.
 - **Kirkpatrick1983**: Kirkpatrick, Gelatt & Vecchi (1983). Science 220(4598), 671-680.
 - **Urzainki2020**: Urzainki et al. (2020). Biogeosciences 17, 4769-4784, doi:10.5194/bg-17-4769-2020. Peat tables and scheme from LukeEcomod/blopti (MIT); see `repeat_pump/data/NOTICE-urzainki2020.md`.
@@ -37,3 +39,5 @@ Keys cited in module docstrings (from AGENTS.md section 12). Verify volume and p
 Chow1959 Table 5-6 (Manning n) was read through drainagecalculators.com, which reproduces it, not from the book. `configs/proposed_defaults.yaml` uses these; its values are proposals, see `docs/proposed_defaults.md`.
 
 Stage 12 (optional) adds Urzainki2020, Holland1975 and Kirkpatrick1983. Verify volume and page details against the originals before formal citation.
+
+"Load moisture from the cloud" (`core/cpwi.py`, `core/cloudfetch.py`, `core/ee_fetch.py`) ports the team's CPWI v2 Earth Engine script (`legacy/gee_code.txt`); its clamps and weights are that script's, not new choices. NDWI and NDMI follow McFeeters1996 and Gao1996. Cloud Score+ and Sentinel-1 GRD exist only in Earth Engine, so the open backend is an approximation, labelled as such in the provenance file and the run report.
