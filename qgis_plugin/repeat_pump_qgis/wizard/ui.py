@@ -170,6 +170,8 @@ class WizardPanel(QWidget):
         self.controller = WizardController(self)
         i18n.set_language(self._initial_language())
         self.learn = False
+        self.preview = False               # demo view: every stage's cards and tools are shown, whatever has been run
+        self._tools_live = True
         self.selected: Optional[int] = None
         self.compact = False
         self._editors: dict[str, QWidget] = {}
@@ -230,6 +232,11 @@ class WizardPanel(QWidget):
         self.learn_box.setObjectName("learn")
         self.learn_box.setCursor(Qt.CursorShape.PointingHandCursor)
         self.learn_box.toggled.connect(self._toggle_learn)
+        self.preview_box = QCheckBox(tr("Demo view"))
+        self.preview_box.setObjectName("learn")
+        self.preview_box.setToolTip(tr("Show every stage's decisions and map tools at once, even before they can run. Nothing is run or changed."))
+        self.preview_box.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.preview_box.toggled.connect(self._toggle_preview)
         hl.addWidget(self.crumb)
         hl.addWidget(self.run_chip)
         hl.addStretch(1)
@@ -247,6 +254,7 @@ class WizardPanel(QWidget):
             hl.addWidget(lb)
         hl.addSpacing(12)
         hl.addWidget(self.learn_box)
+        hl.addWidget(self.preview_box)
         main.addWidget(self.header)
 
         self.scroll = QScrollArea()
@@ -520,6 +528,8 @@ class WizardPanel(QWidget):
         for c, b in self.lang_buttons.items():
             b.setChecked(c == code)
         self.learn_box.setText(tr("Learn mode"))
+        self.preview_box.setText(tr("Demo view"))
+        self.preview_box.setToolTip(tr("Show every stage's decisions and map tools at once, even before they can run. Nothing is run or changed."))
         self.use_preset.setText(tr(self.use_preset.property("src")))
         self.extras.retranslate()
         for w in self.setup_frame.findChildren(QLabel) + self.setup_frame.findChildren(QPushButton):
@@ -532,6 +542,13 @@ class WizardPanel(QWidget):
         self.render()
 
     # ------------------------------------------------------------------ events
+    def _toggle_preview(self, on: bool) -> None:
+        self.preview = on
+        if on:
+            self.controller.load_preview()
+        self._last_sig = None
+        self.render()
+
     def _toggle_learn(self, on: bool) -> None:
         self.learn = on
         self._last_sig = None
@@ -599,7 +616,8 @@ class WizardPanel(QWidget):
     # ------------------------------------------------------------------ rendering
     def render(self) -> None:
         c = self.controller
-        model = c.model or vm.WizardModel(vm.placeholder_check(), {"stages": {}, "warnings": [], "report": {}}, None, bool(c.engine_ready))
+        model = c.model or vm.WizardModel(c.preview_json if (self.preview and c.preview_json) else vm.placeholder_check(),
+                                          {"stages": {}, "warnings": [], "report": {}}, None, bool(c.engine_ready))
         has_run = c.config_path is not None and c.model is not None
         if self.selected is None or self.selected not in {v.id for v in model.stages}:
             self.selected = model.current
@@ -614,7 +632,7 @@ class WizardPanel(QWidget):
         self._sync_preset_box(model)
 
         sig = (view.id, view.status, tuple((p.key, p.from_preset) for p in view.params), tuple(p.key for p in view.options),
-               view.id in self._options_open, len(view.tiles), view.error, self.learn, c.engine_ready,
+               view.id in self._options_open, len(view.tiles), view.error, self.learn, self.preview, c.preview_json is not None, c.engine_ready,
                bool(c.busy), c.running is not None, has_run, self.compact, tuple(view.warnings), view.sub)
         if sig != self._last_sig:
             self._last_sig = sig
@@ -684,6 +702,10 @@ class WizardPanel(QWidget):
         c = self.controller
         b = self.body
         b.addWidget(self._heading(view))
+        self._tools_live = view.status in ("done", "needs_review", "stale") and self.controller.output_gpkg is not None
+        if self.preview and not self._tools_live:
+            b.addWidget(self._callout("info", "Demo view", "This is what the stage offers. Nothing here runs yet: the decisions and the map tools switch on "
+                                      "once the stage before it has run and this stage has results."))
         if c.engine_ready is False:
             b.addWidget(self._callout("error", "The engine is not set up", c.engine_message + "\n" +
                                       tr("Use the Set up engine button on the left. It needs internet once and Python 3.11 or newer.")))
@@ -704,10 +726,14 @@ class WizardPanel(QWidget):
             more = len(view.warnings) - len(shown)
             b.addWidget(self._callout("warn", "Worth a look", "\n".join(shown) + ("\n" + tr("...and {n} more in the run report.").format(n=more) if more > 0 else "")))
         if view.params:
-            b.addWidget(self._params_card(view))
+            card_ = self._params_card(view)
+            card_.setEnabled(has_run)                 # without a run there is no config to write into: show it, do not let it be edited
+            b.addWidget(card_)
         if view.options:
-            b.addWidget(self._options_card(view))
-        if view.status in ("done", "needs_review", "stale") and (view.layers or view.id in maptools.STAGE_VISIBLE) and self.controller.output_gpkg:
+            card_ = self._options_card(view)
+            card_.setEnabled(has_run)
+            b.addWidget(card_)
+        if (self._tools_live and (view.layers or view.id in maptools.STAGE_VISIBLE)) or (self.preview and view.id in maptools.STAGE_VISIBLE):
             b.addWidget(self._map_bar(view, model))
             if view.id == 2:
                 b.addWidget(self._edit_bar())
@@ -984,12 +1010,13 @@ class WizardPanel(QWidget):
         f, lay = card()
         lay.addWidget(label("Map", "cardTitle"))
         row = QHBoxLayout()
-        row.addWidget(button("Show this stage on the map", "secondary", lambda sid=view.id: self._show_on_map(sid)))
-        row.addWidget(button("Show every layer", "ghost", lambda: self._show_all()))
+        live = self._tools_live
+        row.addWidget(button("Show this stage on the map", "secondary", lambda sid=view.id: self._show_on_map(sid), live))
+        row.addWidget(button("Show every layer", "ghost", lambda: self._show_all(), live))
         if view.id >= 6:
-            row.addWidget(button("Explain a segment", "secondary", self.segment_explainer.start, self.segment_explainer.available))
+            row.addWidget(button("Explain a segment", "secondary", self.segment_explainer.start, live and self.segment_explainer.available))
         if view.id == 11:
-            row.addWidget(button("Export the map...", "secondary", self._export_map))
+            row.addWidget(button("Export the map...", "secondary", self._export_map, live))
         row.addStretch(1)
         lay.addLayout(row)
         return f
@@ -1002,12 +1029,12 @@ class WizardPanel(QWidget):
                             "and applied the next time stages 1 and 2 run.", "paramHelp"))
         ed = self.canal_editor
         row = QHBoxLayout()
-        row.addWidget(button("Draw a canal to add", "secondary", ed.start_add, ed.available))
-        row.addWidget(button("Click a canal to delete", "secondary", ed.start_delete, ed.available))
+        row.addWidget(button("Draw a canal to add", "secondary", ed.start_add, ed.available and self._tools_live))
+        row.addWidget(button("Click a canal to delete", "secondary", ed.start_delete, ed.available and self._tools_live))
         row.addStretch(1)
         lay.addLayout(row)
         row = QHBoxLayout()
-        row.addWidget(button("Save my edits", "primary", self._save_canal_edits, ed.available))
+        row.addWidget(button("Save my edits", "primary", self._save_canal_edits, ed.available and self._tools_live))
         row.addWidget(button("Stop editing", "ghost", ed.stop, ed.available))
         row.addStretch(1)
         lay.addLayout(row)
@@ -1023,12 +1050,12 @@ class WizardPanel(QWidget):
                             "and applied the next time stage 7 runs. Added sekat are marked as manual.", "paramHelp"))
         ed = self.sekat_editor
         row = QHBoxLayout()
-        row.addWidget(button("Add a sekat", "secondary", ed.start_add, ed.available))
-        row.addWidget(button("Remove a proposed sekat", "secondary", ed.start_remove, ed.available))
+        row.addWidget(button("Add a sekat", "secondary", ed.start_add, ed.available and self._tools_live))
+        row.addWidget(button("Remove a proposed sekat", "secondary", ed.start_remove, ed.available and self._tools_live))
         row.addStretch(1)
         lay.addLayout(row)
         row = QHBoxLayout()
-        row.addWidget(button("Save my edits", "primary", self._save_sekat_edits, ed.available))
+        row.addWidget(button("Save my edits", "primary", self._save_sekat_edits, ed.available and self._tools_live))
         row.addWidget(button("Stop editing", "ghost", ed.stop, ed.available))
         row.addStretch(1)
         lay.addLayout(row)
@@ -1047,11 +1074,11 @@ class WizardPanel(QWidget):
                      (("Add a target", ed.start_add_target), ("Remove a target", ed.start_remove_target))):
             row = QHBoxLayout()
             for text, slot in pair:
-                row.addWidget(button(text, "secondary", slot, ed.available))
+                row.addWidget(button(text, "secondary", slot, ed.available and self._tools_live))
             row.addStretch(1)
             lay.addLayout(row)
         row = QHBoxLayout()
-        row.addWidget(button("Save my edits", "primary", self._save_route_edits, ed.available))
+        row.addWidget(button("Save my edits", "primary", self._save_route_edits, ed.available and self._tools_live))
         row.addWidget(button("Stop editing", "ghost", ed.stop, ed.available))
         row.addStretch(1)
         lay.addLayout(row)

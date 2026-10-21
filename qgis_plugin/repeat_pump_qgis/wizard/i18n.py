@@ -727,4 +727,8 @@ ID: dict[str, str] = {
     'The water sources are no longer on the map. Run stage 9 again.': 'Sumber air tidak lagi ada di peta. Jalankan tahap 9 lagi.',
     'Water source added. Click another, or save your edits.': 'Sumber air ditambahkan. Klik lagi, atau simpan suntingan Anda.',
     'Water source excluded. Click another, or save your edits.': 'Sumber air dikecualikan. Klik lagi, atau simpan suntingan Anda.',
+    # --- demo view
+    'Demo view': 'Tampilan demo',
+    "Show every stage's decisions and map tools at once, even before they can run. Nothing is run or changed.": 'Tampilkan keputusan dan alat peta setiap tahap sekaligus, bahkan sebelum dapat dijalankan. Tidak ada yang dijalankan atau diubah.',
+    'This is what the stage offers. Nothing here runs yet: the decisions and the map tools switch on once the stage before it has run and this stage has results.': 'Inilah yang ditawarkan tahap ini. Belum ada yang berjalan: keputusan dan alat peta aktif setelah tahap sebelumnya dijalankan dan tahap ini punya hasil.',
 }

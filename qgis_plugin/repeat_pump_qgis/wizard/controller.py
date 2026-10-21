@@ -83,6 +83,7 @@ class WizardController(QObject):
         self.running: Optional[int] = None
         self.busy = ""                               # description of a non-stage task ("Checking...", "Setting up...")
         self.log: list[str] = []
+        self.preview_json: Optional[dict] = None     # stage needs and options of the bundled template, for the demo view when no run is open
         self._tasks: list[QgsTask] = []
         self.log_line.connect(self._append_log)
 
@@ -165,6 +166,19 @@ class WizardController(QObject):
         self.config_path = Path(config)
         self.log.clear()
         self.refresh_check()
+
+    def load_preview(self) -> None:
+        """Ask the engine what every stage would ask for, using the bundled template config, so the demo view can show real menus."""
+        template = Path(__file__).parents[1] / "resources" / "example_khg.yaml"
+        if self.preview_json is not None or not self.engine_ready or not template.exists():
+            return
+        py = runner.get_python()
+
+        def done(res, err):
+            if not err and res:
+                self.preview_json = res
+            self.changed.emit()
+        self._submit("RE-PEAT: preview", lambda task: runner.run_check(py, str(template)), done)
 
     def refresh_check(self) -> None:
         """Ask the engine which parameters each stage still needs (async), then rebuild the model."""
