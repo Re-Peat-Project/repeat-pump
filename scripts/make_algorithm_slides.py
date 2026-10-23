@@ -101,7 +101,7 @@ def slide1():
         None,
         (1, "Muat dan validasi", False, ["Tolak DSM; CRS semua layer harus sama (m)", "Parse \"2x\" → 2 dan \"3,0 - 4,0 meter\" → 3–4", "Pilih sub-KHG (peringkat), clip + margin"],
          ["inputs_clipped_*, DTM dan", "kelembapan terpotong"]),
-        (2, "Topologi kanal", True, ["Terapkan sunting kanal (tambah / hapus)", "Snap ujung → noding di persimpangan", "Hapus duplikat; pangkas overshoot (opsional)", "Cek konektivitas tiap kanal ke sungai"],
+        (2, "Topologi kanal", True, ["Filter kelas kanal (opsional: primer, sekunder)", "Terapkan sunting kanal (tambah / hapus)", "Snap ujung → noding di persimpangan", "Hapus duplikat; pangkas overshoot (opsional)", "Cek konektivitas tiap kanal ke sungai"],
          ["canals_clean, qa_topology_*"]),
         (3, "Kondisioning hidrologi", False, ["Burning kanal pada SALINAN DTM", "Breach least-cost + fill (WhiteboxTools)", "Akumulasi aliran D-infinity / MFD / D8"],
          ["dtm_conditioned.tif, flow_acc.tif", "(hanya untuk aliran, bukan tinggi)"]),
@@ -109,13 +109,13 @@ def slide1():
          ["canal_segments"]),
         (5, "Profil lahan dan arah aliran", False, ["Sampel DTM ASLI di offset ±6 dan ±10 m", "Median antar offset → median filter 50 m", "Kemiringan = gradien profil memanjang", "Hilir dari tren profil; datar → jarak ke sungai"],
          ["canal_profiles, z_hulu / z_hilir,", "i_lahan, arah per kanal"]),
-        (6, "Prioritas kebutuhan", True, ["Atribut = kelas dengan panjang total terbesar", "Kekeringan: rata-rata cincin 15–100 m", "Hulu: log(maks flow acc) dalam buffer", "Min–max → bobot (langsung / AHP) → skor", "Konsesi = filter SETELAH skor"],
+        (6, "Prioritas kebutuhan", True, ["Kekeringan: rata-rata cincin 15–100 m", "Hulu: log(maks flow acc) dalam buffer", "Min–max → bobot (langsung / AHP) → skor", "Mode KLH: skor 1–3 per kriteria, total ≥ ambang", "Konsesi = filter SETELAH skor"],
          ["need_score, need_rank, selected,", "qa_sensitivity"]),
-        (7, "Sekat: celah dan penempatan", False, ["n_perlu = ceil((z_hulu − z_hilir) / dA)", "IPG = n_eksisting / n_perlu", "Sekat baru tiap lahan naik dA (hilir → hulu)", "ts = dk + js·tanα − dA"],
+        (7, "Sekat: celah dan penempatan", False, ["n_perlu = ceil((z_hulu − z_hilir) / dA)", "IPG = n_eksisting / n_perlu", "Sekat baru tiap lahan naik dA (hilir → hulu)", "Duplikat dibuang; sunting tambah / hapus", "ts = dk + js·tanα − dA, dihitung ulang"],
          ["sekat_proposed,", "sekat_existing_assessed"]),
         (8, "Graf jaringan", False, ["Node: ujung segmen, sekat, titik sungai", "Edge dua arah (z_dari, z_ke, Δz)", "Ruas dipecah di titik sekat dan sungai"],
          ["network_nodes, network_edges"]),
-        (9, "Sumber, target, rute", True, ["Sumber: titik sungai–kanal", "Target: node tertinggi tiap klaster terpilih", "Biaya = panjang + λ·max(0, Δz)", "Steiner (Takahashi–Matsuyama), super-source", "Sekat eksisting tanpa pintu = penghalang"],
+        (9, "Sumber, target, rute", True, ["Sumber: sungai–kanal (buffer 30 m) + manual", "Target: node tertinggi tiap klaster terpilih", "Biaya = panjang + λ·max(0, Δz)", "Steiner (Takahashi–Matsuyama), super-source", "Sekat eksisting tanpa pintu = penghalang"],
          ["pump_routes, pump_targets,", "qa_unreachable_targets"]),
         (10, "Kebutuhan air dan pompa", False, ["V = defisit × luas gambut terlayani", "Q = V / (hari × 86400)", "H = H_statik + Σ h_f (Manning / Hazen-Williams)", "Stasiun tiap H > H maks; P = ρ·g·Q·H / η"],
          ["pump_stations, gates_required"]),
@@ -125,14 +125,15 @@ def slide1():
     # slot 0: input data (green-blue chips)
     x, y = xs[0], ys[0]
     g.append(card(x, y, bw, bh, "Data masukan", HH))
-    ins = [("DTM bare-earth", "Sub-KHG + prioritas"), ("Kanal", "Sunting kanal (ops.)"), ("Sekat eksisting", "Sungai"), ("Terbakar + gambut", "Kelembapan, konsesi")]
+    ins = [("DTM bare-earth", "Sub-KHG + prioritas"), ("Kanal", "Sunting kanal (ops.)"), ("Sekat eksisting", "Sungai"), ("Terbakar* + gambut", "Kelembapan*, konsesi")]
     for r, (a, b) in enumerate(ins):
         for c, lab in enumerate((a, b)):
-            cx_, cy_ = x + 14 + c * 198, y + HH + 14 + r * 38
-            g.append(chip(cx_, cy_, 190, 32, "g"))
-            g.append(t(cx_ + 95, cy_ + 21, lab, 15.5, 700, "#fff", "middle"))
-    g.append(rect(x + 14, y + bh - 42, bw - 28, 30, "#ffffff", ORANGE, 2, 15, "7 5"))
-    g.append(t(x + bw / 2, y + bh - 21, "+ config.yaml: keputusan Anda", 16, 700, ORANGE, "middle"))
+            cx_, cy_ = x + 14 + c * 198, y + HH + 12 + r * 36
+            g.append(chip(cx_, cy_, 190, 30, "g"))
+            g.append(t(cx_ + 95, cy_ + 20, lab, 15.5, 700, "#fff", "middle"))
+    g.append(t(x + 16, y + HH + 12 + 4 * 36 + 10, "* bisa diambil dari cloud (MODIS, Sentinel-2 / GEE)", 13.5, 500, MUTED))
+    g.append(rect(x + 14, y + bh - 36, bw - 28, 28, "#ffffff", ORANGE, 2, 14, "7 5"))
+    g.append(t(x + bw / 2, y + bh - 17, "+ config.yaml: nilai kebijakan dari tim", 16, 700, ORANGE, "middle"))
     for idx, st in enumerate(stages):
         if st is None:
             continue
@@ -200,8 +201,8 @@ def slide2():
         g.append(t(cx_ + 32, yy + 37, b, 13.5, 500, "#fff", opacity=0.9))
     g.append(poly([(cx_ + 290, y0c + 22), (cx_ + 320, y0c + 22), (cx_ + 320, y0c + 3 * 52 + 22), (cx_ + 290, y0c + 3 * 52 + 22)], CHEV, 3))
     g.append(chevron(cx_ + 337, y0c + 1.5 * 52 + 22, 18, 40))
-    steps = [("Normalisasi min–max", "0–1, arah \"lebih tinggi = lebih buruk\""), ("Bobot", "langsung, atau AHP (CR ≤ 0,10)"), ("Skor = Σ bobot × nilai", "segmen status_mcda = 1 saja"),
-             ("Peringkat → pilih top 20%", "hanya segmen yang layak")]
+    steps = [("Normalisasi min–max", "0–1, arah \"lebih tinggi = lebih buruk\""), ("Bobot", "langsung / AHP (CR ≤ 0,10) / KLH"), ("Skor = Σ bobot × nilai", "segmen status_mcda = 1 saja"),
+             ("Peringkat → pilih top 20%", "mode KLH: skor ≥ ambang (dari 12)")]
     sx = cx_ + 362
     for i, (a, b) in enumerate(steps):
         yy = y0c - 4 + i * 60
@@ -215,7 +216,7 @@ def slide2():
     g.append(t(cx_ + 32, cy_ + 360, "tidak pernah masuk ke dalam skor kebutuhan.", 15.5, 500))
     g.append(rect(cx_ + 18, cy_ + 382, 604, 56, "#e6f0fa", BLUE, 2, 14))
     g.append(t(cx_ + 32, cy_ + 406, "Sensitivitas: bobot diubah ±10% dan ±20% satu per satu;", 15.5, 500))
-    g.append(t(cx_ + 32, cy_ + 426, "laporkan korelasi Spearman dan bagian top yang bertahan.", 15.5, 500))
+    g.append(t(cx_ + 32, cy_ + 426, "dilaporkan korelasi Spearman dan porsi top yang bertahan.", 15.5, 500))
     g.append(t(cx_ + 22, cy_ + 464, "Hasil: need_score, need_rank, selected, qa_sensitivity", 15.5, 800, NAVY))
     g.append(t(cx_ + 22, cy_ + 484, "Segmen di luar sub-KHG terpilih tidak diberi skor.", 15, 500, MUTED))
 
@@ -269,8 +270,8 @@ def slide2():
         g.append(t(x + 14, fy + 28, a, 16, 800, "#fff"))
         g.append(t(x + 14, fy + 58, b, 15, 700, "#fff", mono=True))
         g.append(t(x + 14, fy + 86, c, 13.5, 500, "#fff", opacity=0.92))
-    rules = ["Sekat usulan tidak ditaruh dalam min_spacing_m dari sekat eksisting.", "Tipe: leaky / reinforced bila lereng ≥ 5%, selain itu standar.",
-             "Sekat eksisting dicocokkan ke kanal dalam toleransi; yang gagal dilaporkan.", "Profil memakai DTM asli; DTM hasil burning tidak pernah dipakai di sini."]
+    rules = ["Sekat usulan tidak dalam min_spacing_m dari sekat eksisting; duplikat dibuang.", "Sunting manual (tambah / hapus), lalu jarak dan tinggi dihitung ulang.",
+             "Tipe: leaky / reinforced bila lereng ≥ 5%, selain itu standar.", "Profil memakai DTM asli; DTM hasil burning tidak pernah dipakai di sini."]
     for k, r in enumerate(rules):
         g.append(circle(bx + 30, fy + 134 + k * 26 - 5, 4, ORANGE))
         g.append(t(bx + 44, fy + 134 + k * 26, r, 16.5, 500))
@@ -322,8 +323,8 @@ def slide3():
             g.append(t(x + 30, y + 24, zl, 14, 500, MUTED))
         else:
             g.append(t(x, y + (40 if k in ("F", "G") else -28), zl, 14, 500, MUTED, "middle"))
-    g.append(circle(ax + 40, ay + 112, 11, BLUE) + t(ax + 60, ay + 118, "Sumber: titik sungai–kanal (perennial / ada muka air kemarau)", 16, 500))
-    g.append(circle(ax + 40, ay + 144, 11, ORANGE) + t(ax + 60, ay + 150, "Target: node TERTINGGI tiap klaster segmen terpilih (bukan centroid)", 16, 500))
+    g.append(circle(ax + 40, ay + 112, 11, BLUE) + t(ax + 60, ay + 118, "Sumber: titik sungai–kanal (buffer 30 m), atau ditambah manual", 16, 500))
+    g.append(circle(ax + 40, ay + 144, 11, ORANGE) + t(ax + 60, ay + 150, "Target: node TERTINGGI tiap klaster terpilih (bisa diganti manual)", 16, 500))
     g.append(line(ax + 28, ay + 176, ax + 52, ay + 176, GREEN, 7) + t(ax + 60, ay + 182, "Pohon Steiner: ruas bersama dipakai ulang oleh beberapa target", 16, 500))
     g.append(line(ax + 28, ay + 208, ax + 52, ay + 208, GREY, 3) + t(ax + 60, ay + 214, "Jalur alternatif lebih mahal / terblokir", 16, 500))
     # algorithm box
@@ -352,7 +353,7 @@ def slide3():
         if i < 4:
             g.append(chevron(x + cw + 7, by + 97, 10, 26))
     g.append(t(bx + 20, by + 156, "Per sub-KHG: luas = gambut ∩ buffer segmen terlayani ∩ sub-KHG; Q dijumlah antar sub-KHG.", 14.5, 500, MUTED))
-    g.append(t(bx + 20, by + 184, "Stasiun dipasang di sumber, lalu setiap kali head kumulatif akan melebihi H maks (disambut ke sekat terdekat).", 14.5, 500, MUTED))
+    g.append(t(bx + 20, by + 184, "Stasiun dipasang di sumber, lalu setiap kali head kumulatif akan melebihi H maks (digeser ke sekat terdekat).", 14.5, 500, MUTED))
 
     cx0, cy0 = bx + 90, by + 480
     g.append(line(cx0, cy0 + 16, bx + bw_ - 30, cy0 + 16, MUTED, 2, arrow=True))
@@ -371,7 +372,7 @@ def slide3():
         g.append(line(Xr(f0), Yr(z0), Xr(f1), Yr(z0), ORANGE, 1.5, "5 4"))
         g.append(line(Xr(f1) - 6, Yr(z0), Xr(f1) - 6, Yr(z1), ORANGE, 2.5, arrow=True))
         g.append(t(Xr(f1) - 16, (Yr(z0) + Yr(z1)) / 2 + 5, f"H{k + 1}", 15, 800, ORANGE, "end"))
-    for f, z, nm in ((0.0, 2.0, "PS1 (di sumber)"), (0.42, 2.58, "PS2 (disambut ke sekat)")):
+    for f, z, nm in ((0.0, 2.0, "PS1 (di sumber)"), (0.42, 2.58, "PS2 (di sekat terdekat)")):
         g.append(rect(Xr(f) - 12, Yr(z) - 12, 24, 24, NAVY, "#fff", 2, 5))
         g.append(t(Xr(f), Yr(z) + 5, "P", 14, 800, "#fff", "middle"))
         g.append(t(Xr(f) + (-4 if f == 0 else 22), Yr(z) + (40 if f == 0 else 34), nm, 14, 800, NAVY, "start"))
