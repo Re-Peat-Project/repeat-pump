@@ -84,7 +84,21 @@ def read_vector(cfg: Config, path: str, name: str, ctx: Optional[RunContext] = N
     gdf = pyogrio.read_dataframe(p, layer=layer)
     gdf.columns = _snake(list(gdf.columns), gdf.geometry.name)
     gdf = apply_columns(gdf, columns, name, ctx, gdf.geometry.name)
+    gdf = _rename_source_fid(gdf, name, ctx)
     return check_vector_crs(gdf, name, cfg, ctx)
+
+
+def _rename_source_fid(gdf: gpd.GeoDataFrame, name: str, ctx: Optional[RunContext] = None) -> gpd.GeoDataFrame:
+    """An attribute called ``fid`` (common in shapefiles saved from a GeoPackage) clashes with the GeoPackage row id when the layer is
+    written to the run GeoPackage: a Real, empty or repeated value makes the write fail. Keep it under another name."""
+    if "fid" not in gdf.columns:
+        return gdf
+    new = "src_fid"
+    while new in gdf.columns:
+        new += "_x"
+    if ctx is not None:
+        ctx.warn(f"{name}: attribute column 'fid' renamed to '{new}' (GeoPackage reserves 'fid' for its row id)")
+    return gdf.rename(columns={"fid": new})
 
 
 def read_priority_table(cfg: Config, ctx: Optional[RunContext] = None) -> pd.DataFrame:
