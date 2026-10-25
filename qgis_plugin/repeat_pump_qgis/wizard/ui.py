@@ -14,7 +14,9 @@ from qgis.PyQt.QtGui import QDesktopServices, QPainter, QPixmap
 from qgis.PyQt.QtWidgets import (QCheckBox, QComboBox, QDockWidget, QFileDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
                                  QMessageBox, QPlainTextEdit, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget)
 
-from ..runconfig import attach_preset, build_run_config
+import yaml
+
+from ..runconfig import attach_preset, build_run_config, setup_changes
 from ..runner import split_source
 from . import i18n, styling, theme
 from .i18n import tr
@@ -177,6 +179,7 @@ class WizardPanel(QWidget):
         self._editors: dict[str, QWidget] = {}
         self._last_sig = None
         self._setup_open: Optional[bool] = None
+        self._setup_touched = False          # the setup form was opened after the run was created or opened
         self._options_open: set[int] = set()
         self._run_started: Optional[float] = None
         self._progress: tuple = (0, 0.0, "")
@@ -380,7 +383,8 @@ class WizardPanel(QWidget):
         self.setup_msg = label("", "hint")
         form.addWidget(self.setup_msg)
         row = QHBoxLayout()
-        row.addWidget(button("Create run", "primary", self._create_run))
+        self.create_btn = button("Create run", "primary", self._create_run)
+        row.addWidget(self.create_btn)
         row.addWidget(button("Open an existing run...", "secondary", self._open_run))
         self.start_over = button("Start over...", "ghost", self._start_over)
         row.addWidget(self.start_over)
@@ -412,6 +416,8 @@ class WizardPanel(QWidget):
 
     def _toggle_setup(self) -> None:
         self._setup_open = not self.setup_body.isVisible()
+        if self._setup_open and self.controller.config_path is not None:
+            self._setup_touched = True
         self._apply_setup_visibility()
 
     def _apply_setup_visibility(self) -> None:
@@ -419,61 +425,104 @@ class WizardPanel(QWidget):
         show = self._setup_open if self._setup_open is not None else not has_run
         self.setup_body.setVisible(show)
         self.setup_toggle.setText(tr("Hide setup") if show else tr("Edit setup"))
+        src = "Save setup" if has_run else "Create run"          # with a run open the button saves the edited setup into it
+        self.create_btn.setProperty("src", src)
+        self.create_btn.setText(tr(src))
         self.setup_summary.setVisible(has_run and not show)
         self.start_over.setVisible(has_run)
         self.setup_summary.setText(tr("Run folder: {path}").format(path=self.controller.config_path.parent) if has_run else "")
 
     def _create_run(self) -> None:
         try:
-            out, tpl = self.out_file.filePath().strip(), self.template.filePath().strip()
-            if not out:
-                raise ValueError(tr("Choose where the output GeoPackage should go."))
-            if not Path(tpl).is_file():
-                raise ValueError(tr("Choose a starting config (YAML)."))
-            vectors, dtm, moisture, drop = {}, "", "", []
-            priority = self.priority.filePath().strip()
-            if not priority:
-                drop.append("subkhg_priority")       # optional: equal priority and specific-yield demand apply instead
-            for key, (cb, optional, text) in self.combos.items():
-                layer = cb.currentLayer()
-                if layer is None:
-                    if optional:
-                        drop.append(key)             # left empty on purpose: do not keep the template's placeholder path
-                        continue
-                    raise ValueError(tr("Choose a layer for: {text}.").format(text=tr(text)))
-                path, name = split_source(layer.source())
-                if not os.path.exists(path):
-                    raise ValueError(tr("{text}: the layer must be saved to a file (temporary layers cannot be passed to the engine).").format(text=tr(text)))
-                if key == "dtm":
-                    dtm = path
-                elif key == "moisture":
-                    moisture = path
-                else:
-                    vectors[key] = (path, name)
-            self.extras.refresh()
-            problems = self.extras.errors()
-            if problems:
-                raise ValueError("\n".join(problems))
-            extra_moisture = [split_source(l.source())[0] for l in self.extras.moisture_layers()]
-            params = self.extras.params()
-            if "rivers" not in vectors:
-                params.pop("inputs.rivers.vertical_datum", None)      # no rivers layer: there is nothing to put a datum on
-            cfg_path = Path(out).parent / "run_config.yaml"
-            base = cfg_path if cfg_path.exists() else Path(tpl)
-            data = build_run_config(base, output_gpkg=str(Path(out)), dtm=dtm, moisture=[moisture] + extra_moisture,
-                                    priority=priority or None, vectors=vectors, drop=drop, params=params, columns=self.extras.columns())
-            if self.use_preset.isChecked():
-                try:
-                    attach_preset(data, cfg_path.parent, PRESET_RESOURCE)
-                except OSError as e:
-                    raise ValueError(tr("Could not turn on the proposed defaults: {err}").format(err=e))
+            data, cfg_path = self._build_setup()
         except Exception as e:
             self.setup_msg.setText(f"<span style='color:{theme.RED_TEXT}'>{e}</span>".replace("\n", "<br>"))
             return
+        self._save_setup(data, cfg_path)
+
+    def _build_setup(self) -> tuple[dict, Path]:
+        """The run config the setup form describes, and where it is written. Raises ValueError with a message for the person."""
+        out, tpl = self.out_file.filePath().strip(), self.template.filePath().strip()
+        if not out:
+            raise ValueError(tr("Choose where the output GeoPackage should go."))
+        if not Path(tpl).is_file():
+            raise ValueError(tr("Choose a starting config (YAML)."))
+        vectors, dtm, moisture, drop = {}, "", "", []
+        priority = self.priority.filePath().strip()
+        if not priority:
+            drop.append("subkhg_priority")       # optional: equal priority and specific-yield demand apply instead
+        for key, (cb, optional, text) in self.combos.items():
+            layer = cb.currentLayer()
+            if layer is None:
+                if optional:
+                    drop.append(key)             # left empty on purpose: do not keep the template's placeholder path
+                    continue
+                raise ValueError(tr("Choose a layer for: {text}.").format(text=tr(text)))
+            path, name = split_source(layer.source())
+            if not os.path.exists(path):
+                raise ValueError(tr("{text}: the layer must be saved to a file (temporary layers cannot be passed to the engine).").format(text=tr(text)))
+            if key == "dtm":
+                dtm = path
+            elif key == "moisture":
+                moisture = path
+            else:
+                vectors[key] = (path, name)
+        self.extras.refresh()
+        problems = self.extras.errors()
+        if problems:
+            raise ValueError("\n".join(problems))
+        extra_moisture = [split_source(l.source())[0] for l in self.extras.moisture_layers()]
+        params = self.extras.params()
+        if "rivers" not in vectors:
+            params.pop("inputs.rivers.vertical_datum", None)      # no rivers layer: there is nothing to put a datum on
+        cfg_path = Path(out).parent / "run_config.yaml"
+        base = cfg_path if cfg_path.exists() else Path(tpl)
+        data = build_run_config(base, output_gpkg=str(Path(out)), dtm=dtm, moisture=[moisture] + extra_moisture,
+                                priority=priority or None, vectors=vectors, drop=drop, params=params, columns=self.extras.columns())
+        if self.use_preset.isChecked():
+            try:
+                attach_preset(data, cfg_path.parent, PRESET_RESOURCE)
+            except OSError as e:
+                raise ValueError(tr("Could not turn on the proposed defaults: {err}").format(err=e))
+        return data, cfg_path
+
+    def _save_setup(self, data: dict, cfg_path: Path) -> None:
         self.setup_msg.setText("")
         self._setup_open = False
+        self._setup_touched = False
         self.selected = 1
         self.controller.write_config(data, cfg_path)
+
+    def _setup_saved_or_skipped(self) -> bool:
+        """Before a stage runs: if the setup form was edited but not saved, say what changed and let the person save it first.
+
+        The engine reads only the saved run config, so without this an edited column or layer silently never reaches it.
+        True = go on with the run."""
+        if self.controller.config_path is None or not self._setup_touched:
+            return True
+        try:
+            data, cfg_path = self._build_setup()
+            saved = yaml.safe_load(self.controller.config_path.read_text(encoding="utf8"))
+        except Exception:
+            return True                          # the form is incomplete (e.g. a run opened in a new session): nothing comparable
+        changes = setup_changes(saved, data)
+        if cfg_path != self.controller.config_path:
+            changes = ["run.output_gpkg"] + [c for c in changes if c != "run.output_gpkg"]
+        if not changes:
+            self._setup_touched = False
+            return True
+        box = QMessageBox(self)
+        box.setWindowTitle(tr("Unsaved setup"))
+        box.setText(tr("The setup has changes that are not saved, so the engine would not use them:") + "\n\n" +
+                    "\n".join(f"- {c}" for c in changes[:12]) + (f"\n- ... (+{len(changes) - 12})" if len(changes) > 12 else ""))
+        save = box.addButton(tr("Save setup"), QMessageBox.ButtonRole.AcceptRole)
+        run = box.addButton(tr("Run without saving"), QMessageBox.ButtonRole.DestructiveRole)
+        box.addButton(tr("Cancel"), QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        if box.clickedButton() is save:
+            self._save_setup(data, cfg_path)     # the changed inputs make the stages out of date; the person re-runs them knowingly
+            return False
+        return box.clickedButton() is run
 
     def _start_over(self) -> None:
         if self.controller.config_path is None or self.controller.running is not None:
@@ -502,6 +551,7 @@ class WizardPanel(QWidget):
         path, _ = QFileDialog.getOpenFileName(self, tr("Open a run config"), "", "YAML (*.yaml *.yml)")
         if path:
             self._setup_open = False
+            self._setup_touched = False
             self.selected = None
             self.controller.open_run(path)
 
@@ -603,6 +653,8 @@ class WizardPanel(QWidget):
         self.render()
 
     def _act(self, action: str, sid: int) -> None:
+        if not self._setup_saved_or_skipped():
+            return
         model = self.controller.model
         if action == "rerun" and model is not None:
             later = [v for v in model.stages if v.id > sid and v.status in ("done", "needs_review", "stale")]

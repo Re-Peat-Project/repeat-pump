@@ -1,0 +1,53 @@
+"""A2: a setup edited in the wizard but not saved must be noticed before a stage runs (the engine reads only the saved run config)."""
+import sys
+from pathlib import Path
+
+import yaml
+
+from tests.fixtures.synthetic import build_world, write_cfg
+
+PLUGIN = Path(__file__).resolve().parents[1] / "qgis_plugin"
+sys.path.insert(0, str(PLUGIN))
+from repeat_pump_qgis import runconfig as rc  # noqa: E402
+
+
+def _saved_run(tmp):
+    """Create run: the wizard builds from the template and writes run_config.yaml next to the output."""
+    _, cfg = build_world(tmp)
+    tpl = write_cfg(tmp / "template.yaml", cfg)
+    run = tmp / "run"
+    data = rc.build_run_config(tpl, output_gpkg=str(run / "out.gpkg"), vectors={"canals": (str(tmp / "canals.gpkg"), None)},
+                               columns={"canals": {"canal_class": "kelas"}})
+    return rc.write_run_config(data, run / "run_config.yaml")
+
+
+def _form(saved, **kw):
+    """What the setup form writes when saved again: the wizard rebuilds on top of the saved run config."""
+    args = dict(output_gpkg=str(saved.parent / "out.gpkg"), vectors={"canals": (yaml.safe_load(saved.read_text())["inputs"]["canals"]["path"], None)},
+                columns={"canals": {"canal_class": "kelas"}})
+    args.update(kw)
+    return rc.build_run_config(saved, **args)
+
+
+def test_an_unchanged_form_has_no_changes(tmp_path):
+    saved = _saved_run(tmp_path)
+    assert rc.setup_changes(yaml.safe_load(saved.read_text()), _form(saved)) == []
+
+
+def test_a_changed_column_mapping_is_reported(tmp_path):
+    """The team's case: a wrong column name is fixed in Edit setup, then stage 1 is re-run without saving."""
+    saved = _saved_run(tmp_path)
+    changes = rc.setup_changes(yaml.safe_load(saved.read_text()), _form(saved, columns={"canals": {"canal_class": "canal_clas"}}))
+    assert changes == ["inputs.canals.columns.canal_class"]
+
+
+def test_a_different_layer_is_reported(tmp_path):
+    saved = _saved_run(tmp_path)
+    changes = rc.setup_changes(yaml.safe_load(saved.read_text()), _form(saved, vectors={"canals": (str(tmp_path / "other.gpkg"), "lines")}))
+    assert changes == ["inputs.canals.layer", "inputs.canals.path"]
+
+
+def test_a_removed_mapping_is_reported(tmp_path):
+    saved = _saved_run(tmp_path)
+    changes = rc.setup_changes(yaml.safe_load(saved.read_text()), _form(saved, columns={}))
+    assert changes == ["inputs.canals.columns.canal_class"]

@@ -214,6 +214,10 @@ ID: dict[str, str] = {
     "River polygons or lines, the water sources (optional)": "Poligon atau garis sungai, sumber air (opsional)",
     "Burn-scar polygons": "Poligon bekas kebakaran", "Peat-depth polygons": "Poligon kedalaman gambut",
     "Create run": "Buat proses", "Open an existing run...": "Buka proses yang ada...", "Open a run config": "Buka konfigurasi proses",
+    "Save setup": "Simpan pengaturan", "Unsaved setup": "Pengaturan belum disimpan", "Run without saving": "Jalankan tanpa menyimpan",
+    "Cancel": "Batal",
+    "The setup has changes that are not saved, so the engine would not use them:":
+        "Pengaturan memiliki perubahan yang belum disimpan, sehingga mesin tidak akan memakainya:",
     "Choose where the output GeoPackage should go.": "Pilih lokasi GeoPackage keluaran.",
     "Choose a starting config (YAML).": "Pilih konfigurasi awal (YAML).",
     "Direct weights": "Bobot langsung",
