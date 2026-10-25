@@ -69,7 +69,14 @@ def run_pipeline(cfg: Config, stop_after: Optional[int] = None, resume_from: Opt
             continue
         key = str(sid)
         st = states.get(key, {}).get("status")
+        stored = states.get(key, {}).get("fingerprint")
+        if st == "done" and resume_from is None and stored is not None and stored != fingerprint(cfg, sid):
+            # a setting or an input file changed after this stage ran: its results (and every later one) are out of date
+            ctx.log.warning("Stage %s (%s) is out of date (settings or input files changed); running it again", sid, name)
+            st = None
         if st == "done" and resume_from is None:
+            if stop_after == sid:                 # already done: still the last stage asked for
+                break
             continue
         if st == "awaiting_review" and sid in accepted and resume_from is None:
             states[key]["status"] = "done"; ctx.save_state()
