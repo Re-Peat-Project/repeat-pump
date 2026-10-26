@@ -121,6 +121,22 @@ def detach_preset(data: dict) -> None:
     data.pop("preset", None)
 
 
+def setup_changes(saved: dict, built: dict) -> list[str]:
+    """Dotted keys whose value differs between the saved run config and the one the setup form would write now.
+
+    The wizard runs the engine on the saved file only, so a setup edited but not saved never reaches the engine; the wizard asks
+    before running when this list is not empty."""
+    def flat(d: Any, prefix: str = "") -> dict[str, Any]:
+        if not isinstance(d, dict):
+            return {prefix[:-1]: d}
+        out: dict[str, Any] = {}
+        for k, v in d.items():
+            out.update(flat(v, f"{prefix}{k}."))
+        return out
+    a, b = flat(saved or {}), flat(built or {})
+    return sorted(k for k in set(a) | set(b) if a.get(k) != b.get(k))
+
+
 def write_run_config(data: dict, path: str | Path) -> Path:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)

@@ -204,6 +204,13 @@ ID: dict[str, str] = {
     # ---------------------------------------------------------------- wizard chrome
     "Learn mode": "Mode belajar", "Show log": "Tampilkan log", "Hide log": "Sembunyikan log",
     "Run setup": "Pengaturan proses", "Edit setup": "Ubah pengaturan", "Hide setup": "Sembunyikan pengaturan",
+    "Save setup": "Simpan pengaturan", "Unsaved setup": "Pengaturan belum disimpan", "Run without saving": "Jalankan tanpa menyimpan",
+    "Cancel": "Batal",
+    "The setup form was opened but cannot be checked, so any change in it would not be used:":
+        "Formulir pengaturan dibuka tetapi tidak dapat diperiksa, sehingga perubahan di dalamnya tidak akan dipakai:",
+    "Run with the saved setup?": "Jalankan dengan pengaturan yang tersimpan?",
+    "The setup has changes that are not saved, so the engine would not use them:":
+        "Pengaturan memiliki perubahan yang belum disimpan, sehingga mesin tidak akan memakainya:",
     "Output GeoPackage (the run folder is its folder)": "GeoPackage keluaran (folder proses adalah foldernya)",
     "Starting config (policy parameters; yours are saved in the run folder)":
         "Konfigurasi awal (parameter kebijakan; milik Anda disimpan di folder proses)",
