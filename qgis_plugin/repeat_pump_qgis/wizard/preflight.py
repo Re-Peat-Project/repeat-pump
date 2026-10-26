@@ -98,6 +98,11 @@ def _overlap(a: tuple, b: tuple) -> float:
     return _area((max(a[0], b[0]), max(a[1], b[1]), min(a[2], b[2]), min(a[3], b[3])))
 
 
+def _touches(a: tuple, b: tuple) -> bool:
+    """Extents meet, edges included: a single straight canal has a flat extent (no area) and still lies inside."""
+    return a[0] <= b[2] and b[0] <= a[2] and a[1] <= b[3] and b[1] <= a[3]
+
+
 def assess(layers: dict[str, Optional[LayerInfo]], reproject: bool = False, columns: Optional[dict[str, dict[str, str]]] = None) -> Assessment:
     """Findings for the chosen layers (``None`` = nothing chosen for that role). A layer in another CRS is an error unless
     ``reproject`` (the engine's auto_reproject) is on, in which case it is only noted. ``columns`` is the user's column mapping,
@@ -155,10 +160,13 @@ def assess(layers: dict[str, Optional[LayerInfo]], reproject: bool = False, colu
             total = _area(sk.extent)
             if total <= 0:
                 continue
-            share = _overlap(sk.extent, info.extent) / total
-            if share == 0:
+            if not _touches(sk.extent, info.extent):
                 add("error", role, tr("{name} does not overlap the sub-KHGs. Check its coordinate system.").format(name=info.name))
-            elif share < 0.9 and role in REQUIRED:
+                continue
+            if _area(info.extent) <= 0:
+                continue                         # flat extent (one straight line): an area share says nothing
+            share = _overlap(sk.extent, info.extent) / total
+            if share < 0.9 and role in REQUIRED:
                 add("warning", role, tr("{name} covers only about {pct} % of the sub-KHG area.").format(name=info.name, pct=int(share * 100)))
     return out
 
