@@ -204,6 +204,13 @@ ID: dict[str, str] = {
     # ---------------------------------------------------------------- wizard chrome
     "Learn mode": "Mode belajar", "Show log": "Tampilkan log", "Hide log": "Sembunyikan log",
     "Run setup": "Pengaturan proses", "Edit setup": "Ubah pengaturan", "Hide setup": "Sembunyikan pengaturan",
+    "Save setup": "Simpan pengaturan", "Unsaved setup": "Pengaturan belum disimpan", "Run without saving": "Jalankan tanpa menyimpan",
+    "Cancel": "Batal",
+    "The setup form was opened but cannot be checked, so any change in it would not be used:":
+        "Formulir pengaturan dibuka tetapi tidak dapat diperiksa, sehingga perubahan di dalamnya tidak akan dipakai:",
+    "Run with the saved setup?": "Jalankan dengan pengaturan yang tersimpan?",
+    "The setup has changes that are not saved, so the engine would not use them:":
+        "Pengaturan memiliki perubahan yang belum disimpan, sehingga mesin tidak akan memakainya:",
     "Output GeoPackage (the run folder is its folder)": "GeoPackage keluaran (folder proses adalah foldernya)",
     "Starting config (policy parameters; yours are saved in the run folder)":
         "Konfigurasi awal (parameter kebijakan; milik Anda disimpan di folder proses)",
@@ -214,13 +221,6 @@ ID: dict[str, str] = {
     "River polygons or lines, the water sources (optional)": "Poligon atau garis sungai, sumber air (opsional)",
     "Burn-scar polygons": "Poligon bekas kebakaran", "Peat-depth polygons": "Poligon kedalaman gambut",
     "Create run": "Buat proses", "Open an existing run...": "Buka proses yang ada...", "Open a run config": "Buka konfigurasi proses",
-    "Save setup": "Simpan pengaturan", "Unsaved setup": "Pengaturan belum disimpan", "Run without saving": "Jalankan tanpa menyimpan",
-    "Cancel": "Batal",
-    "The setup form was opened but cannot be checked, so any change in it would not be used:":
-        "Formulir pengaturan dibuka tetapi tidak dapat diperiksa, sehingga perubahan di dalamnya tidak akan dipakai:",
-    "Run with the saved setup?": "Jalankan dengan pengaturan yang tersimpan?",
-    "The setup has changes that are not saved, so the engine would not use them:":
-        "Pengaturan memiliki perubahan yang belum disimpan, sehingga mesin tidak akan memakainya:",
     "Choose where the output GeoPackage should go.": "Pilih lokasi GeoPackage keluaran.",
     "Choose a starting config (YAML).": "Pilih konfigurasi awal (YAML).",
     "Direct weights": "Bobot langsung",
