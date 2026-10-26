@@ -100,10 +100,11 @@ def layer_filter(kind: str):
         from qgis.core import Qgis
         F = Qgis.LayerFilter
         return {"raster": F.RasterLayer, "polygon": F.PolygonLayer, "line": F.LineLayer, "point": F.PointLayer,
-                "vector": F.VectorLayer}[kind]
+                "vector": F.VectorLayer, "polygon_raster": F.PolygonLayer | F.RasterLayer}[kind]
     except Exception:
         from qgis.core import QgsMapLayerProxyModel as M
-        return {"raster": M.RasterLayer, "polygon": M.PolygonLayer, "line": M.LineLayer, "point": M.PointLayer, "vector": M.VectorLayer}[kind]
+        return {"raster": M.RasterLayer, "polygon": M.PolygonLayer, "line": M.LineLayer, "point": M.PointLayer, "vector": M.VectorLayer,
+                "polygon_raster": M.PolygonLayer | M.RasterLayer}[kind]
 
 
 def file_widget(mode: str, flt: str = "") -> QgsFileWidget:

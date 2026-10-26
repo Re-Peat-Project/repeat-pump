@@ -105,6 +105,20 @@ class PathCfg(_M):
     columns: Optional[dict[str, str]] = None   # {expected column: column in your layer} when your data names it differently (CANONICAL_COLUMNS)
 
 
+RASTER_SUFFIXES = (".tif", ".tiff", ".img", ".vrt", ".asc")
+
+
+class PeatCfg(PathCfg):
+    """Peat depth as thickness-class polygons (PEAT_THICK text) or as a depth raster (e.g. the BRGM model, or the class-midpoint raster
+    the neraca module reads). A raster needs its unit stated: the BRGM rasters are in centimetres, the neraca raster in metres."""
+    units: Optional[Literal["m", "cm"]] = None       # TODO(human) for a raster: m | cm
+    nodata: Optional[list[float]] = None             # extra no-data values besides the file's own, e.g. [-8888]
+
+    @property
+    def is_raster(self) -> bool:
+        return Path(self.path).suffix.lower() in RASTER_SUFFIXES
+
+
 class InputsCfg(_M):
     dtm: DtmCfg
     subkhg: PathCfg
@@ -114,7 +128,7 @@ class InputsCfg(_M):
     sekat_existing: Optional[PathCfg] = None
     rivers: Optional[RiversCfg] = None
     burn_area: PathCfg
-    peat_depth: PathCfg
+    peat_depth: PeatCfg
     moisture: MoistureCfg
     concession: Optional[PathCfg] = None
     tma_obs: Optional[PathCfg] = None

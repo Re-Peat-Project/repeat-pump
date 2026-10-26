@@ -61,6 +61,8 @@ def needs_by_stage(cfg: Config) -> dict[int, list[str]]:
     need[1] = ["run.clip_margin_m", "inputs.dtm.vertical_rmse_m", "inputs.moisture.higher_is_wetter"]
     if rivers_have_levels(cfg):
         need[1] += ["run.vertical_datum", "inputs.rivers.vertical_datum"]
+    if cfg.inputs.peat_depth.is_raster:
+        need[1].append("inputs.peat_depth.units")          # BRGM rasters are in cm, the neraca raster in m: never guessed
     need[2] = ["topology.snap_tolerance_m"]
     need[3] = ["hydro.breach_max_dist_cells"]
     if pr.weights_mode == "klh":

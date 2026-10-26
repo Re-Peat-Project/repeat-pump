@@ -220,6 +220,10 @@ ID: dict[str, str] = {
     "Existing sekat (optional)": "Sekat yang ada (opsional)",
     "River polygons or lines, the water sources (optional)": "Poligon atau garis sungai, sumber air (opsional)",
     "Burn-scar polygons": "Poligon bekas kebakaran", "Peat-depth polygons": "Poligon kedalaman gambut",
+    "Peat depth (class polygons or a depth raster)": "Kedalaman gambut (poligon kelas atau raster kedalaman)",
+    "Unit of the peat depth raster": "Satuan raster kedalaman gambut", "Metres": "Meter", "Centimetres": "Sentimeter",
+    "Check the raster's metadata: the BRGM peat depth models are in centimetres, the class-midpoint raster of the neraca module in metres.":
+        "Periksa metadata raster: model kedalaman gambut BRGM dalam sentimeter, raster nilai tengah kelas dari modul neraca dalam meter.",
     "Create run": "Buat proses", "Open an existing run...": "Buka proses yang ada...", "Open a run config": "Buka konfigurasi proses",
     "Sekat in the plan": "Sekat dalam rencana", "Every proposed sekat": "Semua sekat usulan",
     "Selected canals and their pump routes": "Kanal terpilih dan rute pompanya",

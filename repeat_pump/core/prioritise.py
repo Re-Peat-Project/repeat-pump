@@ -25,6 +25,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import rasterio
+from rasterio.errors import WindowError
 from rasterio.features import geometry_mask
 from rasterio.windows import Window, from_bounds
 from scipy.stats import spearmanr
@@ -71,23 +72,46 @@ def dominant_by_length(segments: gpd.GeoDataFrame, polygons: gpd.GeoDataFrame, v
     return g.set_index(id_col)[[value_col, "share_dominant"]]
 
 
-def zonal(src, geom, stat: str = "mean"):
-    """Statistic of ``src`` inside ``geom`` (nodata ignored)."""
+def zonal_values(src, geom) -> tuple[np.ndarray, int]:
+    """Valid cell values of ``src`` inside ``geom`` (nodata ignored) and the number of cells inside."""
     if geom.is_empty:
-        return np.nan
+        return np.empty(0), 0
     win = from_bounds(*geom.bounds, transform=src.transform).round_offsets().round_lengths()
-    win = win.intersection(Window(0, 0, src.width, src.height))
+    try:
+        win = win.intersection(Window(0, 0, src.width, src.height))
+    except WindowError:
+        return np.empty(0), 0
     if win.width <= 0 or win.height <= 0:
-        return np.nan
+        return np.empty(0), 0
     arr = src.read(1, window=win).astype("float64")
     tr = src.window_transform(win)
     inside = ~geometry_mask([geom], out_shape=arr.shape, transform=tr, all_touched=False)
     if src.nodata is not None:
         arr[arr == src.nodata] = np.nan
-    v = arr[inside & np.isfinite(arr)]
+    return arr[inside & np.isfinite(arr)], int(inside.sum())
+
+
+def zonal(src, geom, stat: str = "mean"):
+    """Statistic of ``src`` inside ``geom`` (nodata ignored): mean, max, median or min."""
+    v, _ = zonal_values(src, geom)
     if v.size == 0:
         return np.nan
-    return float(v.mean() if stat == "mean" else v.max())
+    return float({"mean": np.mean, "max": np.max, "median": np.median, "min": np.min}[stat](v))
+
+
+def peat_from_raster(path: str, segs, progress=None) -> pd.DataFrame:
+    """Peat depth along each segment from a depth raster in metres: the median of the cells within one cell width of the line scores
+    the segment, the minimum feeds the KLH rule (shallowest depth, as the class minimum does for polygons; team decision 26 Oct 2026).
+    ``peat_share_dom`` is the share of those cells that hold a depth. Segments without peat cells get 0, as with polygons."""
+    rows = []
+    with rasterio.open(path) as src:
+        width = max(abs(src.res[0]), abs(src.res[1]))
+        for k, g in enumerate(segs.geometry):
+            if progress:
+                progress(k, len(segs))
+            v, n = zonal_values(src, g.buffer(width))
+            rows.append((float(np.median(v)) if v.size else 0.0, float(v.min()) if v.size else 0.0, v.size / n if n else 0.0))
+    return pd.DataFrame(rows, columns=["peat_depth_mid_m", "peat_depth_min_m", "peat_share_dom"], index=segs.index)
 
 
 def ring(geom, inner: float, outer: float):
@@ -227,13 +251,19 @@ def run(ctx) -> None:
     d = dominant_by_length(segs, ba.assign(burn_freq_n=ba["burn_freq_n"].astype(float)).dropna(subset=["burn_freq_n"]), "burn_freq_n")
     segs["burn_freq_n"] = segs["seg_id"].map(d["burn_freq_n"]).fillna(0).astype(int)
     segs["burn_share_dom"] = segs["seg_id"].map(d["share_dominant"]).fillna(0.0)
-    pe = pe.assign(_mid=(pe["depth_min_m"] + pe["depth_max_m"]) / 2)
-    d = dominant_by_length(segs, pe, "peat_class", order_col="_mid")
-    segs["peat_class"] = segs["seg_id"].map(d["peat_class"])
-    segs["peat_share_dom"] = segs["seg_id"].map(d["share_dominant"]).fillna(0.0)
-    cls = pe.drop_duplicates("peat_class").set_index("peat_class")
-    segs["peat_depth_mid_m"] = segs["peat_class"].map(cls["_mid"]).fillna(0.0)
-    segs["peat_depth_min_m"] = segs["peat_class"].map(cls["depth_min_m"]).fillna(0.0)
+    if "peat_depth" in ctx.report["inputs"]:          # a depth raster: values along the segment instead of the dominant class
+        pr = peat_from_raster(ctx.report["inputs"]["peat_depth"], segs,
+                              lambda k, n: ctx.progress(k / max(n, 1) * 0.1, f"peat depth, segment {k + 1} of {n}"))
+        segs[["peat_depth_mid_m", "peat_depth_min_m", "peat_share_dom"]] = pr
+        segs["peat_class"] = "raster"
+    else:
+        pe = pe.assign(_mid=(pe["depth_min_m"] + pe["depth_max_m"]) / 2)
+        d = dominant_by_length(segs, pe, "peat_class", order_col="_mid")
+        segs["peat_class"] = segs["seg_id"].map(d["peat_class"])
+        segs["peat_share_dom"] = segs["seg_id"].map(d["share_dominant"]).fillna(0.0)
+        cls = pe.drop_duplicates("peat_class").set_index("peat_class")
+        segs["peat_depth_mid_m"] = segs["peat_class"].map(cls["_mid"]).fillna(0.0)
+        segs["peat_depth_min_m"] = segs["peat_class"].map(cls["depth_min_m"]).fillna(0.0)
     sk = ctx.read_layer("subkhg_selected")
     d = dominant_by_length(segs, sk[["subkhg_id", "geometry"]], "subkhg_id")
     segs["subkhg_id"] = segs["seg_id"].map(d["subkhg_id"])
