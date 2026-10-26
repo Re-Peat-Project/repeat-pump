@@ -207,9 +207,14 @@ def engine_dir() -> Path:
 
 
 def bundled_version() -> str:
+    """Engine version plus the source hash written by scripts/install_plugin.py, so a changed engine is reinstalled even when
+    the version was not bumped. The hash is fixed at build time because pip writes build files into the engine folder."""
     f = engine_dir() / "repeat_pump" / "__init__.py"
     m = re.search(r'__version__\s*=\s*"([^"]+)"', f.read_text(encoding="utf8")) if f.exists() else None
-    return m.group(1) if m else ""
+    if not m:
+        return ""
+    h = engine_dir() / "ENGINE_HASH"
+    return f"{m.group(1)}+{h.read_text().strip()}" if h.exists() else m.group(1)
 
 
 def env_dir() -> Path:
@@ -329,6 +334,18 @@ def ensure_environment(log=print, force: bool = False) -> str:
     ver = bundled_version()
     if not force and py.exists() and stamp.exists() and stamp.read_text().strip() == ver and check_environment(str(py))[0]:
         return str(py)
+    if not force and py.exists() and check_environment(str(py))[0] and (engine_dir() / "pyproject.toml").exists():
+        log("Updating the engine in the existing environment")          # quick path: keep the venv, replace the engine
+        try:
+            _run_stream([str(py), "-m", "pip", "install", "--force-reinstall", "--no-deps", str(engine_dir())], log)
+            _run_stream([str(py), "-m", "pip", "install", str(engine_dir())], log)     # picks up any new dependency
+            ok, msg = check_environment(str(py))
+            if ok:
+                stamp.write_text(ver)
+                log(msg)
+                return str(py)
+        except RuntimeError as e:
+            log(f"Update failed ({e}); rebuilding the environment")
     if not (engine_dir() / "pyproject.toml").exists():
         raise RuntimeError("This plugin copy has no bundled engine. Install it with scripts/install_plugin.py or the zip, "
                            "or set a Python environment manually.")

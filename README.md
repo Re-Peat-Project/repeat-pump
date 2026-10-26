@@ -24,18 +24,26 @@ The first run of Stage 3 downloads the WhiteboxTools binary, so it needs interne
 
 Copy [configs/example_khg.yaml](configs/example_khg.yaml) and fill in your paths. **Every `null` is a policy decision a human must make** (vertical RMSE, weights, pump specs, snap tolerances, and so on; see section 11 of the spec). The module never guesses these: each stage stops with one message listing the keys it still needs.
 
+Paths are relative to the config file and may use environment variables (`${REPEAT_KHG}/...`).
+
 Inputs (all in the same projected CRS in metres, or set `run.auto_reproject: true`):
 
 | Input | Notes |
 |---|---|
 | `dtm` | Bare-earth DTM. `surface_type: DSM` is refused. |
 | `subkhg`, `subkhg_priority` (optional) | Polygons with `subkhg_id` (or `unit_id`, as the RE-PEAT delineation writes it); CSV with `subkhg_id` or `unit_id`, `priority_rank, deficit_mm, design_period_days` (each column optional; `subkhg_priority.csv` of repeat-prioritisation has exactly these). Without them all sub-KHGs get equal priority and pump demand uses specific yield and `pumping.design_period_days`. |
-| `canals` | Lines with `canal_class`, optional `depth_m`, `width_m`. |
+| `canals` | Lines with `canal_class`, optional `depth_m`, `width_m`. Values such as `Kanal Primer` count as `primer`; codes (KODE_KANAL 1/2/3) need `topology.canal_class_map`, e.g. `{"1": primer, "2": sekunder, "3": tersier}`. |
 | `canal_edits` (optional) | Lines with `action` = `add` or `delete`: reproducible manual topology fixes. |
 | `sekat_existing` (optional) | Points with `sekat_id`, `has_gate`. |
 | `rivers` (optional) | Optional `perennial`, `dry_season_wl_m` (then both datums must be declared). |
-| `burn_area`, `peat_depth` | Text attributes such as `2x` and `3,0 - 4,0 meter` are parsed. |
+| `burn_area`, `peat_depth` (optional) | Text attributes such as `2x` and `3,0 - 4,0 meter` are parsed. Without one, its stage 6 criterion gets weight 0 and the others are rescaled (the KLH scoring needs peat depth). |
 | `moisture` | Raster(s); declare `higher_is_wetter`. |
+
+**Balance:** `sekat.target_rise_share` (for example 0.9) keeps the fewest head-rule sekat that give that share of the canal rewetting; the rest go to the `sekat_low_benefit` layer with their rank and gain. `scripts/sekat_spacing_check.py --config RUN.yaml` compares minimum spacings and writes the rewetting curve of a finished run.
+
+**From a RE-PEAT KHG folder:** `python scripts/khg_run_config.py ../_khg/<code>_<name> [...]` (or `--all ../_khg`) writes `05_pump/run_config.yaml` for each KHG from its work folder, as the wizard's KHG picker does: LiDAR DTM first, the latest NDMI, the BRGM peat raster named in `re-peat/sites/<folder>/subkhg.yaml`, guessed columns and canal classes, and the proposed defaults.
+
+**Sekat only:** `pumping.enabled: false` skips stages 8-10 (network, routing, pumps) and asks none of their parameters. Use it when no river in the analysis extent can serve as a water source (stage 9 needs a river with `perennial` or `dry_season_wl_m`). A worked example: `re-peat/sites/16.02.01_sugihan_lumpur/pump.yaml`.
 
 ## 3. Run from the command line
 

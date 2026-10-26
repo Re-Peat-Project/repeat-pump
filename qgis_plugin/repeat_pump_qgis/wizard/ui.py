@@ -9,14 +9,14 @@ from typing import Optional
 
 from qgis.core import QgsProject
 from qgis.gui import QgsFileWidget, QgsMapLayerComboBox
-from qgis.PyQt.QtCore import QByteArray, QSize, Qt, QTimer, QUrl
+from qgis.PyQt.QtCore import QByteArray, QSize, QStandardPaths, Qt, QTimer, QUrl
 from qgis.PyQt.QtGui import QDesktopServices, QPainter, QPixmap
 from qgis.PyQt.QtWidgets import (QCheckBox, QComboBox, QDockWidget, QFileDialog, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
                                  QMessageBox, QPlainTextEdit, QProgressBar, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget)
 
 import yaml
 
-from ..runconfig import attach_preset, build_run_config, setup_changes
+from ..runconfig import attach_preset, build_run_config, form_inputs, read_setup, setup_changes, write_setup
 from ..runner import split_source
 from . import i18n, styling, theme
 from .i18n import tr
@@ -34,6 +34,37 @@ from .widgets import button, card, clear, file_widget, label, layer_filter, prop
 
 
 # ----------------------------------------------------------------------------- AHP pairwise matrix editor
+
+SETUP_FILTER = "JSON (*.json);;YAML (*.yaml *.yml)"
+
+
+def default_output() -> str:
+    """A new run's output: Documents/RE-PEAT/pump_<date>/pump_run.gpkg (the folder is created when the run is)."""
+    import datetime
+    docs = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.DocumentsLocation) or str(Path.home())
+    return str(Path(docs) / "RE-PEAT" / f"pump_{datetime.date.today():%Y%m%d}" / "pump_run.gpkg")
+
+
+def find_or_add_layer(path: str, name: Optional[str] = None):
+    """The map layer that reads ``path`` (and ``name`` inside a GeoPackage), added to the map when it is not there yet."""
+    from qgis.core import QgsRasterLayer, QgsVectorLayer
+    want = os.path.normcase(os.path.abspath(path))
+    for lyr in QgsProject.instance().mapLayers().values():
+        p, n = split_source(lyr.source())
+        if p and os.path.normcase(os.path.abspath(p)) == want and (not name or not n or n == name):
+            return lyr
+    if not os.path.exists(path):
+        return None
+    stem = Path(path).stem
+    if Path(path).suffix.lower() in (".tif", ".tiff", ".img", ".vrt", ".asc"):
+        lyr = QgsRasterLayer(path, stem)
+    else:
+        lyr = QgsVectorLayer(f"{path}|layername={name}" if name else path, name or stem, "ogr")
+    if not lyr.isValid():
+        return None
+    QgsProject.instance().addMapLayer(lyr)
+    return lyr
+
 class AhpEditor(QWidget):
     """Grid for the pairwise comparisons: type the cells above the diagonal, the mirrored cells follow as reciprocals.
     The weights and the consistency ratio update while typing; a complete matrix is saved through ``on_commit``."""
@@ -339,19 +370,35 @@ class WizardPanel(QWidget):
         form = QVBoxLayout(self.setup_body)
         form.setContentsMargins(0, 0, 0, 0)
         form.setSpacing(8)
+        # a RE-PEAT KHG work folder fills everything below in one step
+        khg_row = QHBoxLayout()
+        self.khg_combo = QComboBox()
+        self.khg_combo.activated.connect(lambda _i: self._fill_from_khg(self.khg_combo.currentData()))
+        khg_row.addWidget(self.khg_combo, 1)
+        khg_row.addWidget(button("KHG folders...", "link", self._choose_khg_root))
+        form.addWidget(label("KHG (fills every input from its work folder)", "paramLabel"))
+        form.addLayout(khg_row)
+        self._refresh_khg_list()
         bundled = Path(__file__).parents[1] / "resources" / "example_khg.yaml"
         self.template = file_widget("open", "YAML (*.yaml *.yml)")
         if bundled.exists():
             self.template.setFilePath(str(bundled))
         self.out_file = file_widget("save", "GeoPackage (*.gpkg)")
+        self.out_file.setFilePath(default_output())
         self.priority = file_widget("open", "CSV (*.csv)")
         form.addWidget(label("Output GeoPackage (the run folder is its folder)", "paramLabel"))
         form.addWidget(self.out_file)
-        form.addWidget(label("Starting config (policy parameters; yours are saved in the run folder)", "paramLabel"))
-        form.addWidget(self.template)
+        self.advanced_btn = button("Advanced: starting config", "link", lambda: self.advanced_box.setVisible(not self.advanced_box.isVisible()))
+        self.advanced_box = QWidget()
+        adv = QVBoxLayout(self.advanced_box)
+        adv.setContentsMargins(0, 0, 0, 0)
+        adv.addWidget(label("Starting config (policy parameters; yours are saved in the run folder)", "paramLabel"))
+        adv.addWidget(self.template)
+        self.advanced_box.setVisible(False)
         self.use_preset = QCheckBox(tr("Use the proposed defaults (for trial runs, not team decisions)"))
         self.use_preset.setProperty("src", "Use the proposed defaults (for trial runs, not team decisions)")
         self.use_preset.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.use_preset.setChecked(True)                     # suggested values on by default; each stays marked as proposed
         self.use_preset.toggled.connect(self._toggle_preset)
         form.addWidget(self.use_preset)
         form.addWidget(label("Fills the empty decision fields with researched starting values. Each one stays marked as proposed until you enter a value. Values you type always win.", "paramHelp"))
@@ -362,7 +409,7 @@ class WizardPanel(QWidget):
                 ("subkhg", "Sub-KHG polygons", "polygon", False), ("canals", "Canal lines", "line", False),
                 ("canal_edits", "Canal edits (optional)", "line", True), ("sekat_existing", "Existing sekat (optional)", "point", True),
                 ("rivers", "River polygons or lines, the water sources (optional)", "vector", True),
-                ("burn_area", "Burn-scar polygons", "polygon", False), ("peat_depth", "Peat depth (class polygons or a depth raster)", "polygon_raster", False),
+                ("burn_area", "Burn-scar polygons (optional)", "polygon", True), ("peat_depth", "Peat depth, class polygons or a depth raster (optional)", "polygon_raster", True),
                 ("concession", "Concession polygons (optional, a feasibility filter)", "polygon", True),
                 ("tma_obs", "Water-level observations (optional, for validation)", "point", True)]
         for key, text, kind, optional in spec:
@@ -381,11 +428,15 @@ class WizardPanel(QWidget):
             cb.layerChanged.connect(lambda _l: self.extras.refresh())
         form.addWidget(self.extras)
         self.setup_msg = label("", "hint")
+        form.addWidget(self.advanced_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        form.addWidget(self.advanced_box)
         form.addWidget(self.setup_msg)
         row = QHBoxLayout()
         self.create_btn = button("Create run", "primary", self._create_run)
         row.addWidget(self.create_btn)
         row.addWidget(button("Open an existing run...", "secondary", self._open_run))
+        row.addWidget(button("Load setup...", "ghost", self._load_setup_file))
+        row.addWidget(button("Save setup as...", "ghost", self._save_setup_file))
         self.start_over = button("Start over...", "ghost", self._start_over)
         row.addWidget(self.start_over)
         row.addStretch(1)
@@ -553,10 +604,91 @@ class WizardPanel(QWidget):
     def _open_run(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, tr("Open a run config"), "", "YAML (*.yaml *.yml)")
         if path:
+            self._fill_setup(path)
             self._setup_open = False
             self._setup_touched = False
             self.selected = None
             self.controller.open_run(path)
+
+    def _load_setup_file(self) -> None:
+        """Fill the form from a saved setup or another run's config, to repeat a run without picking every layer again.
+        Nothing runs: change what differs (usually the output GeoPackage), then Create run."""
+        path, _ = QFileDialog.getOpenFileName(self, tr("Load a saved setup"), "", tr("Setup files") + " (*.json *.yaml *.yml)")
+        if path:
+            self._fill_setup(path)
+
+    def _save_setup_file(self) -> None:
+        try:
+            data, _cfg = self._build_setup()
+        except Exception as e:
+            self.setup_msg.setText(f"<span style='color:{theme.RED_TEXT}'>{e}</span>".replace("\n", "<br>"))
+            return
+        path, _ = QFileDialog.getSaveFileName(self, tr("Save the setup"), "repeat_pump_setup.json", SETUP_FILTER)
+        if path:
+            write_setup(data, path)
+            self.setup_msg.setText(tr("Setup saved: {path}").format(path=path))
+
+    def _fill_setup(self, path: str) -> None:
+        """Choose in the form every layer, file and setting a saved setup names; layers not yet on the map are added."""
+        try:
+            data = read_setup(path)
+        except Exception as e:
+            self.setup_msg.setText(f"<span style='color:{theme.RED_TEXT}'>" + tr("Could not read the setup: {err}").format(err=e) + "</span>")
+            return
+        self._fill_setup_data(data, tr("Setup loaded from {path}.").format(path=path), preset=bool(data.get("preset")))
+
+    # ------------------------------------------------------------------ KHG work folders
+    def _khg_root(self) -> str:
+        from qgis.core import QgsSettings
+        return str(QgsSettings().value("repeat_pump/khg_root", "") or os.environ.get("REPEAT_KHG", ""))
+
+    def _choose_khg_root(self) -> None:
+        path = QFileDialog.getExistingDirectory(self, tr("Folder that holds the KHG work folders (_khg)"), self._khg_root())
+        if path:
+            from qgis.core import QgsSettings
+            QgsSettings().setValue("repeat_pump/khg_root", path)
+            self._refresh_khg_list()
+
+    def _refresh_khg_list(self) -> None:
+        from ..khgsetup import khg_folders
+        self.khg_combo.clear()
+        folders = khg_folders(self._khg_root()) if self._khg_root() else []
+        self.khg_combo.addItem(tr("Choose a KHG...") if folders else tr("No KHG folders yet: choose the _khg folder"), None)
+        for p in folders:
+            self.khg_combo.addItem(p.name, str(p))
+
+    def _fill_from_khg(self, folder: Optional[str]) -> None:
+        if not folder:
+            return
+        from ..khgsetup import setup_from_khg
+        data, missing = setup_from_khg(folder)
+        msg = tr("Filled from the KHG folder {name}.").format(name=Path(folder).name)
+        if missing:
+            msg += " " + tr("Not found there, choose them yourself: {items}").format(items=", ".join(missing))
+        self._fill_setup_data(data, msg, preset=True)
+
+    def _fill_setup_data(self, data: dict, message: str, preset: bool) -> None:
+        missing = []
+        for key, refs in form_inputs(data).items():
+            layers = [find_or_add_layer(p, name) for p, name in refs]
+            missing += [p for (p, _n), lyr in zip(refs, layers) if lyr is None]
+            if key in self.combos and layers and layers[0] is not None:
+                self.combos[key][0].setLayer(layers[0])
+            if key == "moisture":
+                self.extras.set_extra_moisture([lyr for lyr in layers[1:] if lyr is not None])
+        run = data.get("run") or {}
+        if run.get("output_gpkg"):
+            self.out_file.setFilePath(run["output_gpkg"])
+        prio = (data.get("inputs") or {}).get("subkhg_priority") or {}
+        self.priority.setFilePath(prio.get("path", ""))
+        self.use_preset.blockSignals(True)
+        self.use_preset.setChecked(preset)
+        self.use_preset.blockSignals(False)
+        self.extras.load_from(data)
+        msg = message
+        if missing:
+            msg += f"<br><span style='color:{theme.AMBER_TEXT}'>" + tr("Not found, choose again: {files}").format(files=", ".join(missing)) + "</span>"
+        self.setup_msg.setText(msg)
 
     # ------------------------------------------------------------------ language
     @staticmethod
@@ -625,11 +757,17 @@ class WizardPanel(QWidget):
         view = model.stage(stage)
         run = model.check["run_name"]
         if code in (0, 2) and self.controller.output_gpkg:
-            names = styling.load_layers(self.controller.output_gpkg, view.layers, run) if view.layers else []
-            rasters = styling.load_rasters(model.state.get("report", {}).get("inputs", {}), run, vm.STAGE_RASTERS.get(stage)) \
-                if stage in vm.STAGE_RASTERS else []
-            if names or rasters:
-                maptools.show_stage(run, stage)
+            ran = [v for v in model.stages if v.id >= stage and v.status in ("done", "needs_review")] or [view]
+            ran = [v for v in ran if v.id <= max(stage, model.current)]
+            shown = None
+            for v in ran:                                   # a run to the next review covers several stages
+                names = styling.load_layers(self.controller.output_gpkg, v.layers, run) if v.layers else []
+                rasters = styling.load_rasters(model.state.get("report", {}).get("inputs", {}), run, vm.STAGE_RASTERS.get(v.id)) \
+                    if v.id in vm.STAGE_RASTERS else []
+                if names or rasters:
+                    shown = v.id
+            if shown is not None:
+                maptools.show_stage(run, shown)
                 maptools.zoom_to_stage(self.iface, run)
         self.selected = model.current
         self._last_sig = None
@@ -857,17 +995,23 @@ class WizardPanel(QWidget):
             lay.addWidget(label("The run report could not be read.", "hint"))
         else:
             s = summary.summarise(rep)
-            grid = QGridLayout()
-            grid.setHorizontalSpacing(24)
-            grid.setVerticalSpacing(10)
-            for col, sec in enumerate(s.sections):
-                box = QVBoxLayout()
-                box.setSpacing(2)
-                box.addWidget(label(sec.title, "paramLabel"))
-                for name, value in sec.rows:
-                    box.addWidget(label(f"{name}: {value}", "paramHelp"))
-                grid.addLayout(box, col // 2, col % 2)
-            lay.addLayout(grid)
+            cols = 2 if self.compact else 4
+            for sec in s.sections:                          # each section a row of tiles: the number first, the label under it
+                lay.addWidget(label(sec.title, "paramLabel"))
+                g = QGridLayout()
+                g.setSpacing(12)
+                for i, (name, value) in enumerate(sec.rows):
+                    t = QFrame()
+                    t.setObjectName("tile")
+                    tl = QVBoxLayout(t)
+                    tl.setContentsMargins(16, 12, 16, 12)
+                    tl.setSpacing(0)
+                    tl.addWidget(label(name, "tileLabel"))
+                    tl.addWidget(label(value, "tileValue", wrap=False))
+                    g.addWidget(t, i // cols, i % cols)
+                for k in range(cols):
+                    g.setColumnStretch(k, 1)
+                lay.addLayout(g)
             if s.pump_table:
                 lay.addWidget(label("Pump stations", "paramLabel"))
                 table = QGridLayout()
@@ -950,7 +1094,7 @@ class WizardPanel(QWidget):
         n_missing = sum(1 for p in view.params if p.missing and not p.recommended)
         head = "Decisions for this stage" if n_missing == 0 else tr("Decisions needed ({n})").format(n=n_missing)
         lay.addWidget(label(head, "cardTitle"))
-        lay.addWidget(label("These values are policy choices for your team. The wizard never fills them in for you. They are saved in the run config.", "hint"))
+        lay.addWidget(label("These values are choices for your team. Values marked proposed come from the proposed defaults; replace them with your own. They are saved in the run config.", "hint"))
         self._param_rows(lay, view.params)
         return f
 
@@ -1249,11 +1393,12 @@ class WizardPanel(QWidget):
             add("Run stage", "primary", None, False)
         elif view.status == "ready":
             note.setText(view.blocking)
-            add(tr("Run stage {n}").format(n=view.id), "primary", lambda: self._act("run", view.id), view.can_run)
+            add(tr("Run stage {n} only").format(n=view.id), "secondary", lambda: self._act("run", view.id), view.can_run)
+            add("Run to the next review", "primary", lambda: self._act("run_on", view.id), view.can_run)
         elif view.status == "needs_review":
             nxt = model.stage(view.id + 1).title if view.id < len(model.stages) else ""
             add("Re-run this stage", "secondary", lambda: self._act("rerun", view.id), view.can_rerun)
-            add(tr("Accept and continue: {title}").format(title=nxt) if nxt else tr("Accept and continue"), "primary", lambda: self._act("accept", view.id), view.can_accept)
+            add(tr("Accept and continue: {title}").format(title=nxt) if nxt else tr("Accept and continue"), "primary", lambda: self._act("accept_on", view.id), view.can_accept)
             note.setText(view.blocking)
         elif view.status == "done":
             add("Re-run this stage", "secondary", lambda: self._act("rerun", view.id), view.can_rerun)

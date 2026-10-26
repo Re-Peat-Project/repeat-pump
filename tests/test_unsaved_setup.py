@@ -51,3 +51,17 @@ def test_a_removed_mapping_is_reported(tmp_path):
     saved = _saved_run(tmp_path)
     changes = rc.setup_changes(yaml.safe_load(saved.read_text()), _form(saved, columns={}))
     assert changes == ["inputs.canals.columns.canal_class"]
+
+
+def test_a_saved_setup_loads_back_with_the_same_layers_and_settings(tmp_path):
+    """Save setup as JSON or YAML, load it in a new session: every layer path, column choice and selection comes back."""
+    saved = _saved_run(tmp_path)
+    data = rc.read_setup(saved)
+    for name in ("setup.json", "setup.yaml"):
+        rc.write_setup(data, tmp_path / name)
+        back = rc.read_setup(tmp_path / name)
+        assert back == data
+        refs = rc.form_inputs(back)
+        assert refs["canals"] == [(str(tmp_path / "canals.gpkg"), None)]
+        assert back["inputs"]["canals"]["columns"] == {"canal_class": "kelas"}
+        assert Path(back["run"]["output_gpkg"]).is_absolute()

@@ -169,6 +169,55 @@ def canal_arrays(prof: pd.DataFrame, direction: str, length: float):
     return s, z, i
 
 
+def balance(ctx, pr: gpd.GeoDataFrame, canals: gpd.GeoDataFrame, prof: pd.DataFrame, ex_rows: list):
+    """Keep the fewest proposed sekat that give ``sekat.target_rise_share`` of the canal rewetting all of them give.
+
+    Rewetting is the canal-rise objective of Stage 12 [Urzainki2020]: a block holds water at its land level minus ``dA`` and
+    raises every canal station upstream of it up to that level, from a dry-season level ``balance_drawdown_m`` below the land.
+    Blocks are ranked by the extra rise each adds (existing sekat already in place), and the ranked list is cut where the
+    share is reached. Returns (kept, low benefit); both carry benefit_rank, gain_m2 (rise x canal length) and cum_share."""
+    from . import blockopt as bo
+    sk = ctx.cfg.sekat
+    require(sk, ["balance_drawdown_m"], "Stage 7", "sekat")
+    if not 0 < sk.target_rise_share <= 1:
+        raise InputError(f"Stage 7: sekat.target_rise_share must be between 0 and 1, not {sk.target_rise_share}")
+    dA, step = sk.dA_m, ctx.cfg.profiles.sample_step_m
+    net = bo.CanalNet.from_profiles(canals, prof)
+    base = net.z_land - sk.balance_drawdown_m
+    fixed: dict = {}
+    for r in ex_rows:
+        n = net.node_at(r["canal_id"], r["chainage_m"]) if r.get("snapped") else None
+        if n is not None:
+            fixed[n] = max(fixed.get(n, -np.inf), float(net.z_land[n] - dA))
+    pr = pr.reset_index(drop=True)
+    nodes = [net.node_at(c, ch) for c, ch in zip(pr["canal_id"], pr["chainage_m"])]
+    ok = [i for i, n in enumerate(nodes) if n is not None]
+    order = bo.greedy_rank(net, base, [nodes[i] for i in ok], np.array([net.z_land[nodes[i]] - dA for i in ok]), fixed)
+    total = sum(g for _, g in order)
+    pr["benefit_rank"], pr["gain_m2"], pr["cum_share"] = len(pr) + 1, 0.0, 1.0
+    cum = 0.0
+    for rank, (j, g) in enumerate(order, 1):
+        cum += g
+        i = ok[j]
+        pr.loc[i, ["benefit_rank", "gain_m2", "cum_share"]] = [rank, g * step, cum / total if total > 0 else 1.0]
+    # keep every block up to and including the one that reaches the share
+    reach = pr.loc[pr["cum_share"] >= sk.target_rise_share - 1e-9, "benefit_rank"].min()
+    keep = pr["benefit_rank"] <= reach
+    kept, low = pr[keep].copy(), pr[~keep].copy()
+    if total <= 0:
+        ctx.warn("Stage 7: the proposed sekat raise no canal water (sekat.balance_drawdown_m is not larger than sekat.dA_m); all are kept")
+        return pr, pr.iloc[0:0]
+    ctx.report["sekat_balance"] = dict(head_rule=len(pr), kept=len(kept), low_benefit=len(low), target_rise_share=sk.target_rise_share,
+                                       rise_m2_all=round(total * step), rise_m2_kept=round(float(kept["gain_m2"].sum())))
+    ctx.log.info("Stage 7: %d of %d head-rule sekat give %.0f %% of the canal rewetting; %d moved to sekat_low_benefit",
+                 len(kept), len(pr), 100 * sk.target_rise_share, len(low))
+    rows = kept.to_dict("records")
+    respace(rows, {c: [r["dist_down_m"] for r in ex_rows if r.get("snapped") and r["canal_id"] == c and "dist_down_m" in r]
+                   for c in kept["canal_id"].unique()}, canals, dA)
+    kept = gpd.GeoDataFrame(rows, geometry="geometry", crs=pr.crs)
+    return kept.sort_values("benefit_rank").reset_index(drop=True), low.sort_values("benefit_rank").reset_index(drop=True)
+
+
 def run(ctx) -> None:
     cfg = ctx.cfg
     sk = cfg.sekat
@@ -198,7 +247,15 @@ def run(ctx) -> None:
         ex_rows.append(row)
     unsnapped = [r["sekat_id"] for r in ex_rows if not r["snapped"]]
     if unsnapped:
-        ctx.warn(f"Stage 7: {len(unsnapped)} existing sekat could not be snapped to a canal within {sk.snap_tolerance_m} m: {unsnapped[:10]}")
+        excl = 0
+        if cfg.topology.canal_classes and ctx.has_layer("inputs_clipped_canals"):   # on a canal the class filter left out?
+            allc = ctx.read_layer("inputs_clipped_canals")
+            tree = STRtree(list(allc.geometry))
+            for r in ex_rows:
+                if not r["snapped"] and len(tree.query(r["geometry"].buffer(sk.snap_tolerance_m))):
+                    excl += 1
+        ctx.warn(f"Stage 7: {len(unsnapped)} existing sekat could not be snapped to a canal within {sk.snap_tolerance_m} m"
+                 + (f"; {excl} of them lie on canal classes left out by topology.canal_classes" if excl else "") + f": {unsnapped[:10]}")
 
     prop_rows, canal_upd = [], {}
     for k, (_, c) in enumerate(canals.iterrows()):
@@ -259,12 +316,20 @@ def run(ctx) -> None:
         {"sekat_id": []}, geometry=[], crs=ctx.crs)
     pr_gdf = gpd.GeoDataFrame(prop_rows, geometry="geometry", crs=ctx.crs) if prop_rows else gpd.GeoDataFrame(
         {"sekat_pro_id": []}, geometry=[], crs=ctx.crs)
+    low = None
+    if sk.target_rise_share is not None and len(pr_gdf):
+        pr_gdf, low = balance(ctx, pr_gdf, canals, prof, ex_rows)
     ctx.write_layer("sekat_existing_assessed", ex_gdf, "7")
     if len(pr_gdf) and "manual" in pr_gdf:
         pr_gdf["manual"] = pr_gdf["manual"].fillna(False).astype(bool)
     elif len(pr_gdf):
         pr_gdf["manual"] = False
     ctx.write_layer("sekat_proposed", pr_gdf, "7")
+    if low is not None:
+        ctx.write_layer("sekat_low_benefit", low, "7")
+    elif ctx.has_layer("sekat_low_benefit"):                # balance switched off since the last run: no stale leftovers
+        ctx.write_layer("sekat_low_benefit", pr_gdf.iloc[0:0], "7")
     ctx.write_layer("canals_clean", canals, "7")
-    ctx.set_counts("7", existing=len(ex_rows), unsnapped=len(unsnapped), proposed=len(prop_rows),
+    ctx.set_counts("7", existing=len(ex_rows), unsnapped=len(unsnapped), proposed=len(pr_gdf),
+                   **({"head_rule": len(prop_rows), "low_benefit": len(low)} if low is not None else {}),
                    **({"edits_added": edit_stats["added"], "edits_deleted": edit_stats["deleted"]} if edit_stats else {}))

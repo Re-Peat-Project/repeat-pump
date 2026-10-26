@@ -54,6 +54,11 @@ def summarise(report: dict) -> Summary:
     sek = Section(tr("Sekat"))
     if "7" in c:
         sek.rows += [(tr("Existing"), _n(c["7"].get("existing"))), (tr("Proposed"), _n(c["7"].get("proposed")))]
+        if c["7"].get("low_benefit") is not None:
+            sek.rows.append((tr("Left out, low benefit"), _n(c["7"].get("low_benefit"))))
+    bal = report.get("sekat_balance") or {}
+    if bal.get("rise_m2_all"):
+        sek.rows.append((tr("Share of the canal rewetting kept"), f"{_n(100 * bal['rise_m2_kept'] / bal['rise_m2_all'])} %"))
     ipg = [r for r in report.get("ipg", []) if r.get("ipg") is not None]
     if ipg:
         short = sum(1 for r in ipg if r["ipg"] < 1)
@@ -70,7 +75,13 @@ def summarise(report: dict) -> Summary:
                       (tr("Total flow"), f"{_n(sum(p.get('q_m3s', 0) for p in pumps) * 1000, 1)} L/s")]
     if "10" in c:
         pump.rows.append((tr("Gates to add or check"), _n(c["10"].get("gates_required"))))
-    out.sections = [s for s in (seg, sek, route, pump) if s.rows]
+    opt = report.get("optimisation") or {}
+    alt = Section(tr("Stage 12, alternative plan"))
+    if opt:
+        alt.rows += [(tr("Sekat chosen"), f"{_n(opt.get('blocks'))} / {_n(opt.get('candidates'))}"), (tr("Best method"), str(opt.get("best_method", "-")))]
+        if opt.get("gain_vs_random"):
+            alt.rows.append((tr("Better than random choice"), f"{_n(opt['gain_vs_random'], 2)} x"))
+    out.sections = [s for s in (seg, sek, route, pump, alt) if s.rows]
     if pumps:
         out.pump_table = [[tr("Station"), tr("Flow (L/s)"), tr("Head (m)"), tr("Power (kW)"), tr("Units")]] + [
             [str(p.get("station_id", "")), _n(p.get("q_m3s", 0) * 1000, 1), _n(p.get("h_m"), 2), _n(p.get("p_kw"), 2), _n(p.get("units_needed"))]
@@ -86,5 +97,5 @@ def summarise(report: dict) -> Summary:
         out.notes.append(tr("{n} values came from the proposed defaults, not from team decisions.").format(n=len(preset)))
     if report.get("warnings"):
         out.notes.append(tr("{n} warnings are listed in the run report.").format(n=len(report["warnings"])))
-    out.notes.append(tr("The plan assumes every proposed sekat is built. Stage 12, if used, is an alternative plan and does not change it."))
+    out.notes.append(tr("The plan assumes every proposed sekat is built (after the balance, when it is on). Stage 12, if used, is an alternative plan and does not change it."))
     return out

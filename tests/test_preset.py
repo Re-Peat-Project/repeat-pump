@@ -42,12 +42,22 @@ def test_run_config_value_wins(tmp_path):
     assert cfg.pumping.manning_n == 0.05 and "pumping.manning_n" not in cfg.preset["keys"]
 
 
-def test_data_facts_stay_with_the_user(tmp_path):
-    """Datum, RMSE and moisture direction describe the dataset, so the preset must not supply them."""
+def test_data_facts_are_only_suggested_and_flagged(tmp_path):
+    """The datum is never filled. The DTM error is suggested only for a declared DTM type; both suggestions are listed as proposed."""
     cfg = load_config(_copy(tmp_path))
     missing = {k for ks in required_by_stage(cfg).values() for k in ks}
-    assert {"inputs.dtm.vertical_rmse_m", "inputs.moisture.higher_is_wetter"} <= missing
-    assert "pumping.manning_n" not in missing and "optimise.enabled" not in missing
+    assert "inputs.dtm.vertical_rmse_m" in missing                       # the template names no DTM type
+    assert cfg.inputs.moisture.higher_is_wetter is True and "inputs.moisture.higher_is_wetter" in cfg.preset["keys"]
+    assert cfg.run.vertical_datum is None
+    f = _copy(tmp_path)
+    d = yaml.safe_load(f.read_text(encoding="utf8"))
+    d["inputs"]["dtm"]["source"] = "lidar"
+    f.write_text(yaml.safe_dump(d), encoding="utf8")
+    cfg = load_config(f)
+    assert cfg.inputs.dtm.vertical_rmse_m == 0.3 and "inputs.dtm.vertical_rmse_m" in cfg.preset["keys"]
+    d["inputs"]["dtm"]["vertical_rmse_m"] = 0.15                         # the delivery's value wins
+    f.write_text(yaml.safe_dump(d), encoding="utf8")
+    assert load_config(f).inputs.dtm.vertical_rmse_m == 0.15
 
 
 def test_preset_cannot_set_inputs_or_datum(tmp_path):

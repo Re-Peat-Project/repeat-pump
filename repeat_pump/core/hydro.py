@@ -38,6 +38,16 @@ def _ok(rc, what: str) -> None:
         raise WhiteboxError(f"WhiteboxTools {what} failed (return code {rc})")
 
 
+def _run_wbt(call, out: Path, what: str) -> None:
+    """Run a WhiteboxTools call and check that it wrote ``out``. The tool can return 0 without writing the file (seen on Windows
+    under load), which only surfaced stages later as a missing raster; one retry, then a clear error."""
+    for attempt in (1, 2):
+        _ok(call(), what)
+        if out.is_file() and out.stat().st_size > 0:
+            return
+    raise WhiteboxError(f"WhiteboxTools {what} reported success but did not write {out}")
+
+
 def burn_canals(dtm_path: Path, canals, default_depth: float, out_path: Path) -> float:
     """Burn canals into a copy of the DTM. Returns the share of canal length using the default depth."""
     with rasterio.open(dtm_path) as src:
@@ -61,19 +71,14 @@ def burn_canals(dtm_path: Path, canals, default_depth: float, out_path: Path) ->
 def condition_dem(dem: Path, out: Path, breach_dist_cells: int, workdir: Path) -> None:
     """Least-cost breaching with fill fallback (Lindsay2016a)."""
     wbt = _wbt(workdir)
-    _ok(wbt.breach_depressions_least_cost(str(dem), str(out), int(breach_dist_cells), fill=True), "breach_depressions_least_cost")
+    _run_wbt(lambda: wbt.breach_depressions_least_cost(str(dem), str(out), int(breach_dist_cells), fill=True), out, "breach_depressions_least_cost")
 
 
 def flow_accumulation(cond: Path, out: Path, algorithm: str, workdir: Path) -> None:
     """Flow accumulation in cells: D-inf (Tarboton1997), MFD (Holmgren1994) or D8."""
     wbt = _wbt(workdir)
-    if algorithm == "dinf":
-        rc = wbt.d_inf_flow_accumulation(str(cond), str(out), out_type="cells")
-    elif algorithm == "mfd":
-        rc = wbt.fd8_flow_accumulation(str(cond), str(out), out_type="cells")
-    else:
-        rc = wbt.d8_flow_accumulation(str(cond), str(out), out_type="cells")
-    _ok(rc, f"flow accumulation ({algorithm})")
+    fn = {"dinf": wbt.d_inf_flow_accumulation, "mfd": wbt.fd8_flow_accumulation}.get(algorithm, wbt.d8_flow_accumulation)
+    _run_wbt(lambda: fn(str(cond), str(out), out_type="cells"), out, f"flow accumulation ({algorithm})")
 
 
 def run(ctx) -> None:

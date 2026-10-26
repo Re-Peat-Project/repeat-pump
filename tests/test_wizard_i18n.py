@@ -15,7 +15,7 @@ from repeat_pump_qgis.wizard import i18n, viewmodel as vm  # noqa: E402
 
 EXAMPLE = Path(__file__).parents[1] / "configs" / "example_khg.yaml"
 # literals in the Qt code that are not shown to people (QGIS message levels, file filters, brand name, language codes)
-NOT_UI = {"RE-PEAT", "YAML (*.yaml *.yml)", "GeoPackage (*.gpkg)", "CSV (*.csv)", "EN", "ID", "Info", "Success", "Warning", "Critical",
+NOT_UI = {"RE-PEAT", "YAML (*.yaml *.yml)", "JSON (*.json);;YAML (*.yaml *.yml)", "GeoPackage (*.gpkg)", "CSV (*.csv)", "EN", "ID", "Info", "Success", "Warning", "Critical",
           "Engine ready", "Hazen-Williams C", "Segoe UI", "Single Box", "PDF (*.pdf);;PNG (*.png)", "GeoTIFF (*.tif)", "Canal edits (yours)", "Sekat edits (yours)", "Route edits (yours)"}
 
 

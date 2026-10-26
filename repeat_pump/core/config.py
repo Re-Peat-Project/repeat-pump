@@ -7,6 +7,7 @@ section 11 is answered.
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any, Literal, Optional
 
@@ -85,6 +86,7 @@ class DtmCfg(_M):
     path: str
     surface_type: str
     vertical_rmse_m: Optional[float] = None  # TODO(human)
+    source: Optional[Literal["lidar", "deltadtm", "demnas", "other"]] = None   # what the DTM is; lets a preset suggest vertical_rmse_m
 
 
 class MoistureCfg(_M):
@@ -127,8 +129,8 @@ class InputsCfg(_M):
     canal_edits: Optional[PathCfg] = None   # lines with an "action" column: add | delete (reproducible manual fixes)
     sekat_existing: Optional[PathCfg] = None
     rivers: Optional[RiversCfg] = None
-    burn_area: PathCfg
-    peat_depth: PeatCfg
+    burn_area: Optional[PathCfg] = None      # optional: without it the burn_freq criterion gets weight 0
+    peat_depth: Optional[PeatCfg] = None     # optional: without it the peat_depth criterion gets weight 0 (the KLH scoring needs it)
     moisture: MoistureCfg
     concession: Optional[PathCfg] = None
     tma_obs: Optional[PathCfg] = None
@@ -137,6 +139,7 @@ class InputsCfg(_M):
 class TopologyCfg(_M):
     snap_tolerance_m: Optional[float] = None  # TODO(human)
     overshoot_max_m: Optional[float] = None   # TODO(human): null = overshoot trimming off
+    canal_class_map: Optional[dict[str, str]] = None   # {value in your canal_class column: primer | sekunder | tersier}, e.g. {"1": primer}; unmapped values keep their own text
     canal_classes: Optional[list[str]] = None  # canal_class values kept for the analysis (Panduan 1.2: primer, sekunder); null = every class
     river_buffer_m: Optional[float] = None    # a river within this distance of a canal counts as meeting it (Panduan 8.2: 30 m); null = exact crossing only
     source_snap_m: Optional[float] = None     # with canal_classes: river points found on the full canal set are moved onto the kept network within this distance (SNAP_MUARA, 50 m)
@@ -168,6 +171,8 @@ class SekatCfg(_M):
     min_new_spacing_m: Optional[float] = None  # no two NEW sekat closer than this along a canal (legacy JARAK_MIN, 500 m); null = off. Overrides the head rule on steep land
     edits: Optional[PathCfg] = None        # manual changes to the proposals: points with an action column, add | delete (see core/sekat.py)
     dedup_tol_m: Optional[float] = None    # a proposed sekat within this distance of an existing one, or of one proposed on another canal, is dropped (legacy DEDUP_TOL, 50 m); null = off
+    target_rise_share: Optional[float] = None   # balance: keep the fewest proposals that give this share (0-1) of the canal rewetting all of them give; null = keep all
+    balance_drawdown_m: Optional[float] = None  # dry-season canal level below the land used to score the rewetting (needed with target_rise_share)
 
 
 class CriterionCfg(_M):
@@ -198,6 +203,7 @@ class PrioritiseCfg(_M):
 
 
 class PumpingCfg(_M):
+    enabled: bool = True     # false: sekat only. Stages 8-10 are skipped, e.g. when the KHG has no usable river source yet
     conveyance: Optional[Literal["canal", "pipe"]] = None  # TODO(human)
     manning_n: Optional[float] = None
     hazen_williams_c: Optional[float] = None
@@ -277,8 +283,8 @@ class Config(_M):
         return getattr(self, "_preset", {"path": None, "keys": []})
 
 
-# What a proposed-defaults preset may fill: policy and engineering values only. Facts about the data (datums, RMSE, which
-# way the moisture index runs) and every input path stay with the user, so a preset can never describe the wrong dataset.
+# What a proposed-defaults preset may fill: policy and engineering values. Input paths and datums stay with the user. Two facts
+# about the data may be suggested through ``suggested_facts`` (DTM error by DTM type, moisture direction), flagged like the rest.
 PRESET_SECTIONS = {"topology", "hydro", "sekat", "prioritise", "pumping", "optimise"}
 PRESET_RUN_KEYS = {"clip_margin_m"}
 
@@ -297,6 +303,20 @@ def _fill_nulls(target: dict, source: dict, prefix: str, applied: list[str]) -> 
             applied.append(key)
 
 
+def _suggest_facts(data: dict, facts: dict, applied: list[str]) -> None:
+    """``suggested_facts`` of a preset: a typical DTM error for the declared ``inputs.dtm.source`` and the usual direction of the
+    moisture index. Filled only where the run config leaves them null, and listed like every other preset value."""
+    inputs = data.get("inputs") or {}
+    dtm, moist = inputs.get("dtm") or {}, inputs.get("moisture") or {}
+    table = facts.get("dtm_rmse_by_source") or {}
+    if dtm.get("vertical_rmse_m") is None and dtm.get("source") in table:
+        dtm["vertical_rmse_m"] = float(table[dtm["source"]])
+        applied.append("inputs.dtm.vertical_rmse_m")
+    if moist and moist.get("higher_is_wetter") is None and facts.get("moisture_higher_is_wetter") is not None:
+        moist["higher_is_wetter"] = bool(facts["moisture_higher_is_wetter"])
+        applied.append("inputs.moisture.higher_is_wetter")
+
+
 def apply_preset(data: dict, base: Path) -> tuple[list[str], Optional[str]]:
     """Fill the null policy/engineering parameters of a run config from the preset file named by its top-level ``preset`` key.
 
@@ -306,16 +326,19 @@ def apply_preset(data: dict, base: Path) -> tuple[list[str], Optional[str]]:
     ref = data.pop("preset", None)
     if not ref:
         return [], None
+    ref = os.path.expandvars(ref)
     p = Path(ref) if Path(ref).is_absolute() else base / ref
     if not p.exists():
         raise ConfigError(f"preset file not found: {p}")
     preset = yaml.safe_load(p.read_text(encoding="utf8")) or {}
+    facts = preset.pop("suggested_facts", None) or {}
     bad = [k for k in preset if k not in PRESET_SECTIONS | {"run"}]
     bad += [f"run.{k}" for k in preset.get("run", {}) if k not in PRESET_RUN_KEYS]
     if bad:
         raise ConfigError(f"preset {p.name} may only set {sorted(PRESET_SECTIONS)} and run.{sorted(PRESET_RUN_KEYS)}; not allowed: {bad}")
     applied: list[str] = []
     _fill_nulls(data, preset, "", applied)
+    _suggest_facts(data, facts, applied)
     return applied, str(p)
 
 
@@ -331,8 +354,8 @@ def load_config(path: str | Path) -> Config:
 
 
 def resolve(cfg: Config, p: str) -> Path:
-    """Resolve a config path relative to the config file's folder."""
-    q = Path(p)
+    """Resolve a config path relative to the config file's folder. ``${VAR}`` is expanded first (e.g. ``${REPEAT_KHG}``)."""
+    q = Path(os.path.expandvars(p))
     return q if q.is_absolute() else Path(cfg.base_dir) / q
 
 

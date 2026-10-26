@@ -43,6 +43,7 @@ class Assessment:
     needs_reproject: bool = False   # some layer is in another CRS
     vertical_datum: str = ""        # from the DTM's metadata, empty when it has none
     river_levels: bool = False      # the rivers layer has a dry_season_wl_m field
+    river_source: bool = False      # the rivers layer has dry_season_wl_m or perennial, so stage 9 can use it as a water source
     subkhg_id_field: str = ""
     columns_missing: dict[str, list[tuple[str, bool]]] = field(default_factory=dict)   # role -> [(expected column, required)] to map
 
@@ -51,7 +52,34 @@ class Assessment:
         return [f for f in self.findings if f.level == "error"]
 
 
-REQUIRED = {"dtm", "moisture", "subkhg", "canals", "burn_area", "peat_depth"}
+REQUIRED = {"dtm", "moisture", "subkhg", "canals", "burn_area", "peat_depth"}     # checked for features and coverage when chosen
+
+# Column names a delivery often uses for an expected column. The form preselects the first one present; the person can change it.
+# (The engine accepts only the names in COLUMNS on its own, so these become an explicit mapping in the run config.)
+GUESSES: dict[str, dict[str, tuple[str, ...]]] = {
+    "canals": {"canal_class": ("ket_kanal", "kode_kanal", "kelas", "kelas_kanal", "jenis", "class", "type")},
+    "sekat_existing": {"sekat_id": ("objectid_1", "objectid", "id", "kodefikasi", "kode")},
+    "subkhg": {"subkhg_id": ("id", "kode", "name")},
+    "burn_area": {"burn_freq": ("burnfreq", "frekuensi", "freq")},
+    "peat_depth": {"peat_thick": ("ketebalan", "kedalaman", "thickness", "depth")},
+}
+
+
+def guess_column(role: str, canonical: str, fields: list[str]) -> str:
+    """A likely field for ``canonical`` among ``fields`` by its name, or ""."""
+    by_norm = {norm(f): f for f in fields}
+    return next((by_norm[g] for g in GUESSES.get(role, {}).get(canonical, ()) if g in by_norm), "")
+
+
+def guess_canal_class(value) -> str:
+    """primer | sekunder | tersier for a canal class value such as "Kanal Primer", "primary" or the KODE_KANAL codes 1/2/3, else ""."""
+    v = str(value).strip().lower()
+    words = set(re.split(r"[^a-z0-9]+", v))
+    for cls, keys in (("primer", ("primer", "primary", "induk", "utama")), ("sekunder", ("sekunder", "secondary")),
+                      ("tersier", ("tersier", "tertiary"))):
+        if words & set(keys):
+            return cls
+    return {"1": "primer", "2": "sekunder", "3": "tersier"}.get(v.removesuffix(".0"), "")
 
 # Columns the engine looks for, per input: expected name -> (required, other names it accepts by itself). The engine ignores case,
 # spaces and punctuation in names (BURN_FREQ is burn_freq). tests/test_wizard_setup.py keeps this equal to the engine's CANONICAL_COLUMNS.
@@ -149,6 +177,12 @@ def assess(layers: dict[str, Optional[LayerInfo]], reproject: bool = False, colu
             else:
                 add("error", role, tr("{name} needs a column for {col}. Choose which column holds it under Column names below.").format(name=info.name, col=col))
     rv = layers.get("rivers")
+    out.river_source = bool(rv is not None and (find_field("rivers", "dry_season_wl_m", rv.fields, columns.get("rivers"))
+                                                or find_field("rivers", "perennial", rv.fields, columns.get("rivers"))))
+    if rv is not None and rv.fields and not (find_field("rivers", "dry_season_wl_m", rv.fields, columns.get("rivers"))
+                                             or find_field("rivers", "perennial", rv.fields, columns.get("rivers"))):
+        add("warning", "rivers", tr("{name} has no perennial or dry_season_wl_m column, so no river can be a pump water source. "
+                                    "Add one, or plan sekat only (switch off Plan pumps on the stage 8 card).").format(name=rv.name))
     if rv is not None and find_field("rivers", "dry_season_wl_m", rv.fields, columns.get("rivers")):
         out.river_levels = True
         add("info", "rivers", tr("The rivers have dry-season water levels, so a vertical datum is needed (set it in stage 1)."))
@@ -193,6 +227,20 @@ def info_from_layer(role: str, layer) -> Optional[LayerInfo]:
                      features=int(layer.featureCount()) if is_vector else None,
                      is_file=bool(layer.source()) and layer.providerType() not in ("memory", "virtual"),
                      vertical_crs=vertical)
+
+
+def value_counts(layer, field_name: str, limit: int = 40) -> list[tuple[str, int]]:
+    """The most frequent values of a field and how often each occurs (reads only that attribute)."""
+    if layer is None or not field_name or layer.fields().indexOf(field_name) < 0:
+        return []
+    from qgis.core import QgsFeatureRequest
+    req = QgsFeatureRequest().setFlags(QgsFeatureRequest.Flag.NoGeometry).setSubsetOfAttributes([field_name], layer.fields())
+    counts: dict[str, int] = {}
+    for f in layer.getFeatures(req):
+        v = f[field_name]
+        if v is not None and str(v).strip() and str(v) != "NULL":
+            counts[str(v)] = counts.get(str(v), 0) + 1
+    return sorted(counts.items(), key=lambda kv: -kv[1])[:limit]
 
 
 def subkhg_ids(layer, field_name: str, selected_only: bool = False) -> list[str]:

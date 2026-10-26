@@ -99,3 +99,20 @@ def test_screen_then_pde_rescoring_runs(world11):
 def test_candidates_that_cannot_raise_the_water_are_reported(world11):
     ctx = stage12(world11, **{**CHEAP, "canal_drawdown_m": 0.2})              # canal already within dA of the land
     assert any("cannot raise anything" in w for w in ctx.warnings)
+
+
+def test_stage_7_balance_keeps_the_fewest_sekat_for_the_target_share(world11):
+    cfg, tmp, ctx = world11
+    head_rule = len(ctx.read_layer("sekat_proposed"))
+    cfg = copy.deepcopy(cfg)
+    cfg["sekat"].update(target_rise_share=0.6, balance_drawdown_m=1.0)
+    c = run_pipeline(load_config(write_cfg(tmp / "b.yaml", cfg)), resume_from=7, stop_after=7)
+    kept, low = c.read_layer("sekat_proposed"), c.read_layer("sekat_low_benefit")
+    assert len(kept) + len(low) == head_rule and len(kept) >= 1
+    assert kept["cum_share"].max() >= 0.6 - 1e-9
+    assert (kept["benefit_rank"].max() < low["benefit_rank"].min()) if len(low) else True
+    assert len(kept) == 1 or kept.sort_values("benefit_rank")["cum_share"].iloc[-2] < 0.6     # one fewer would miss the share
+    assert c.report["sekat_balance"]["kept"] == len(kept)
+    cfg["sekat"].pop("balance_drawdown_m")
+    with pytest.raises(MissingParameters, match="balance_drawdown_m"):
+        run_pipeline(load_config(write_cfg(tmp / "b2.yaml", cfg)), resume_from=7, stop_after=7)

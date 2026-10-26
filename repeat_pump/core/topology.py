@@ -57,8 +57,10 @@ def filter_canal_classes(raw: gpd.GeoDataFrame, classes: list[str], ctx) -> gpd.
     secondary canals. What is left out is counted per class in the report; the full set stays in ``inputs_clipped_canals`` because
     river mouths are found on it (step 8.2). Canals added by ``canal_edits`` are not filtered."""
     want = {c.strip().lower() for c in classes}
+    cmap = {str(k).strip().lower(): str(v).strip().lower() for k, v in (ctx.cfg.topology.canal_class_map or {}).items()}
     cls = raw["canal_class"].astype(str).str.strip().str.lower()
-    keep = cls.isin(want)
+    cls = cls.map(lambda v: cmap.get(v, cmap.get(v.removesuffix(".0"), v)))      # 1 and 1.0 are the same code
+    keep = cls.isin(want) | cls.apply(lambda v: bool(want & set(v.split())))     # "Kanal Primer" counts as primer
     found = {k: int(v) for k, v in cls.value_counts().items()}
     dropped = {k: v for k, v in found.items() if k not in want}
     if not keep.any():

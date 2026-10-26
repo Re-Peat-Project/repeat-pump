@@ -61,7 +61,7 @@ def needs_by_stage(cfg: Config) -> dict[int, list[str]]:
     need[1] = ["run.clip_margin_m", "inputs.dtm.vertical_rmse_m", "inputs.moisture.higher_is_wetter"]
     if rivers_have_levels(cfg):
         need[1] += ["run.vertical_datum", "inputs.rivers.vertical_datum"]
-    if cfg.inputs.peat_depth.is_raster:
+    if cfg.inputs.peat_depth is not None and cfg.inputs.peat_depth.is_raster:
         need[1].append("inputs.peat_depth.units")          # BRGM rasters are in cm, the neraca raster in m: never guessed
     need[2] = ["topology.snap_tolerance_m"]
     need[3] = ["hydro.breach_max_dist_cells"]
@@ -74,20 +74,25 @@ def needs_by_stage(cfg: Config) -> dict[int, list[str]]:
     if cfg.inputs.concession is not None:
         need[6].append("prioritise.feasibility.concession_mode")
     need[7] = ["sekat.max_spacing_m", "sekat.snap_tolerance_m", "sekat.min_spacing_m"]
-    if cfg.pumping.route_edits is not None:
-        need[8] = ["sekat.snap_tolerance_m"] + (["run.vertical_datum"] if route_edits_have_levels(cfg) else [])
-    need[9] = ["pumping.uphill_penalty_lambda"]
-    p = ["conveyance", "pump_efficiency", "max_head_per_station_m", "pump_capacity_m3s", "influence_distance_m"]
-    if pc.conveyance == "canal":
-        p.append("manning_n")
-    elif pc.conveyance == "pipe":
-        p += ["hazen_williams_c", "pipe_diameter_m"]
-    cols = _priority_columns(cfg)
-    if pc.demand_mode == "specific_yield" or not {"deficit_mm", "design_period_days"} <= cols:
-        p += ["specific_yield", "water_table_rise_m"]      # no water deficit available: demand comes from specific yield
-    if "design_period_days" not in cols:
-        p.append("design_period_days")
-    need[10] = [f"pumping.{k}" for k in p]
+    if cfg.sekat.target_rise_share is not None:
+        need[7].append("sekat.balance_drawdown_m")
+    for sid in (8, 9, 10):
+        need[sid] = ["pumping.enabled"]
+    if pc.enabled:                                       # sekat only (false): the pump stages ask for nothing else
+        if cfg.pumping.route_edits is not None:
+            need[8] += ["sekat.snap_tolerance_m"] + (["run.vertical_datum"] if route_edits_have_levels(cfg) else [])
+        need[9] += ["pumping.uphill_penalty_lambda"]
+        p = ["conveyance", "pump_efficiency", "max_head_per_station_m", "pump_capacity_m3s", "influence_distance_m"]
+        if pc.conveyance == "canal":
+            p.append("manning_n")
+        elif pc.conveyance == "pipe":
+            p += ["hazen_williams_c", "pipe_diameter_m"]
+        cols = _priority_columns(cfg)
+        if pc.demand_mode == "specific_yield" or not {"deficit_mm", "design_period_days"} <= cols:
+            p += ["specific_yield", "water_table_rise_m"]      # no water deficit available: demand comes from specific yield
+        if "design_period_days" not in cols:
+            p.append("design_period_days")
+        need[10] += [f"pumping.{k}" for k in p]
     oc = cfg.optimise
     need[12] = ["optimise.enabled"]
     if oc.enabled:
@@ -101,14 +106,14 @@ def needs_by_stage(cfg: Config) -> dict[int, list[str]]:
 # Settings with a default that a person may still change, per stage. Never "missing": ``check`` lists them with their
 # current value so a front end can offer them. ``review.auto_accept`` is left out on purpose (it skips the review stops).
 OPTIONS_BY_STAGE: dict[int, list[str]] = {
-    1: ["run.crs", "run.auto_reproject", "run.memory_budget_gb", "run.subkhg_selection.mode", "run.subkhg_selection.n",
+    1: ["inputs.dtm.source", "run.crs", "run.auto_reproject", "run.memory_budget_gb", "run.subkhg_selection.mode", "run.subkhg_selection.n",
         "run.subkhg_selection.ids"],
     2: ["topology.overshoot_max_m", "topology.canal_classes", "topology.river_buffer_m", "topology.source_snap_m"],
     3: ["hydro.burn_depth_default_m", "hydro.flow_algorithm"],
     4: ["segments.max_length_m", "segments.min_length_m"],
     5: ["profiles.bank_offsets_m", "profiles.sample_step_m", "profiles.smoothing_window_m"],
     6: ["prioritise.ring_buffer_m", "prioritise.top_fraction", "prioritise.upstream_method"],
-    7: ["sekat.dA_m", "sekat.slope_reinforced_pct", "sekat.min_new_spacing_m", "sekat.dedup_tol_m"],
+    7: ["sekat.dA_m", "sekat.slope_reinforced_pct", "sekat.min_new_spacing_m", "sekat.dedup_tol_m", "sekat.target_rise_share"],
     8: [],
     9: ["pumping.routing", "pumping.allow_gate_addition", "pumping.sekat_scope"],
     10: ["pumping.demand_mode", "pumping.max_units_per_station"],
@@ -121,7 +126,7 @@ OPTIONS_BY_STAGE: dict[int, list[str]] = {
 # settings whose values change a stage's own results: whole sections (``topology``) or single keys (``pumping.routing``).
 # A stage that is out of date makes every later one out of date, so each stage lists only what it reads itself.
 FINGERPRINT_KEYS: dict[int, list[str]] = {
-    1: ["run", "inputs"], 2: ["topology"], 3: ["hydro"], 4: ["segments"], 5: ["profiles"], 6: ["prioritise"], 7: ["sekat"], 8: ["pumping.route_edits"],
+    1: ["run", "inputs"], 2: ["topology"], 3: ["hydro"], 4: ["segments"], 5: ["profiles"], 6: ["prioritise"], 7: ["sekat"], 8: ["pumping.enabled", "pumping.route_edits"],
     9: ["pumping.uphill_penalty_lambda", "pumping.routing", "pumping.allow_gate_addition", "pumping.sekat_scope"],
     10: ["pumping", "sekat.dA_m"], 11: [], 12: ["optimise", "sekat.dA_m"],
 }

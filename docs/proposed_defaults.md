@@ -21,6 +21,8 @@ retrieved source (replace before real use); **POLICY** a choice, not a measureme
 | `sekat.max_spacing_m` | 500 m | HIGH | KLH workflow: sekat spacing about 500 m. |
 | `sekat.min_spacing_m` | 100 m | LOW | The legacy script used 500 m as the *minimum*. That overrides the head rule (`js = dA/i`) wherever the slope exceeds 0.08 %, so 100 m is proposed instead. The team should decide which rule governs. |
 | `sekat.snap_tolerance_m` | 30 m | MED | The 30 m the KLH workflow uses to match river points to canals. |
+| `sekat.target_rise_share` | 0.9 | POLICY | Balance between the number of sekat and the rewetting they give: keep the fewest head-rule sekat that give 90 % of the canal water-level rise of all of them [Urzainki2020 canal-rise objective]; the rest go to `sekat_low_benefit`. Sugihan-Lumpur 2026-10-27: 54 of 123 sekat. |
+| `sekat.balance_drawdown_m` | 1.0 m | LOW | Dry-season canal level below the land, used only to rank the sekat. The ranking barely moved between 0.8 and 1.2 m at Sugihan-Lumpur (`scripts/sekat_spacing_check.py`). |
 | `prioritise.criteria.*.weight` | 0.25 each | POLICY | Equal weights, as in legacy scoring. AHP is the alternative (`weights_mode: ahp`). Who signs off is still open. |
 | `prioritise.upstream_buffer_m` | 50 m | HIGH | KLH workflow extraction buffer (step 6.1). |
 | `prioritise.klh_min_score` | 10 | POLICY | KLH guide step 7.2 (score of 10 or more, marked temporary there). Used only with `weights_mode: klh`. The class breaks of that mode (`klh_cpwi_breaks`, `klh_flow_breaks`) are not proposed: the guide's 0.8/1.5 and 1.5/3.0 depend on the units of its own rasters and it says to fit them to the quartiles of each KHG. |
@@ -64,11 +66,11 @@ From the technical guide (Panduan Teknis GIS Rewetting KLH, Appendix A) and the 
 
 ## Not in the preset: facts about the data
 
-Fill these from the dataset's metadata. A preset cannot know them, and it refuses to set them.
+Fill these from the dataset's metadata. The preset never sets the datums. It suggests the DTM error (for a declared `inputs.dtm.source`) and the moisture direction under `suggested_facts`; both are marked as proposed. A value from the delivery always wins.
 
 | Key | What to put | Notes |
 |---|---|---|
-| `inputs.dtm.vertical_rmse_m` | LiDAR: 0.1 to 0.3 m; DEMNAS: several metres | LiDAR is well within 0.3 m (Meadows 2024). One field comparison of DEMNAS gave RMSE 4.97 m. With `dA` = 0.40 m the Stage 1 accuracy warning fires for any source with RMSE above 0.2 m, so head-based placement on DEMNAS is noise. Take the RMSE from the LiDAR delivery report when there is one. |
+| `inputs.dtm.vertical_rmse_m` | LiDAR: 0.1 to 0.3 m; DEMNAS: several metres. Suggested by source: lidar 0.3, deltadtm 0.49 (NMAD against KLHK LiDAR at Sugihan-Lumpur, repeat-dem benchmark), demnas 4.97 | LiDAR is well within 0.3 m (Meadows 2024). One field comparison of DEMNAS gave RMSE 4.97 m. With `dA` = 0.40 m the Stage 1 accuracy warning fires for any source with RMSE above 0.2 m, so head-based placement on DEMNAS is noise. Take the RMSE from the LiDAR delivery report when there is one. |
 | `run.vertical_datum`, `inputs.rivers.vertical_datum` | Ask the data provider | DEMNAS heights are tied to the EGM2008-based geoid (INAGEOID2020). Do not assume a LiDAR delivery uses the same one. The river levels must use the same datum. |
 | `inputs.moisture.higher_is_wetter` | `true` for NDMI and OPTRAM-type indices | Depends on the index the upstream team delivered. |
 

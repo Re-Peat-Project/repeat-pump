@@ -115,3 +115,30 @@ def test_adding_a_block_never_lowers_the_canal_rise_objective():
         assert v >= prev - 1e-12
         prev = v
     assert obj.benefit((0,)) > obj.benefit((1,)) > 0                 # a block lower down the canal helps more stations
+
+
+def test_lazy_greedy_rank_gives_the_same_rise_as_the_full_greedy_search():
+    """greedy_rank (used by stage 7 balancing) must reach, for every k, the rise of the exhaustive greedy on the canal-rise objective."""
+    rng = np.random.default_rng(4)
+    n = 60                                                   # a random tree of canal stations draining to node 0
+    parent = [-1] + [int(rng.integers(0, k)) for k in range(1, n)]
+    up = [[] for _ in range(n)]
+    for k in range(1, n):
+        up[parent[k]].append(k)
+    depth = np.zeros(n)
+    for k in range(1, n):
+        depth[k] = depth[parent[k]] + 1
+    z = 0.05 * depth + rng.normal(0, 0.03, n)
+    net = bo.CanalNet(z, up, np.zeros((n, 2)), np.array(["c"] * n, dtype=object), {})
+    base = z - 1.0
+    cand = list(rng.choice(n, 15, replace=False))
+    crest = z[cand] - 0.4
+    obj = bo.CanalRiseObjective(net, base, cand, crest, {})
+    order = bo.greedy_rank(net, base, cand, crest, {})
+    assert sorted(i for i, _ in order) == list(range(15))
+    assert np.isclose(sum(g for _, g in order), obj.benefit(range(15)))
+    chosen = []
+    for k in range(15):
+        best = max((c for c in range(15) if c not in chosen), key=lambda c: obj.benefit(chosen + [c]))
+        chosen.append(best)
+        assert np.isclose(obj.benefit(chosen), obj.benefit([i for i, _ in order[:k + 1]]))

@@ -87,11 +87,14 @@ def _area_served(ctx, seg_ids, segs, peat_union, sk, influence):
     for kid, g in sel.groupby("subkhg_id"):
         buf = g.geometry.union_all().buffer(influence)
         poly = sk[sk["subkhg_id"] == kid].geometry.iloc[0]
-        out[kid] = buf.intersection(peat_union).intersection(poly).area
+        out[kid] = (buf if peat_union is None else buf.intersection(peat_union)).intersection(poly).area
     return out
 
 
 def run(ctx) -> None:
+    if not ctx.cfg.pumping.enabled:
+        ctx.log.info("Stage 10 skipped: pumping.enabled is false (sekat only)")
+        return "skipped"
     cfg = ctx.cfg
     pc = cfg.pumping
     sk = ctx.read_layer("subkhg_selected")
@@ -119,7 +122,8 @@ def run(ctx) -> None:
     segs = ctx.read_layer("canal_segments")
     tgt = ctx.read_layer("pump_targets").set_index("target_id")
     src = ctx.read_layer("pump_sources").set_index("node_id")
-    peat_union = ctx.read_layer("inputs_clipped_peat_depth").geometry.union_all()
+    pe = ctx.read_layer("inputs_clipped_peat_depth")
+    peat_union = pe.geometry.union_all() if ctx.cfg.inputs.peat_depth is not None else None
     routes_gdf = ctx.read_layer("pump_routes")
 
     # ---- demand per target

@@ -269,6 +269,9 @@ def read_route_edits(ctx, canals: gpd.GeoDataFrame) -> tuple[list[dict], dict, d
 
 
 def run(ctx):
+    if not ctx.cfg.pumping.enabled:
+        ctx.log.info("Stage 8 skipped: pumping.enabled is false (sekat only)")
+        return "skipped"
     segs = ctx.read_layer("canal_segments").sort_values("seg_id").reset_index(drop=True)
     canals = ctx.read_layer("canals_clean")
     prof = ctx.read_layer("canal_profiles")

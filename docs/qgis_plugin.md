@@ -27,13 +27,20 @@ QGIS is set to Indonesian. Messages written by the engine (warnings, the log) st
 Click the water-drop button in the toolbar, or *Plugins > RE-PEAT Pompanisasi > Guided wizard*. It opens a floating panel
 (dock it to the side if you like; the stage list then collapses to icons).
 
-1. **Stage 1 > Run setup:** pick the output GeoPackage, a starting config, the priority CSV and each layer (layers must be
-   saved files). *Create run* writes `run_config.yaml` in the output folder. *Open an existing run* resumes one.
+1. **Stage 1 > Run setup:** choose the **KHG** at the top of the form: the wizard fills every input from the KHG's work folder
+   (`_khg/<code>_<name>/`; set the `_khg` folder once with *KHG folders...*) and lists what it could not find. Or pick the output
+   GeoPackage, the priority CSV and each layer yourself (layers must be saved files). Burn scars and peat depth are optional. The
+   canal class column is guessed and each of its values is shown with its count and the class it is taken as (change any guess).
+   *Plan pumps* is ticked only when a river layer has a dry-season level or a perennial flag. The starting config is under *Advanced*. *Create run* writes `run_config.yaml` in the output folder. *Open an existing run* resumes one.
+   *Save setup as...* writes the form (layers, columns, selection, datum) to a JSON or YAML file; *Load setup...* fills the form from
+   such a file or from any run's `run_config.yaml`, adding layers that are not on the map yet. Change the output GeoPackage and
+   *Create run* to repeat a run. *Open an existing run* also refills the form.
    The form also takes concession polygons, water-level observations and extra moisture tiles, and lets you choose which sub-KHGs to
    analyse (highest priority, ticked ones, or all; *Use the features selected on the map* ticks the ones you selected). The run's
    coordinate system comes from the DTM; a layer in another system blocks *Create run* unless *Reproject layers...* is ticked.
    Required columns, coverage and the DTM's vertical datum (when it names one) are checked before the run is created.
    *Start over* clears a run's results (after you confirm) and keeps its settings and data.
+   *Run to the next review* runs on until the next review stop (2, 6, 9) or the end; *Accept and continue* also runs on.
 2. Each stage card shows what the stage does (turn on *Learn mode* for the why and the references), the **decisions** that stage
    needs, and a **Run** button. A stage whose required values are empty cannot run; the empty fields are highlighted. The wizard
    never fills these in on its own. Values are saved into `run_config.yaml`.
@@ -48,11 +55,14 @@ Click the water-drop button in the toolbar, or *Plugins > RE-PEAT Pompanisasi > 
    the stage's layers are loaded into a `RE-PEAT <run name>` group on the map; that stage's layers are shown, the others hidden, and
    the map zooms to them (*Show this stage on the map*, *Show every layer*). The last stage can *Export the map* as an A4 PDF or PNG.
 4. **Review stages (2, 6, 9)** stop for you: inspect the layers, then *Accept and continue* or *Re-run this stage*.
+5. **Stages 8-10 (pumps) can be switched off** with *Plan pumps* = No on the Stage 8 card: a sekat-only plan, needed when no river in the area can be a water source.
 5. **Stage 12 (block optimisation) is optional** and starts switched off (shown as *Optional, switched off* and counted as done). Choose *Yes* under *Decisions* to use it; it gives an alternative plan for which proposed sekat to build first and does not change the pump stages.
 6. *Re-run* on an earlier stage clears all later stages, because they depend on it (you are asked first). Their layers leave the map too.
 7. If you change a decision after a stage ran, that stage and the ones after it are marked **Out of date** and you cannot accept
    them until you re-run (the button says *Re-run to apply your change*).
 8. *Cancel run* stops the engine and anything it started, even if it is silent (for example a long download).
+
+When the plugin is updated, the wizard updates its engine environment by itself (it compares the engine hash written into the zip).
 
 The wizard never imports the engine. It runs the same command as the Processing algorithms and reads `run_state.json`,
 the logs and the GeoPackage; `repeat-pump check --config X` (JSON) tells it which parameters each stage still needs.

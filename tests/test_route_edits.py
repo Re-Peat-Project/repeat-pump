@@ -161,17 +161,24 @@ def test_bad_files_fail_clearly(world):
 def test_stage_8_fingerprint_and_requirements_follow_the_edits(world):
     cfg, tmp = world
     c0 = Config.model_validate(cfg)
-    assert route_edits_digest(c0) is None and needs_by_stage(c0)[8] == []
+    assert route_edits_digest(c0) is None and needs_by_stage(c0)[8] == ["pumping.enabled"]
     cfg["pumping"]["route_edits"] = write_edits(tmp, [("add", "source", X0 + 100, Y0 + 500, 2.0)])
     c1 = Config.model_validate(cfg)
-    assert needs_by_stage(c1)[8] == ["sekat.snap_tolerance_m", "run.vertical_datum"]          # a level needs the DTM's datum
+    assert needs_by_stage(c1)[8] == ["pumping.enabled", "sekat.snap_tolerance_m", "run.vertical_datum"]          # a level needs the DTM's datum
     one = fingerprint(c1, 8)
     assert one["route_edits_digest"] and "route_edits_digest" not in fingerprint(c1, 7)
     cfg["pumping"]["route_edits"] = write_edits(tmp, [("add", "source", X0 + 100, Y0 + 500)])
     c2 = Config.model_validate(cfg)
-    assert needs_by_stage(c2)[8] == ["sekat.snap_tolerance_m"] and fingerprint(c2, 8) != one
+    assert needs_by_stage(c2)[8] == ["pumping.enabled", "sekat.snap_tolerance_m"] and fingerprint(c2, 8) != one
 
 
 def test_deleting_and_replacing_the_same_target_is_not_reported_as_unmatched(world):
     ctx = run_to(world, [("add", "target", *EAST_SELECTED), ("delete", "target", X0 + 1800, Y0 + 500)], 9)
     assert list(ctx.read_layer("pump_targets").target_id) == ["M001"] and not any("no computed target lies within" in w for w in ctx.warnings)
+
+
+def test_sekat_only_skips_the_pump_stages_and_their_questions(world):
+    cfg, tmp = world
+    cfg["pumping"]["enabled"] = False
+    c = Config.model_validate(cfg)
+    assert all(needs_by_stage(c)[sid] == ["pumping.enabled"] for sid in (8, 9, 10))

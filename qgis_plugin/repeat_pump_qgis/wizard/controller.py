@@ -130,7 +130,9 @@ class WizardController(QObject):
                 self.engine_ready, self.engine_message = False, err or tr("Could not check the engine.")
             elif res[1][0] and res[2]:
                 self.engine_ready = False
-                self.engine_message = tr("The engine is older than the plugin. Click Set up engine to update it.")
+                self.engine_message = tr("Updating the engine to match the plugin...")
+                self.setup_engine()                       # the plugin was updated: replace the engine without asking
+                return
             else:
                 self.engine_ready, self.engine_message = bool(res[1][0]), res[1][1]
             if self.engine_ready and self.config_path:

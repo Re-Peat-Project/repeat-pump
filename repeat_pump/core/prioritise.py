@@ -58,6 +58,8 @@ def dominant_by_length(segments: gpd.GeoDataFrame, polygons: gpd.GeoDataFrame, v
     go to the larger ``order_col`` (default the value itself), which is deterministic.
     """
     order_col = order_col or value_col
+    if len(polygons) == 0 or "geometry" not in polygons:       # an optional layer left out (burn scars, peat depth)
+        return pd.DataFrame({value_col: pd.Series(dtype=object), "share_dominant": pd.Series(dtype=float)})
     pol = polygons[[value_col, order_col, "geometry"]] if order_col != value_col else polygons[[value_col, "geometry"]]
     ov = gpd.overlay(segments[[id_col, "geometry"]], pol, how="intersection", keep_geom_type=True)
     if ov.empty:
@@ -72,8 +74,9 @@ def dominant_by_length(segments: gpd.GeoDataFrame, polygons: gpd.GeoDataFrame, v
     return g.set_index(id_col)[[value_col, "share_dominant"]]
 
 
-def zonal_values(src, geom) -> tuple[np.ndarray, int]:
-    """Valid cell values of ``src`` inside ``geom`` (nodata ignored) and the number of cells inside."""
+def zonal_values(src, geom, all_touched: bool = False) -> tuple[np.ndarray, int]:
+    """Valid cell values of ``src`` inside ``geom`` (nodata ignored) and the number of cells inside. ``all_touched`` takes every cell
+    the geometry touches (needed for a line)."""
     if geom.is_empty:
         return np.empty(0), 0
     win = from_bounds(*geom.bounds, transform=src.transform).round_offsets().round_lengths()
@@ -85,7 +88,7 @@ def zonal_values(src, geom) -> tuple[np.ndarray, int]:
         return np.empty(0), 0
     arr = src.read(1, window=win).astype("float64")
     tr = src.window_transform(win)
-    inside = ~geometry_mask([geom], out_shape=arr.shape, transform=tr, all_touched=False)
+    inside = ~geometry_mask([geom], out_shape=arr.shape, transform=tr, all_touched=all_touched)
     if src.nodata is not None:
         arr[arr == src.nodata] = np.nan
     return arr[inside & np.isfinite(arr)], int(inside.sum())
@@ -101,8 +104,10 @@ def zonal(src, geom, stat: str = "mean"):
 
 def peat_from_raster(path: str, segs, progress=None) -> pd.DataFrame:
     """Peat depth along each segment from a depth raster in metres: the median of the cells within one cell width of the line scores
-    the segment, the minimum feeds the KLH rule (shallowest depth, as the class minimum does for polygons; team decision 26 Oct 2026).
-    ``peat_share_dom`` is the share of those cells that hold a depth. Segments without peat cells get 0, as with polygons."""
+    the segment. The minimum feeds the KLH rule (shallowest depth, as the class minimum does for polygons; team decision 26 Oct 2026),
+    taken over the cells the line itself crosses, so a shallow cell beside the canal (the peat edge) cannot pull it down.
+    ``peat_share_dom`` is the share of the buffered cells that hold a depth (for polygons: the length share of the dominant class).
+    Segments without peat cells get 0, as with polygons."""
     rows = []
     with rasterio.open(path) as src:
         width = max(abs(src.res[0]), abs(src.res[1]))
@@ -110,7 +115,9 @@ def peat_from_raster(path: str, segs, progress=None) -> pd.DataFrame:
             if progress:
                 progress(k, len(segs))
             v, n = zonal_values(src, g.buffer(width))
-            rows.append((float(np.median(v)) if v.size else 0.0, float(v.min()) if v.size else 0.0, v.size / n if n else 0.0))
+            on, _ = zonal_values(src, g, all_touched=True)
+            lo = on if on.size else v
+            rows.append((float(np.median(v)) if v.size else 0.0, float(lo.min()) if lo.size else 0.0, v.size / n if n else 0.0))
     return pd.DataFrame(rows, columns=["peat_depth_mid_m", "peat_depth_min_m", "peat_share_dom"], index=segs.index)
 
 
@@ -226,6 +233,9 @@ def run(ctx) -> None:
         missing.append("prioritise.feasibility.concession_mode")
     if missing:
         raise MissingParameters("Stage 6 needs these parameters (TODO(human), see spec section 11): " + ", ".join(missing))
+    absent = [k for k, sec in (("burn_freq", cfg.inputs.burn_area), ("peat_depth", cfg.inputs.peat_depth)) if sec is None and k in names]
+    if klh and "peat_depth" in absent:
+        raise ConfigError("prioritise.weights_mode klh needs a peat depth layer (the guide's 3 m / 1 m rule): add inputs.peat_depth")
     if klh:
         cpwi_breaks, flow_breaks = klh_breaks(pc.klh_cpwi_breaks, "klh_cpwi_breaks"), klh_breaks(pc.klh_flow_breaks, "klh_flow_breaks")
         w = np.zeros(len(names))
@@ -243,6 +253,12 @@ def run(ctx) -> None:
     else:
         w = np.array([pc.criteria[k].weight for k in names], float)
         w = w / w.sum()
+    if absent and not klh:
+        w = np.array([0.0 if k in absent else x for k, x in zip(names, w)])
+        if w.sum() <= 0:
+            raise ConfigError(f"Stage 6: every weighted criterion lacks its input layer ({', '.join(absent)})")
+        w = w / w.sum()
+        ctx.warn(f"Stage 6: no input layer for {', '.join(absent)}: weight set to 0, the other weights rescaled to sum to 1")
     ctx.report["weights"] = {} if klh else dict(zip(names, map(float, w)))
 
     # ---- categorical transfer (length-weighted)

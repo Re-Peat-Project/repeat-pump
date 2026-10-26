@@ -77,7 +77,8 @@ STAGE_TEXT: dict[int, tuple[str, str, str, str, str]] = {
          "Urzainki et al. (2020); Holland (1975); Kirkpatrick et al. (1983)"),
 }
 
-OPTIONAL_STAGES = {12}      # off unless switched on; shown as "Optional, switched off" and counted as done
+OPTIONAL_STAGES = {8, 9, 10, 12}      # can be switched off (pumping.enabled, optimise.enabled); then shown as "Optional, switched off" and counted as done
+SWITCH = {8: "pumping.enabled", 9: "pumping.enabled", 10: "pumping.enabled", 12: "optimise.enabled"}
 REPORT_STAGE = 11           # the stage whose card lists every warning
 
 # stage -> list of (counts key, label, note, warn-if-positive)
@@ -91,7 +92,7 @@ STAGE_TILES: dict[int, list[tuple[str, str, str, bool]]] = {
     4: [("segments", "Segments", "", False), ("short_flagged", "Short pieces flagged", "kept, not scored", False)],
     5: [("stations", "Profile stations", "", False), ("ambiguous_unresolved", "Unresolved directions", "flat canals", True)],
     6: [("scored", "Segments scored", "", False), ("selected", "Selected as targets", "", False), ("infeasible", "Not feasible", "filtered after scoring", False)],
-    7: [("existing", "Existing sekat", "", False), ("proposed", "Sekat proposed", "ready to review", False), ("unsnapped", "Unsnapped points", "listed in the log", True)],
+    7: [("existing", "Existing sekat", "", False), ("proposed", "Sekat proposed", "ready to review", False), ("low_benefit", "Left out, low benefit", "", False), ("unsnapped", "Unsnapped points", "listed in the log", True)],
     8: [("nodes", "Network nodes", "", False), ("edges", "Network edges", "", False)],
     9: [("sources", "Water sources", "", False), ("targets", "Targets", "", False), ("routes", "Routes", "", False),
         ("unreachable", "Unreachable targets", "see the QA layer", True), ("sekat_planned", "Sekat in the plan", "see sekat_scope", False),
@@ -106,7 +107,7 @@ STAGE_TILES: dict[int, list[tuple[str, str, str, bool]]] = {
 # layers worth showing after a stage (all in the output GeoPackage)
 STAGE_LAYERS: dict[int, list[str]] = {
     2: ["canals_clean", "qa_topology_dangles", "qa_topology_gaps"], 4: ["canal_segments"], 5: ["canal_profiles"],
-    6: ["canal_segments", "qa_sensitivity"], 7: ["canals_clean", "sekat_existing_assessed", "sekat_proposed"], 8: ["network_nodes", "network_edges"],
+    6: ["canal_segments", "qa_sensitivity"], 7: ["canals_clean", "sekat_existing_assessed", "sekat_low_benefit", "sekat_proposed"], 8: ["network_nodes", "network_edges"],
     9: ["pump_sources", "pump_targets", "pump_routes", "qa_unreachable_targets", "sekat_scope"], 10: ["pump_stations", "gates_required"],
     12: ["sekat_optimised", "qa_optimisation"],
 }
@@ -145,6 +146,8 @@ FIELDS: dict[str, Field_] = {f.key: f for f in [
     Field_("prioritise.klh_min_score", "Minimum score to select (KLH scoring)", "float", "of 12", "Segments with at least this total become targets. The guide uses 10 and calls it temporary."),
     Field_("run.clip_margin_m", "Clip margin around sub-KHGs", "float", "m", "Extra distance kept around the selected sub-KHGs."),
     Field_("inputs.dtm.vertical_rmse_m", "DTM vertical accuracy (RMSE)", "float", "m", "From the LiDAR provider. Needed to judge if a dA step is larger than the DTM noise."),
+    Field_("inputs.dtm.source", "What the DTM is", "enum", "", "Lets the proposed defaults suggest the DTM accuracy: LiDAR about 0.3 m, DeltaDTM 0.49 m, DEMNAS about 5 m.",
+           ("lidar", "deltadtm", "demnas", "other"), ("Airborne LiDAR", "DeltaDTM", "DEMNAS", "Other")),
     Field_("inputs.moisture.higher_is_wetter", "Moisture index: higher means wetter", "bool", "", "Depends on the index used (check its definition)."),
     Field_("inputs.peat_depth.units", "Unit of the peat depth raster", "enum", "", "Check the raster's metadata: the BRGM peat depth models are in centimetres, the class-midpoint raster of the neraca module in metres.", ("m", "cm"),
            ("Metres", "Centimetres")),
@@ -167,6 +170,7 @@ FIELDS: dict[str, Field_] = {f.key: f for f in [
     Field_("pumping.max_head_per_station_m", "Maximum head per station", "float", "m", "A new station is placed when this would be exceeded."),
     Field_("pumping.pump_capacity_m3s", "Capacity per pump unit", "float", "m3/s", ""),
     Field_("pumping.influence_distance_m", "Canal influence distance", "float", "m", "How far from a canal the peat is rewetted. Calibrate with water-table observations."),
+    Field_("pumping.enabled", "Plan pumps", "bool", "", "Switch off for a sekat-only plan: stages 8 to 10 are skipped. Needed when no river in the area can serve as a water source."),
     Field_("optimise.enabled", "Run the canal blocking optimisation", "bool", "", "Optional. Chooses which proposed sekat to build first when you cannot build them all. It is an alternative plan and does not change the pump stages."),
     Field_("optimise.objective", "How layouts are scored", "enum", "", "canal_rise is quick and needs few inputs. pde uses a groundwater model and needs the physical inputs below. screen_then_pde searches with canal rise and re-scores the winners with the groundwater model.", ("canal_rise", "pde", "screen_then_pde"),
            ("Canal level rise (quick)", "Groundwater model (slow)", "Quick search, then groundwater model")),
@@ -208,6 +212,9 @@ FIELDS: dict[str, Field_] = {f.key: f for f in [
     Field_("sekat.dA_m", "Head step between sekat (dA)", "float", "m", "Maximum water-table depth below the surface. PP 57/2016 uses 0.4 m."),
     Field_("sekat.min_new_spacing_m", "Minimum distance between new sekat", "float", "m", "Empty: the head rule alone decides. The KLH guide uses 500 m, which overrides the head rule on steep land and gives fewer sekat there."),
     Field_("sekat.dedup_tol_m", "Merge proposed sekat closer than", "float", "m", "A proposal this close to an existing sekat, or to one on another canal, is dropped. The KLH guide uses 50 m. Empty: keep all."),
+    Field_("sekat.target_rise_share", "Balance: share of the rewetting to keep", "float", "0-1",
+           "Keeps the fewest proposed sekat that give this share of the canal rewetting of all of them; the others go to the low-benefit layer. Empty: keep all."),
+    Field_("sekat.balance_drawdown_m", "Dry-season canal level below the land", "float", "m", "Only used to rank the proposed sekat by how much canal they rewet."),
     Field_("sekat.slope_reinforced_pct", "Slope for reinforced blocks", "float", "%", "From this land slope a block is flagged leaky or reinforced instead of standard."),
     Field_("pumping.routing", "How routes are built", "enum", "", "One shared network connects all targets to the sources at the least cost; the other mode routes each target alone (the old method, for comparison).", ("steiner", "per_target"),
            ("One shared network (Steiner tree)", "Each target on its own (old method)")),
@@ -420,6 +427,9 @@ class StageView:
     blocking: str = ""
 
 
+LAST_STAGE = 12
+
+
 @dataclass(frozen=True)
 class RunPlan:
     """Arguments for ``runner.run_cli``."""
@@ -486,7 +496,10 @@ class WizardModel:
                 return "running", tr("Running"), ""
             return "failed", tr("Interrupted"), tr("The last run was interrupted. Run it again.")
         if raw == "failed":
-            return "failed", tr("Failed"), st.get("error", "")
+            err = st.get("error", "")
+            if sid == 9 and "no usable water source" in err:
+                err += "\n" + tr("For a sekat-only plan, choose No for Plan pumps on the stage 8 card, then run again.")
+            return "failed", tr("Failed"), err
         if raw == "awaiting_review":
             return "needs_review", tr("Needs your review"), ""
         if raw == "done":
@@ -501,7 +514,7 @@ class WizardModel:
         for s in self.check["stages"]:
             sid = s["id"]
             title, purpose, what, why, ref = STAGE_TEXT[sid]
-            enabled = next((bool(e["value"]) for e in s.get("needs", []) if e["key"] == "optimise.enabled"), True)
+            enabled = next((bool(e["value"]) for e in s.get("needs", []) if e["key"] == SWITCH.get(sid)), True)
             status, sub, err = self._status(sid, prev_ok, enabled)
             stale_reason = ""
             if status in ("done", "needs_review"):
@@ -595,4 +608,8 @@ class WizardModel:
             return RunPlan(None, sid, (sid,))
         if action == "rerun":
             return RunPlan(sid, sid, (), True)
+        if action == "run_on":                       # on until the engine stops at the next review stage (or the end)
+            return RunPlan(None, LAST_STAGE)
+        if action == "accept_on":
+            return RunPlan(None, LAST_STAGE, (sid,))
         raise ValueError(action)

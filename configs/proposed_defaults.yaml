@@ -4,7 +4,7 @@
 #
 # The preset only fills values the run config leaves null; anything you set in the run config wins.
 # Every value taken from it is listed as a warning per stage and in run_report.md, so nothing is silent.
-# It never sets facts about the data (vertical datum, DTM RMSE, higher_is_wetter, input paths): see docs/proposed_defaults.md.
+# It never sets input paths or datums. It suggests two facts about the data (suggested_facts, below), also flagged as proposed.
 # Confidence: HIGH = taken from a document the team or regulation already uses; MED = literature value, site varies;
 # LOW = engineering judgement with no retrieved source, replace before real use. Full sources: docs/proposed_defaults.md.
 
@@ -25,6 +25,10 @@ sekat:
   min_spacing_m: 100              # LOW. The legacy script used 500 m as the MINIMUM, which would override the head rule on
                                   #   any slope steeper than dA/500 = 0.08 %. 100 m keeps proposals from clustering. Team decision.
   snap_tolerance_m: 30            # MED. Same 30 m the KLH workflow uses to match river points to canals (Panduan Teknis GIS, 7.2)
+  target_rise_share: 0.9          # POLICY. Keep the fewest head-rule sekat that give 90 % of the canal rewetting of all of them; the rest go to
+                                  #   sekat_low_benefit. Sugihan-Lumpur: 52-55 of 125 sekat gave 90 %, about 30 added under 1 % of the best one each
+  balance_drawdown_m: 1.0         # LOW. Dry-season canal level below the land, only used to rank the sekat. The ranking barely moved
+                                  #   between 0.8 and 1.2 m at Sugihan-Lumpur (scripts/sekat_spacing_check.py). Replace with canal level data
 
 prioritise:
   weights_mode: direct
@@ -53,3 +57,10 @@ pumping:
 
 # Stage 12 (optimise) is deliberately not proposed. transmissivity_multiplier changes results about 100-fold and has no
 # defensible default; the other optimise.* values are meaningless without it. See docs/proposed_defaults.md.
+
+suggested_facts:                  # used only where the run config leaves the value empty; check against the data delivery
+  dtm_rmse_by_source:             # inputs.dtm.vertical_rmse_m by inputs.dtm.source
+    lidar: 0.3                    # MED. Airborne LiDAR is well within 0.3 m [Meadows2024]. Use the delivery report's value when there is one
+    deltadtm: 0.49                # MED. NMAD of DeltaDTM against KLHK LiDAR at Sugihan-Lumpur (repeat-dem benchmark, 2026-10-25)
+    demnas: 4.97                  # MED. Field comparison of DEMNAS (docs/proposed_defaults.md). Head-based sekat placement is noise at this error
+  moisture_higher_is_wetter: true # HIGH for NDMI and CPWI (the indices the wizard fetches). Check if you use another index

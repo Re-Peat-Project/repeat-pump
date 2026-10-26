@@ -100,6 +100,9 @@ def path_geometry(G: nx.DiGraph, nodes: list):
 
 
 def run(ctx) -> None:
+    if not ctx.cfg.pumping.enabled:
+        ctx.log.info("Stage 9 skipped: pumping.enabled is false (sekat only)")
+        return "skipped"
     cfg = ctx.cfg
     pc = cfg.pumping
     require(pc, ["uphill_penalty_lambda"], "Stage 9", "pumping")
@@ -215,6 +218,7 @@ def run(ctx) -> None:
         route_rows.append(dict(route_id=f"R_{tid}", target_id=tid, mode=pc.routing, source_node=real[0], cost=float(cost),
                                length_m=float(sum(G[u][v]["length_m"] for u, v in edges)),
                                lift_m=float(sum(max(0.0, G[u][v]["dz_m"]) for u, v in edges)), n_edges=len(edges),
+                               canal_ids=";".join(sorted({str(G[u][v].get("canal_id")) for u, v in edges if G[u][v].get("canal_id") is not None})),
                                geometry=path_geometry(G, p)))
         routes[tid] = real
     tree_real = {(u, v) for u, v in tree if u != SUPER}
@@ -263,6 +267,9 @@ def sekat_scope(ctx, route_rows: list[dict], served: set, tgt_rows: list[dict]) 
     on_target = seg.isin({str(s) for s in served})
     routes = gpd.GeoSeries([r["geometry"] for r in route_rows], crs=ctx.crs).union_all() if route_rows else None
     on_route = pr.geometry.distance(routes) <= SCOPE_TOL_M if routes is not None and len(pr) else pd.Series(False, index=pr.index)
+    route_canals = {c for r in route_rows for c in str(r.get("canal_ids") or "").split(";") if c}
+    if route_canals and "canal_id" in pr:              # a sekat on a crossing canal at a junction is near the route but not on it
+        on_route = on_route & pr["canal_id"].astype(str).isin(route_canals)
     scope = np.where(on_target, "target", np.where(on_route, "route", "other")).astype(object)
     planned = np.ones(len(pr), bool) if ctx.cfg.pumping.sekat_scope == "all" else scope != "other"
     cols = [c for c in ("sekat_pro_id", "canal_id", "seg_id", "sekat_type", "manual") if c in pr]

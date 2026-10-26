@@ -57,6 +57,7 @@ def run(ctx) -> None:
         "weights": rep.get("weights", {}),
         "sensitivity": rep.get("sensitivity", []),
         "routing": rep.get("routing", {}),
+        "sekat_balance": rep.get("sekat_balance", {}),
         "pumps": rep.get("pumps", []),
         "null_parameters": todo,
         "preset": cfg.preset,

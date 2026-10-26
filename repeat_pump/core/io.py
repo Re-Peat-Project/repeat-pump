@@ -208,7 +208,7 @@ def crop_rasters(cfg: Config, paths: list[str], name: str, bounds: tuple, dst: P
 def _note_cloud_inputs(cfg: Config, ctx: RunContext) -> None:
     """Rasters and layers built by ``repeat-pump fetch-moisture`` / ``fetch-burn`` carry a ``<file>.provenance.json``: put it in the
     report and warn about every deviation, so an approximation is never mistaken for the team's own data."""
-    for key, paths in (("moisture", cfg.inputs.moisture.paths), ("burn_area", [cfg.inputs.burn_area.path])):
+    for key, paths in (("moisture", cfg.inputs.moisture.paths), ("burn_area", [cfg.inputs.burn_area.path] if cfg.inputs.burn_area else [])):
         found = []
         for path in paths:
             sidecar = Path(str(resolve(cfg, path)) + ".provenance.json")
@@ -329,6 +329,9 @@ def _require_features(ctx: RunContext, name: str, gdf: gpd.GeoDataFrame, extent)
     ctx.report.setdefault("validation", {}).setdefault("features_in_extent", {})[name] = n
     if n == 0:
         ctx.warn(f"{name}: no features inside the analysis extent")
+        if name == "rivers" and ctx.cfg.pumping.enabled:
+            ctx.warn("Stage 1: no river in the analysis extent, so stage 9 will find no water source. "
+                     "For a sekat-only plan set pumping.enabled: false (stages 8-10 are skipped)")
 
 
 def run_stage1(ctx: RunContext) -> None:
@@ -473,17 +476,25 @@ def run_stage1(ctx: RunContext) -> None:
         _require_features(ctx, "rivers", rv, extent)
         ctx.write_layer("inputs_clipped_rivers", clip(rv), "1")
 
-    # burn area
-    ba = read_vector(cfg, cfg.inputs.burn_area.path, "burn_area", ctx, cfg.inputs.burn_area.layer, cfg.inputs.burn_area.columns)
-    col = find_col(ba, ["burn_freq", "burn_frequency"], "burn_area")
-    ba["burn_freq_n"], bad = parse_burn_freq(ba[col])
-    if bad:
-        ctx.warn(f"burn_area: {len(bad)} unparsed burn_freq value(s): {bad[:10]}")
-    val["burn_freq_unparsed"] = bad
-    ctx.write_layer("inputs_clipped_burn_area", clip(ba), "1")
+    # burn area (optional: an empty layer keeps the later stages simple; stage 6 then gives burn_freq weight 0)
+    if cfg.inputs.burn_area is not None:
+        ba = read_vector(cfg, cfg.inputs.burn_area.path, "burn_area", ctx, cfg.inputs.burn_area.layer, cfg.inputs.burn_area.columns)
+        col = find_col(ba, ["burn_freq", "burn_frequency"], "burn_area")
+        ba["burn_freq_n"], bad = parse_burn_freq(ba[col])
+        if bad:
+            ctx.warn(f"burn_area: {len(bad)} unparsed burn_freq value(s): {bad[:10]}")
+        val["burn_freq_unparsed"] = bad
+        ctx.write_layer("inputs_clipped_burn_area", clip(ba), "1")
+    else:
+        ctx.warn("burn_area: no burn-scar layer; the burn_freq criterion gets weight 0 in stage 6")
+        ctx.write_layer("inputs_clipped_burn_area", gpd.GeoDataFrame({"burn_freq_n": pd.Series(dtype=float)}, geometry=[], crs=ctx.crs), "1")
 
     # peat depth: thickness-class polygons here; a depth raster is cropped with the other rasters below
-    if not cfg.inputs.peat_depth.is_raster:
+    if cfg.inputs.peat_depth is None:
+        ctx.warn("peat_depth: no peat depth layer; the peat_depth criterion gets weight 0 in stage 6 and pump demand counts the whole served area")
+        ctx.write_layer("inputs_clipped_peat_depth", gpd.GeoDataFrame({"peat_class": pd.Series(dtype=str), "depth_min_m": pd.Series(dtype=float),
+                                                                       "depth_max_m": pd.Series(dtype=float)}, geometry=[], crs=ctx.crs), "1")
+    elif not cfg.inputs.peat_depth.is_raster:
         pd_ = read_vector(cfg, cfg.inputs.peat_depth.path, "peat_depth", ctx, cfg.inputs.peat_depth.layer, cfg.inputs.peat_depth.columns)
         col = find_col(pd_, ["peat_thick", "peat_depth", "peat_class"], "peat_depth")
         parsed, bad = parse_peat_class(pd_[col])
@@ -516,7 +527,7 @@ def run_stage1(ctx: RunContext) -> None:
         "dtm": str(crop_rasters(cfg, [dtm_cfg.path], "dtm", bounds, clip_dir / "dtm.tif", Resampling.bilinear, ctx)),
         "moisture": str(crop_rasters(cfg, cfg.inputs.moisture.paths, "moisture", bounds, clip_dir / "moisture.tif", Resampling.bilinear, ctx)),
     }
-    if cfg.inputs.peat_depth.is_raster:
+    if cfg.inputs.peat_depth is not None and cfg.inputs.peat_depth.is_raster:
         ctx.report["inputs"]["peat_depth"] = str(peat_depth_raster(cfg, ctx, bounds, extent, clip_dir, val, clip))
     _note_cloud_inputs(cfg, ctx)
     ctx.set_counts("1", subkhg_selected=len(ids), canals=int(len(ctx.read_layer("inputs_clipped_canals"))))

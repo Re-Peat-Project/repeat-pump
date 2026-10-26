@@ -37,8 +37,9 @@ def sample_profile(src, line, step: float, offsets: list[float]) -> tuple[np.nda
     pad = max(offsets) + 2 * src.res[0]
     minx, miny, maxx, maxy = line.bounds
     win = rasterio.windows.from_bounds(minx - pad, miny - pad, maxx + pad, maxy + pad, src.transform)
-    win = win.round_offsets().round_lengths().intersection(rasterio.windows.Window(0, 0, src.width, src.height))
-    arr = src.read(1, window=win).astype("float64")
+    win = win.round_offsets().round_lengths()          # boundless: a canal that leaves the DTM gets no data there, not edge values
+    fill = src.nodata if src.nodata is not None else np.nan
+    arr = src.read(1, window=win, boundless=True, fill_value=fill).astype("float64")
     if src.nodata is not None:
         arr[arr == src.nodata] = np.nan
     tr = src.window_transform(win)
@@ -53,7 +54,7 @@ def sample_profile(src, line, step: float, offsets: list[float]) -> tuple[np.nda
                 x, y = p.x + sg * off * nx_, p.y + sg * off * ny_
                 cols_all.append((x - tr.c) / tr.a - 0.5)
                 rows_all.append((y - tr.f) / tr.e - 0.5)
-    vals = map_coordinates(arr, [np.array(rows_all), np.array(cols_all)], order=1, mode="nearest", cval=np.nan)
+    vals = map_coordinates(arr, [np.array(rows_all), np.array(cols_all)], order=1, mode="constant", cval=np.nan)
     vals = vals.reshape(len(s), 2 * len(offsets))
     with np.errstate(all="ignore"):
         z = np.nanmedian(vals, axis=1)

@@ -86,6 +86,11 @@ def run(ctx):
     canals = ctx.read_layer("canals_clean")
     prof = ctx.read_layer("canal_profiles")
     cand = ctx.read_layer("sekat_proposed")
+    if cfg.pumping.enabled and cfg.pumping.sekat_scope == "selected" and ctx.has_layer("sekat_scope") and len(cand):
+        sc = ctx.read_layer("sekat_scope")
+        planned = set(sc.loc[sc["planned"].astype(bool), "sekat_pro_id"])
+        cand = cand[cand["sekat_pro_id"].isin(planned)]
+        ctx.log.info("Stage 12: pumping.sekat_scope is selected, so only the %d planned sekat are candidates", len(cand))
     if len(cand) == 0:
         ctx.warn("Stage 12: there are no proposed sekat to choose from; nothing to optimise")
         return "skipped"

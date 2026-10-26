@@ -9,7 +9,7 @@ from typing import Optional
 from . import hydro, io, network, optimise, profiles, prioritise, pumps, report, routing, segments, sekat, topology
 from .config import Config
 from .context import RunContext
-from .requirements import fingerprint, get_value, needs_by_stage
+from .requirements import OPTIONS_BY_STAGE, fingerprint, get_value, needs_by_stage
 
 # (id, name, function, needs human review)
 STAGES = [
@@ -83,9 +83,10 @@ def run_pipeline(cfg: Config, stop_after: Optional[int] = None, resume_from: Opt
             del states[later]
         # warnings raised by this stage or later ones belong to results that are about to be replaced
         ctx.warnings[:] = [w for w in ctx.warnings if warning_stage(w) < sid]
-        for k in [k for k in needs_by_stage(cfg)[sid] if k in cfg.preset["keys"]]:
-            ctx.warn(f"Stage {sid}: {k} = {get_value(cfg, k)} comes from the proposed-defaults preset ({cfg.preset['path']}), "
-                     f"not from a team decision. Confirm or replace it.")
+        proposed = [k for k in needs_by_stage(cfg)[sid] + OPTIONS_BY_STAGE.get(sid, []) if k in cfg.preset["keys"]]
+        if proposed:                                     # one line per stage; the report lists the preset file and every value
+            ctx.warn(f"Stage {sid}: {len(proposed)} proposed default(s), not team decisions: "
+                     + ", ".join(f"{k} = {get_value(cfg, k)}" for k in proposed))
         states[key] = {"name": name, "status": "running"}
         ctx.save_state()
         (ctx.work / "logs").mkdir(exist_ok=True)

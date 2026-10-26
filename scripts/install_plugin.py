@@ -5,6 +5,7 @@
     python scripts/install_plugin.py --zip                # dist/repeat_pump_qgis.zip
 """
 import argparse
+import hashlib
 import os
 import shutil
 import zipfile
@@ -20,6 +21,15 @@ def engine_files():
     for p in (ROOT / "repeat_pump").rglob("*"):
         if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc":
             yield p, Path("engine") / p.relative_to(ROOT)
+
+
+def engine_hash() -> str:
+    """Hash of the bundled engine source; the plugin reinstalls its engine when this changes (runner.bundled_version)."""
+    h = hashlib.sha1()
+    for src, rel in sorted(engine_files(), key=lambda t: t[1].as_posix()):
+        h.update(rel.as_posix().encode())
+        h.update(src.read_bytes())
+    return h.hexdigest()[:12]
 
 
 def extra_files():
@@ -42,6 +52,7 @@ def main():
                     z.write(p, Path("repeat_pump_qgis") / p.relative_to(SRC))
             for src, rel in list(engine_files()) + list(extra_files()):
                 z.write(src, Path("repeat_pump_qgis") / rel)
+            z.writestr("repeat_pump_qgis/engine/ENGINE_HASH", engine_hash())
         print(out)
         return
     prof = Path(a.profile_dir) if a.profile_dir else Path(os.environ["APPDATA"]) / "QGIS" / "QGIS4" / "profiles" / "default"
@@ -52,6 +63,7 @@ def main():
     for src, rel in list(engine_files()) + list(extra_files()):
         (dst / rel).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst / rel)
+    (dst / "engine" / "ENGINE_HASH").write_text(engine_hash())
     print("installed to", dst)
 
 

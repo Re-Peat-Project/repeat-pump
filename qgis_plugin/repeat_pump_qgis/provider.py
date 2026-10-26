@@ -38,8 +38,8 @@ VECTOR_INPUTS = [
     ("CANAL_EDITS", "Canal edits (lines with action add/delete, optional)", "Line", "canal_edits", True),
     ("SEKAT", "Existing sekat (points, may be empty)", "Point", "sekat_existing", True),
     ("RIVERS", "River polygons or lines (water sources)", "Polygon", "rivers", True),
-    ("BURN", "Burn-scar polygons (burn frequency)", "Polygon", "burn_area", False),
-    ("PEAT", "Peat-depth polygons", "Polygon", "peat_depth", False),
+    ("BURN", "Burn-scar polygons (burn frequency, optional)", "Polygon", "burn_area", True),
+    ("PEAT", "Peat-depth polygons (optional)", "Polygon", "peat_depth", True),
     ("CONCESSION", "Concession polygons (feasibility filter, optional)", "Polygon", "concession", True),
     ("TMA", "Water-level observations (validation, optional)", "Point", "tma_obs", True),
 ]

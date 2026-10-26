@@ -29,6 +29,15 @@ def csv_header(path: str) -> list[str]:
 SELECTION_MODES = [("top_n", "Highest-priority sub-KHGs"), ("ids", "Chosen sub-KHGs"), ("all", "All sub-KHGs")]
 
 
+def dtm_source_guess(path: str) -> str:
+    """What a DTM file probably is, from its name: lidar | deltadtm | demnas, or '' when the name does not say."""
+    n = path.replace("\\", "/").rsplit("/", 1)[-1].lower()
+    for key, words in (("deltadtm", ("deltadtm",)), ("demnas", ("demnas",)), ("lidar", ("lidar",))):
+        if any(w in n for w in words):
+            return key
+    return ""
+
+
 class SetupExtras(QWidget):
     """``get_layers`` returns ``{config key: QgsMapLayer or None}`` for the layers chosen in the main form."""
     changed = pyqtSignal()
@@ -68,6 +77,8 @@ class SetupExtras(QWidget):
         row = QHBoxLayout()
         self.mode = QComboBox()
         self.mode.currentIndexChanged.connect(self._mode_changed)
+        self._mode_touched = False
+        self.mode.activated.connect(lambda _i: setattr(self, "_mode_touched", True))
         self.n = QSpinBox()
         self.n.setRange(1, 999)
         self.n.setValue(3)
@@ -93,6 +104,27 @@ class SetupExtras(QWidget):
         lay.addLayout(self.columns_box)
         self.columns_title.setVisible(False)
         self.columns_note.setVisible(False)
+
+        # canal classes: what each value of the class column means
+        self.classes_title = label("Canal classes", "paramLabel")
+        self.classes_note = label("What each value of the canal class column means. The guess is filled in; change it if it is wrong.", "paramHelp")
+        self.classes_box = QVBoxLayout()
+        self.classes_box.setSpacing(4)
+        lay.addWidget(self.classes_title)
+        lay.addWidget(self.classes_note)
+        lay.addLayout(self.classes_box)
+        self._class_choice: dict[str, str] = {}
+        self._classes_for: tuple = ()
+
+        # water source for pumps
+        self.pumps = QCheckBox()
+        self.pumps.setChecked(True)
+        self._pumps_touched = False
+        self.pumps.toggled.connect(lambda _b: setattr(self, "_pumps_touched", True))
+        lay.addWidget(self.pumps)
+        self.pumps_note = label("", "paramHelp")
+        lay.addWidget(self.pumps_note)
+        self._loaded: dict = {}          # settings from a loaded setup that the form has no widget for (peat units, DTM type, ...)
 
         # coordinate system and datum
         lay.addWidget(label("Coordinate system and vertical datum", "paramLabel"))
@@ -121,6 +153,7 @@ class SetupExtras(QWidget):
         self.mode.setCurrentIndex(max(0, [c for c, _ in SELECTION_MODES].index(cur)))
         self.mode.blockSignals(False)
         self.reproject.setText(tr("Reproject layers that use another coordinate system"))
+        self.pumps.setText(tr("Plan pumps (needs a river that can supply water)"))
         self.datum.setPlaceholderText(tr("Vertical datum, for example EGM2008"))
         self.use_selected.setText(tr("Use the features selected on the map"))
         self.add_moisture.setText(tr("Add another moisture raster (a neighbouring tile)"))
@@ -139,6 +172,14 @@ class SetupExtras(QWidget):
         cb.layerChanged.connect(lambda _l: self.refresh())
         self.extra_moisture.append(cb)
         self.moisture_box.addWidget(cb)
+
+    def set_extra_moisture(self, layers: list) -> None:
+        """Show these layers as the extra moisture tiles (a loaded setup)."""
+        clear(self.moisture_box)
+        self.extra_moisture = []
+        for lyr in layers:
+            self._add_moisture()
+            self.extra_moisture[-1].setLayer(lyr)
 
     def moisture_layers(self) -> list:
         return [cb.currentLayer() for cb in self.extra_moisture if cb.currentLayer() is not None]
@@ -255,6 +296,38 @@ class SetupExtras(QWidget):
         self.columns_title.setVisible(bool(rows))
         self.columns_note.setVisible(bool(rows))
 
+    def _rebuild_classes(self, layer) -> None:
+        """One row per value of the canal class column, with the class it is taken as (guessed, changeable)."""
+        info = self._infos.get("canals")
+        field = preflight.find_field("canals", "canal_class", info.fields, self.columns().get("canals")) if info is not None else ""
+        key = (layer.id() if layer is not None else "", field)
+        if key == self._classes_for:
+            return
+        self._classes_for = key
+        clear(self.classes_box)
+        values = preflight.value_counts(layer, field) if layer is not None and field else []
+        for v, n in values:
+            if v not in self._class_choice:
+                self._class_choice[v] = preflight.guess_canal_class(v) or "other"
+            row = QWidget()
+            h = QHBoxLayout(row)
+            h.setContentsMargins(0, 0, 0, 0)
+            h.addWidget(label(f"{v}  ({n})", "paramHelp", wrap=False), 1)
+            cb = QComboBox()
+            for code, text in (("primer", "Primary"), ("sekunder", "Secondary"), ("tersier", "Tertiary"), ("other", "Other, not a canal class")):
+                cb.addItem(tr(text), code)
+            cb.setCurrentIndex(max(0, cb.findData(self._class_choice[v])))
+            cb.currentIndexChanged.connect(lambda _i, val=v, w=cb: self._class_choice.__setitem__(val, w.currentData()))
+            h.addWidget(cb, 1)
+            self.classes_box.addWidget(row)
+        self.classes_title.setVisible(bool(values))
+        self.classes_note.setVisible(bool(values))
+        self._class_values = [v for v, _n in values]
+
+    def class_map(self) -> dict:
+        """``{value: class}`` for the values of the canal class column that are not already the class name itself."""
+        return {v: c for v, c in self._class_choice.items() if v in getattr(self, "_class_values", []) and v.strip().lower() != c}
+
     def _column_chosen(self, role: str, col: str, field: Optional[str]) -> None:
         self._col_choice[(role, col)] = field or ""
         self.refresh()
@@ -278,9 +351,23 @@ class SetupExtras(QWidget):
         if prio:
             infos["subkhg_priority"] = preflight.LayerInfo("subkhg_priority", prio.replace("\\", "/").rsplit("/", 1)[-1], fields=csv_header(prio))
         self._infos = {r: i for r, i in infos.items() if i is not None}
+        for role, info in self._infos.items():                 # preselect a likely column for each missing required one
+            for col, req in preflight.missing_columns(role, info.fields, self.columns().get(role)):
+                g = preflight.guess_column(role, col, info.fields) if req else ""
+                if g and not self._col_choice.get((role, col)):
+                    self._col_choice[(role, col)] = g
         self._rebuild_columns()
         a = self.assessment = preflight.assess(self._infos, reproject=self.reproject.isChecked(), columns=self.columns())
         self._fill_ids(layers.get("subkhg"), a.subkhg_id_field)
+        self._rebuild_classes(layers.get("canals"))
+        if not prio and self.mode.currentData() == "top_n" and not self._mode_touched:
+            self.mode.setCurrentIndex(self.mode.findData("all"))   # no priority table: there is no "highest priority"
+        if not self._pumps_touched:
+            self.pumps.blockSignals(True)
+            self.pumps.setChecked(a.river_source)
+            self.pumps.blockSignals(False)
+        self.pumps_note.setText(tr("Rivers with a dry-season level or a perennial flag can supply pumps.") if a.river_source else
+                                tr("No river layer with a dry-season level or a perennial flag: the plan covers sekat only (stages 8 to 10 are skipped)."))
         self.crs_note.setText(tr("Coordinate system for the run: {crs} (taken from the DTM).").format(crs=a.crs) if a.crs else
                               tr("The run's coordinate system is taken from the DTM once you choose it."))
         self.reproject.setVisible(a.needs_reproject or self.reproject.isChecked())
@@ -296,6 +383,48 @@ class SetupExtras(QWidget):
         self.findings.setText("<br>".join(f"<span style='color:{color[f.level]}'>{'•'} {f.text}</span>" for f in a.findings))
         self.changed.emit()
 
+    def load_from(self, data: dict) -> None:
+        """Fill column choices, sub-KHG selection, reprojection and datum from a saved setup or run config."""
+        inp = data.get("inputs") or {}
+        self._loaded = {}
+        for key, val in (("inputs.peat_depth.units", (inp.get("peat_depth") or {}).get("units")), ("inputs.dtm.source", (inp.get("dtm") or {}).get("source")),
+                         ("inputs.dtm.vertical_rmse_m", (inp.get("dtm") or {}).get("vertical_rmse_m")),
+                         ("inputs.moisture.higher_is_wetter", (inp.get("moisture") or {}).get("higher_is_wetter"))):
+            if val is not None:
+                self._loaded[key] = val
+        for v, c in ((data.get("topology") or {}).get("canal_class_map") or {}).items():
+            self._class_choice[str(v)] = c
+        self._classes_for = ()
+        if (data.get("pumping") or {}).get("enabled") is not None:
+            self.pumps.setChecked(bool(data["pumping"]["enabled"]))
+            self._pumps_touched = True
+        for role, sec in (data.get("inputs") or {}).items():
+            if isinstance(sec, dict):
+                for col, field in (sec.get("columns") or {}).items():
+                    self._col_choice[(role, col)] = field
+        self._col_signature = ()
+        run = data.get("run") or {}
+        sel = run.get("subkhg_selection") or {}
+        i = self.mode.findData(sel.get("mode", "top_n"))
+        if i >= 0:
+            self.mode.setCurrentIndex(i)
+        if sel.get("n"):
+            self.n.setValue(int(sel["n"]))
+        self.reproject.setChecked(bool(run.get("auto_reproject")))
+        if run.get("vertical_datum"):
+            self.datum.setText(str(run["vertical_datum"]))
+            self._datum_edited = True
+        self._ids_for = ()
+        self.refresh()
+        want = {str(v) for v in sel.get("ids") or []}
+        if want:
+            self.ids.blockSignals(True)
+            for k in range(self.ids.count()):
+                it = self.ids.item(k)
+                it.setCheckState(Qt.CheckState.Checked if it.text() in want else Qt.CheckState.Unchecked)
+            self.ids.blockSignals(False)
+        self.changed.emit()
+
     def errors(self) -> list[str]:
         out = [f.text for f in self.assessment.errors]
         if self.mode.currentData() == "ids" and not self.checked_ids():
@@ -306,7 +435,11 @@ class SetupExtras(QWidget):
     def params(self) -> dict:
         """Dotted config keys for the run YAML."""
         a = self.assessment
-        p: dict = {}
+        p: dict = dict(self._loaded)
+        p["pumping.enabled"] = bool(self.pumps.isChecked())
+        cmap = self.class_map()
+        if cmap:
+            p["topology.canal_class_map"] = cmap
         if a.crs:
             p["run.crs"] = a.crs
         p["run.auto_reproject"] = bool(self.reproject.isChecked())
@@ -316,6 +449,10 @@ class SetupExtras(QWidget):
             p["run.subkhg_selection.n"] = int(self.n.value())
         elif mode == "ids":
             p["run.subkhg_selection.ids"] = self.checked_ids()
+        dtm = self._get_layers().get("dtm")
+        guess = dtm_source_guess(dtm.source() if dtm is not None else "")
+        if guess:
+            p["inputs.dtm.source"] = guess                     # from the file name; the stage 1 card shows it and can change it
         prov = self.cloud_provenance()
         if prov and "higher_is_wetter" in prov:
             p["inputs.moisture.higher_is_wetter"] = bool(prov["higher_is_wetter"])        # a fact about the index the engine just built

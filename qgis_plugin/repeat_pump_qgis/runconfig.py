@@ -142,3 +142,38 @@ def write_run_config(data: dict, path: str | Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf8")
     return path
+
+
+FORM_INPUTS = ("dtm", "moisture", "subkhg", "canals", "canal_edits", "sekat_existing", "rivers", "burn_area", "peat_depth",
+               "concession", "tma_obs")
+
+
+def read_setup(path) -> dict:
+    """A saved setup or run config (YAML, or JSON, which YAML also reads) with every input path made absolute."""
+    path = Path(path)
+    data = yaml.safe_load(path.read_text(encoding="utf8")) or {}
+    absolutise_inputs(data, path.parent)
+    out = (data.get("run") or {}).get("output_gpkg")
+    if out:
+        data["run"]["output_gpkg"] = _absolute(os.path.expandvars(out), path.parent)
+    return data
+
+
+def form_inputs(data: dict) -> dict:
+    """``{input key: [(file path, layer name or None), ...]}`` for the layer pickers of the setup form (moisture may list tiles)."""
+    out = {}
+    for key in FORM_INPUTS:
+        sec = (data.get("inputs") or {}).get(key)
+        if not isinstance(sec, dict):
+            continue
+        paths = sec.get("paths") or ([sec["path"]] if sec.get("path") else [])
+        out[key] = [(os.path.expandvars(p), sec.get("layer")) for p in paths]
+    return out
+
+
+def write_setup(data: dict, path) -> None:
+    """Save a setup to keep or share: JSON when the file name ends in .json, YAML otherwise. Either loads back with read_setup."""
+    import json
+    path = Path(path)
+    text = json.dumps(data, indent=2, ensure_ascii=False) if path.suffix.lower() == ".json" else yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
+    path.write_text(text, encoding="utf8")

@@ -109,6 +109,45 @@ class CanalNet:
 
 
 # ----------------------------------------------------------------------------- objectives (larger benefit is better)
+def greedy_rank(net: CanalNet, base: np.ndarray, nodes: list, crest: np.ndarray, fixed: dict) -> list:
+    """Order candidate blocks by the extra canal rise each adds to those chosen before it: ``[(index, gain), ...]``, largest
+    first. The rise of a set is the canal-rise objective, so the k first entries are the greedy k-set. The gain of a block
+    can only shrink as others are built (water levels only go up), so stale gains are upper bounds and a lazy priority queue
+    gives the same order as the full greedy search at a fraction of the cost."""
+    import heapq
+    wt = net.levels(base, fixed)
+
+    def gain(i: int, apply: bool = False) -> float:
+        c, g = float(crest[i]), 0.0
+        if not c > wt[nodes[i]]:
+            return 0.0
+        seen, q = {nodes[i]}, deque([nodes[i]])
+        while q:
+            k = q.popleft()
+            if wt[k] < c:
+                g += c - wt[k] if np.isfinite(wt[k]) else 0.0
+                if apply:
+                    wt[k] = c
+                for u in net.up[k]:
+                    if u not in seen:
+                        seen.add(u)
+                        q.append(u)
+        return g
+
+    heap = [(-gain(i), i) for i in range(len(nodes))]
+    heapq.heapify(heap)
+    order = []
+    while heap:
+        _neg, i = heapq.heappop(heap)
+        g = gain(i)
+        if heap and g < -heap[0][0] - 1e-12:
+            heapq.heappush(heap, (-g, i))                   # stale: its gain fell below the next best, look again later
+            continue
+        gain(i, apply=True)
+        order.append((i, g))
+    return order
+
+
 class CanalRiseObjective:
     """Cheap objective: total canal level rise caused by the new blocks. The paper found that maximising canal rise tracks
     the full groundwater model, so this is a screening objective."""

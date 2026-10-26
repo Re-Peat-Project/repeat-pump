@@ -98,6 +98,14 @@ def style_layer(layer: QgsVectorLayer) -> None:
                            (_symbol("point", {**std, "name": "diamond", "color": "#C0661A", "size": "3.8"}), "ELSE", "Proposed sekat, leaky or reinforced")])
         else:
             layer.setRenderer(QgsSingleSymbolRenderer(_symbol("point", std)))
+    elif name == "sekat_existing_assessed" and _has(layer, "snapped"):   # existing sekat not on an analysed canal are marked
+        _rules(layer, [(_symbol("point", {"name": "square", "color": "#2E9E7B", "outline_color": "#FFFFFF", "outline_width": "0.3", "size": "2.8"}),
+                        '"snapped"', "Existing sekat"),
+                       (_symbol("point", {"name": "cross2", "color": "#C0392B", "outline_color": "#C0392B", "outline_width": "0.5", "size": "2.6"}),
+                        "ELSE", "Existing sekat, not on an analysed canal")])
+    elif name == "sekat_low_benefit":                 # left out by the balance: quiet, under the proposals
+        layer.setRenderer(QgsSingleSymbolRenderer(_symbol("point", {"name": "circle", "color": "#C9C3B3", "outline_color": "#8A948F",
+                                                                     "outline_width": "0.2", "size": "2.0"})))
     elif name == "sekat_scope":                       # in the plan by where it sits; the rest is greyed out (rules must not overlap: each match is drawn)
         base = {"name": "square", "outline_color": "#FFFFFF", "outline_width": "0.3", "size": "3.2"}
         _rules(layer, [(_symbol("point", {**base, "color": "#2E9E7B"}), '"planned" AND "scope" = \'target\'', "Sekat on selected canals"),
@@ -118,7 +126,12 @@ def style_layer(layer: QgsVectorLayer) -> None:
         else:
             layer.setRenderer(QgsSingleSymbolRenderer(_symbol("line", {"color": TEAL, "width": "0.6"})))
     elif name == "canals_clean":
-        layer.setRenderer(QgsSingleSymbolRenderer(_symbol("line", {"color": TEAL, "width": "0.5"})))
+        if _has(layer, "direction_method"):           # canals whose drainage direction could not be told apart stand out
+            _rules(layer, [(_symbol("line", {"color": AMBER, "width": "0.6", "line_style": "dash"}), '"direction_method" = \'unresolved\'',
+                            "Canal, flow direction unknown"),
+                           (_symbol("line", {"color": TEAL, "width": "0.5"}), "ELSE", "Canal")])
+        else:
+            layer.setRenderer(QgsSingleSymbolRenderer(_symbol("line", {"color": TEAL, "width": "0.5"})))
         if _has(layer, "ipg"):                        # the gap-analysis result, readable on the map (IPG above 1 means enough sekat)
             _label(layer, 'CASE WHEN "ipg" IS NULL THEN \'\' ELSE \'IPG \' || format_number("ipg", 1) END', 8.0, TEAL)
     elif name in LOOK:
@@ -159,7 +172,7 @@ def _group(run_name: str, create: bool = True):
 
 # Draw order, bottom to top. Later stages add their layers last, so loading order alone would bury a route under the canals.
 DRAW_ORDER = ["dtm_conditioned", "flow_acc", "canals_clean", "network_edges", "canal_segments", "pump_routes", "canal_profiles", "network_nodes",
-              "qa_topology_gaps", "sekat_existing_assessed", "sekat_proposed", "sekat_scope", "sekat_optimised", "pump_sources", "pump_targets", "gates_required",
+              "qa_topology_gaps", "sekat_low_benefit", "sekat_existing_assessed", "sekat_proposed", "sekat_scope", "sekat_optimised", "pump_sources", "pump_targets", "gates_required",
               "pump_stations", "qa_topology_dangles", "qa_unreachable_targets"]
 
 
