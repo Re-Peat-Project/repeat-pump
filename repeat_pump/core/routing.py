@@ -244,4 +244,36 @@ def run(ctx) -> None:
         pickle.dump(dict(mode=pc.routing, routes=routes, targets=targets, tree=tree_real, sources=sources), fh)
     if unreachable:
         ctx.warn(f"Stage 9: {len(unreachable)} target(s) unreachable (see qa_unreachable_targets)")
-    ctx.set_counts("9", sources=len(sources), targets=len(targets), routes=len(route_rows), unreachable=len(unreachable))
+    scope_counts = sekat_scope(ctx, route_rows, served_after, tgt_rows)
+    ctx.set_counts("9", sources=len(sources), targets=len(targets), routes=len(route_rows), unreachable=len(unreachable), **scope_counts)
+
+
+SCOPE_TOL_M = 0.5        # a proposed sekat lies on the canal line, so on a route through that canal it is within rounding of it
+
+
+def sekat_scope(ctx, route_rows: list[dict], served: set, tgt_rows: list[dict]) -> dict:
+    """Label every proposed sekat ``target`` (on a served selected segment), ``route`` (on a pump route) or ``other``, and mark the ones
+    in the plan (``pumping.sekat_scope``). Stage 7 places sekat on every kept canal by the head rule; the guide's order is the other way
+    round (choose the area, route the water, block the canals on the way), so the scope is applied once the routes are known. The gates on
+    the routes stay in the plan with either setting: pumped water is held behind them. Writes ``sekat_scope``; returns stage counts."""
+    pr = ctx.read_layer("sekat_proposed")
+    if not len(pr) or "sekat_pro_id" not in pr:
+        pr = gpd.GeoDataFrame({"sekat_pro_id": [], "seg_id": []}, geometry=[], crs=ctx.crs)
+    seg = pr["seg_id"].astype(str) if "seg_id" in pr else pd.Series([""] * len(pr), index=pr.index)
+    on_target = seg.isin({str(s) for s in served})
+    routes = gpd.GeoSeries([r["geometry"] for r in route_rows], crs=ctx.crs).union_all() if route_rows else None
+    on_route = pr.geometry.distance(routes) <= SCOPE_TOL_M if routes is not None and len(pr) else pd.Series(False, index=pr.index)
+    scope = np.where(on_target, "target", np.where(on_route, "route", "other")).astype(object)
+    planned = np.ones(len(pr), bool) if ctx.cfg.pumping.sekat_scope == "all" else scope != "other"
+    cols = [c for c in ("sekat_pro_id", "canal_id", "seg_id", "sekat_type", "manual") if c in pr]
+    out = gpd.GeoDataFrame(pr[cols].assign(scope=scope, planned=planned), geometry=pr.geometry, crs=ctx.crs)
+    ctx.write_layer("sekat_scope", out, "9")
+    n = {k: int((scope == k).sum()) for k in ("target", "route", "other")}
+    ctx.report["sekat_scope"] = dict(setting=ctx.cfg.pumping.sekat_scope, **n, planned=int(planned.sum()))
+    # a selected area whose canals rise less than dA gets no sekat of its own: say so (team decision: a warning is enough)
+    with_sekat = set(seg[on_target])
+    bare = [t["target_id"] for t in tgt_rows if t["seg_ids"] and not with_sekat & set(t["seg_ids"].split(";"))]
+    if bare:
+        ctx.warn(f"Stage 9: {len(bare)} of {len(tgt_rows)} target(s) have no proposed sekat on their selected canals (the land rises less than "
+                 f"sekat.dA_m along them), so only the gates on their pump routes hold the water: {', '.join(bare[:10])}")
+    return dict(sekat_target=n["target"], sekat_route=n["route"], sekat_other=n["other"], sekat_planned=int(planned.sum()))

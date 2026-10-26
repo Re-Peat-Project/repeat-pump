@@ -214,6 +214,12 @@ ID: dict[str, str] = {
     "River polygons or lines, the water sources (optional)": "Poligon atau garis sungai, sumber air (opsional)",
     "Burn-scar polygons": "Poligon bekas kebakaran", "Peat-depth polygons": "Poligon kedalaman gambut",
     "Create run": "Buat proses", "Open an existing run...": "Buka proses yang ada...", "Open a run config": "Buka konfigurasi proses",
+    "Sekat in the plan": "Sekat dalam rencana", "Every proposed sekat": "Semua sekat usulan",
+    "Selected canals and their pump routes": "Kanal terpilih dan rute pompanya",
+    "Every sekat the head rule proposes, or only those on the selected canals plus the gates on the pump routes that feed them (cheaper; the others stay listed as 'other').":
+        "Semua sekat yang diusulkan aturan beda tinggi, atau hanya sekat di kanal terpilih ditambah pintu air di rute pompa yang mengalirinya (lebih hemat; sisanya tetap tercatat sebagai 'other').",
+    "Sekat on selected canals": "Sekat di kanal terpilih", "Sekat on pump routes": "Sekat di rute pompa", "gates": "pintu air",
+    "see sekat_scope": "lihat sekat_scope", "Sekat by scope (in the plan or not)": "Sekat menurut cakupan (dalam rencana atau tidak)",
     "Choose where the output GeoPackage should go.": "Pilih lokasi GeoPackage keluaran.",
     "Choose a starting config (YAML).": "Pilih konfigurasi awal (YAML).",
     "Direct weights": "Bobot langsung",

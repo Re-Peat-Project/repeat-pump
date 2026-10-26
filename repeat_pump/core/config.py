@@ -201,6 +201,7 @@ class PumpingCfg(_M):
     route_edits: Optional[PathCfg] = None   # manual water sources and targets: points with action add|delete and kind source|target (core/network.py)
     routing: Literal["steiner", "per_target"] = "steiner"
     allow_gate_addition: bool = False
+    sekat_scope: Literal["all", "selected"] = "all"   # sekat in the plan: every proposal, or those on the served selected canals plus the gates on their pump routes
 
 
 class GaCfg(_M):
