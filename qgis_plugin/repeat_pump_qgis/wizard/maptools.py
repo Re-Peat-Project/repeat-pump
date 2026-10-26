@@ -21,7 +21,7 @@ STAGE_VISIBLE: dict[int, list[str]] = {
     6: ["canal_segments"],
     7: ["canals_clean", "sekat_existing_assessed", "sekat_proposed"],
     8: ["network_edges", "network_nodes"],
-    9: ["canal_segments", "pump_sources", "pump_targets", "pump_routes", "qa_unreachable_targets"],
+    9: ["canal_segments", "pump_sources", "pump_targets", "pump_routes", "qa_unreachable_targets", "sekat_scope"],
     10: ["canal_segments", "pump_routes", "pump_stations", "gates_required"],
     11: ["canal_segments", "sekat_proposed", "pump_routes", "pump_stations", "gates_required", "pump_sources", "pump_targets"],
     12: ["canal_segments", "sekat_existing_assessed", "sekat_optimised"],
@@ -31,7 +31,7 @@ STAGE_VISIBLE: dict[int, list[str]] = {
 LEGEND_NAMES = {
     "canals_clean": "Canals", "canal_segments": "Canal segments, by need score", "canal_profiles": "Land profile stations",
     "qa_topology_dangles": "Loose canal ends", "qa_topology_gaps": "Gaps snapped", "sekat_existing_assessed": "Existing sekat",
-    "sekat_proposed": "Proposed sekat", "sekat_optimised": "Sekat layout from the optimisation", "network_edges": "Canal network",
+    "sekat_proposed": "Proposed sekat", "sekat_scope": "Sekat by scope (in the plan or not)", "sekat_optimised": "Sekat layout from the optimisation", "network_edges": "Canal network",
     "network_nodes": "Network nodes", "pump_sources": "Water sources", "pump_targets": "Targets", "pump_routes": "Pump routes",
     "pump_stations": "Pump stations (size follows power)", "gates_required": "Gates needed", "qa_unreachable_targets": "Unreachable targets",
     "flow_acc": "Flow accumulation", "dtm_conditioned": "Conditioned DTM",

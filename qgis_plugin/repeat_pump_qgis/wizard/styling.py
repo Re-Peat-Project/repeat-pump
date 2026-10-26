@@ -98,6 +98,12 @@ def style_layer(layer: QgsVectorLayer) -> None:
                            (_symbol("point", {**std, "name": "diamond", "color": "#C0661A", "size": "3.8"}), "ELSE", "Proposed sekat, leaky or reinforced")])
         else:
             layer.setRenderer(QgsSingleSymbolRenderer(_symbol("point", std)))
+    elif name == "sekat_scope":                       # in the plan by where it sits; the rest is greyed out (rules must not overlap: each match is drawn)
+        base = {"name": "square", "outline_color": "#FFFFFF", "outline_width": "0.3", "size": "3.2"}
+        _rules(layer, [(_symbol("point", {**base, "color": "#2E9E7B"}), '"planned" AND "scope" = \'target\'', "Sekat on selected canals"),
+                       (_symbol("point", {**base, "color": "#7D4FB5"}), '"planned" AND "scope" = \'route\'', "Sekat on pump routes (gates)"),
+                       (_symbol("point", {**base, "color": AMBER}), '"planned" AND "scope" = \'other\'', "Other sekat in the plan"),
+                       (_symbol("point", {**base, "color": "#C9C3B3", "size": "2.4"}), "ELSE", "Not in the plan")])
     elif name == "pump_stations":                     # symbol area follows the power
         sym = _symbol("point", {"name": "triangle", "color": "#C0392B", "outline_color": "#FFFFFF", "outline_width": "0.3", "size": "4.4"})
         if _has(layer, "p_kw") and layer.featureCount():
@@ -153,7 +159,7 @@ def _group(run_name: str, create: bool = True):
 
 # Draw order, bottom to top. Later stages add their layers last, so loading order alone would bury a route under the canals.
 DRAW_ORDER = ["dtm_conditioned", "flow_acc", "canals_clean", "network_edges", "canal_segments", "pump_routes", "canal_profiles", "network_nodes",
-              "qa_topology_gaps", "sekat_existing_assessed", "sekat_proposed", "sekat_optimised", "pump_sources", "pump_targets", "gates_required",
+              "qa_topology_gaps", "sekat_existing_assessed", "sekat_proposed", "sekat_scope", "sekat_optimised", "pump_sources", "pump_targets", "gates_required",
               "pump_stations", "qa_topology_dangles", "qa_unreachable_targets"]
 
 

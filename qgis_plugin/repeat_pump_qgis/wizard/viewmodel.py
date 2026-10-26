@@ -94,7 +94,8 @@ STAGE_TILES: dict[int, list[tuple[str, str, str, bool]]] = {
     7: [("existing", "Existing sekat", "", False), ("proposed", "Sekat proposed", "ready to review", False), ("unsnapped", "Unsnapped points", "listed in the log", True)],
     8: [("nodes", "Network nodes", "", False), ("edges", "Network edges", "", False)],
     9: [("sources", "Water sources", "", False), ("targets", "Targets", "", False), ("routes", "Routes", "", False),
-        ("unreachable", "Unreachable targets", "see the QA layer", True)],
+        ("unreachable", "Unreachable targets", "see the QA layer", True), ("sekat_planned", "Sekat in the plan", "see sekat_scope", False),
+        ("sekat_target", "Sekat on selected canals", "", False), ("sekat_route", "Sekat on pump routes", "gates", False)],
     10: [("stations", "Pump stations", "", False), ("gates_required", "Gates required", "", False), ("shortfalls", "Capacity shortfalls", "", True)],
     11: [("warnings", "Warnings", "", True), ("null_parameters", "Parameters still unset", "", True)],
     12: [("candidates", "Candidate sites", "proposed sekat", False), ("blocks", "Blocks to build", "", False),
@@ -106,7 +107,7 @@ STAGE_TILES: dict[int, list[tuple[str, str, str, bool]]] = {
 STAGE_LAYERS: dict[int, list[str]] = {
     2: ["canals_clean", "qa_topology_dangles", "qa_topology_gaps"], 4: ["canal_segments"], 5: ["canal_profiles"],
     6: ["canal_segments", "qa_sensitivity"], 7: ["canals_clean", "sekat_existing_assessed", "sekat_proposed"], 8: ["network_nodes", "network_edges"],
-    9: ["pump_sources", "pump_targets", "pump_routes", "qa_unreachable_targets"], 10: ["pump_stations", "gates_required"],
+    9: ["pump_sources", "pump_targets", "pump_routes", "qa_unreachable_targets", "sekat_scope"], 10: ["pump_stations", "gates_required"],
     12: ["sekat_optimised", "qa_optimisation"],
 }
 
@@ -208,6 +209,8 @@ FIELDS: dict[str, Field_] = {f.key: f for f in [
     Field_("sekat.slope_reinforced_pct", "Slope for reinforced blocks", "float", "%", "From this land slope a block is flagged leaky or reinforced instead of standard."),
     Field_("pumping.routing", "How routes are built", "enum", "", "One shared network connects all targets to the sources at the least cost; the other mode routes each target alone (the old method, for comparison).", ("steiner", "per_target"),
            ("One shared network (Steiner tree)", "Each target on its own (old method)")),
+    Field_("pumping.sekat_scope", "Sekat in the plan", "enum", "", "Every sekat the head rule proposes, or only those on the selected canals plus the gates on the pump routes that feed them (cheaper; the others stay listed as 'other').", ("all", "selected"),
+           ("Every proposed sekat", "Selected canals and their pump routes")),
     Field_("pumping.allow_gate_addition", "Allow adding gates to ungated sekat", "bool", "", "Off: a sekat without a gate blocks pumped water. On: the engine lists the gates that would have to be added."),
     Field_("pumping.demand_mode", "Water demand from", "enum", "", "The water-deficit table (neraca air), or specific yield and the water-table rise you give.", ("deficit", "specific_yield"),
            ("Water deficit table", "Specific yield and water-table rise")),

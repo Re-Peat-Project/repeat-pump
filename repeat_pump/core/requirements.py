@@ -108,7 +108,7 @@ OPTIONS_BY_STAGE: dict[int, list[str]] = {
     6: ["prioritise.ring_buffer_m", "prioritise.top_fraction", "prioritise.upstream_method"],
     7: ["sekat.dA_m", "sekat.slope_reinforced_pct", "sekat.min_new_spacing_m", "sekat.dedup_tol_m"],
     8: [],
-    9: ["pumping.routing", "pumping.allow_gate_addition"],
+    9: ["pumping.routing", "pumping.allow_gate_addition", "pumping.sekat_scope"],
     10: ["pumping.demand_mode", "pumping.max_units_per_station"],
     11: [],
     12: ["optimise.algorithms", "optimise.seed", "optimise.random_baseline_draws", "optimise.ga.population", "optimise.ga.mutation",
@@ -120,7 +120,7 @@ OPTIONS_BY_STAGE: dict[int, list[str]] = {
 # A stage that is out of date makes every later one out of date, so each stage lists only what it reads itself.
 FINGERPRINT_KEYS: dict[int, list[str]] = {
     1: ["run", "inputs"], 2: ["topology"], 3: ["hydro"], 4: ["segments"], 5: ["profiles"], 6: ["prioritise"], 7: ["sekat"], 8: ["pumping.route_edits"],
-    9: ["pumping.uphill_penalty_lambda", "pumping.routing", "pumping.allow_gate_addition"],
+    9: ["pumping.uphill_penalty_lambda", "pumping.routing", "pumping.allow_gate_addition", "pumping.sekat_scope"],
     10: ["pumping", "sekat.dA_m"], 11: [], 12: ["optimise", "sekat.dA_m"],
 }
 SECTIONS = FINGERPRINT_KEYS          # kept for older imports

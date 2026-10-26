@@ -302,7 +302,8 @@ Head-based design following the team's 2021 KHG Kahayan–Sebangau report, Ritze
 - `steiner` (default): directed Steiner arborescence via the shortest-path heuristic (Takahashi & Matsuyama, 1980). Start from a virtual super-source connected to all sources at zero cost. Repeatedly connect the cheapest unconnected target to the current tree with Dijkstra. For an undirected comparison, networkx's `steiner_tree` (Kou et al., 1981; Mehlhorn, 1988) may be reported as a secondary result only.
 - Report total length, total lift, and the number of targets unreachable (e.g., blocked by ungated sekat).
 
-- **Output:** `pump_sources`, `pump_targets`, `pump_routes` (with mode, cost, cumulative lift), `qa_unreachable_targets`.
+- **Sekat scope:** once the routes are known, every proposed sekat is labelled `target` (on a segment served by a target), `route` (on a pump route, within 0.5 m) or `other`, in `sekat_scope`. `pumping.sekat_scope` decides which are in the plan (`planned`): `all` (default, every proposal, as before) or `selected` (`target` and `route`). The guide's order is area, then route, then the sekat along it; Stage 7 places sekat on every kept canal by the head rule, so the scope is applied here rather than there. The sekat on a route stay in the plan with either setting, because they hold the pumped water and need gates (team decision, 26 Oct 2026). A target whose selected canals got no sekat (the land rises less than `dA_m` along them) is a warning, not an error. Stage 7 results do not depend on the setting, so changing it makes Stage 9 out of date, not Stage 7.
+- **Output:** `pump_sources`, `pump_targets`, `pump_routes` (with mode, cost, cumulative lift), `qa_unreachable_targets`, `sekat_scope`.
 
 ### Stage 10: Water demand, pump stations, and sizing
 **Demand per target:**
@@ -344,7 +345,7 @@ Off by default (`optimise.enabled: false`): the stage records `skipped` and asks
 
 ## 6. Output contract (GeoPackage layers)
 
-`canals_clean`, `qa_topology_dangles`, `qa_topology_gaps`, `canal_segments`, `canal_profiles`, `sekat_existing_assessed`, `sekat_proposed`, `network_nodes`, `network_edges`, `pump_sources`, `pump_targets`, `pump_routes`, `pump_stations`, `gates_required`, `qa_unreachable_targets`, `qa_sensitivity` (table), and, only when Stage 12 is enabled, `sekat_optimised`, `qa_optimisation` (table), `qa_optimisation_trace` (table).
+`canals_clean`, `qa_topology_dangles`, `qa_topology_gaps`, `canal_segments`, `canal_profiles`, `sekat_existing_assessed`, `sekat_proposed`, `network_nodes`, `network_edges`, `pump_sources`, `pump_targets`, `pump_routes`, `sekat_scope`, `pump_stations`, `gates_required`, `qa_unreachable_targets`, `qa_sensitivity` (table), and, only when Stage 12 is enabled, `sekat_optimised`, `qa_optimisation` (table), `qa_optimisation_trace` (table).
 
 Every layer includes `run_name` and `stage` fields. Field names are lower_snake_case and ≤ 30 characters. Units go in names where ambiguous (`_m`, `_m3s`, `_kw`).
 
