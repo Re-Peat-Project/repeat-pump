@@ -503,8 +503,11 @@ class WizardPanel(QWidget):
         try:
             data, cfg_path = self._build_setup()
             saved = yaml.safe_load(self.controller.config_path.read_text(encoding="utf8"))
-        except Exception:
-            return True                          # the form is incomplete (e.g. a run opened in a new session): nothing comparable
+        except Exception as e:
+            # the form cannot be turned into a config (incomplete, e.g. a run opened in a new session): say so instead of guessing
+            ok = QMessageBox.question(self, tr("Unsaved setup"), tr("The setup form was opened but cannot be checked, so any change in it "
+                                      "would not be used:") + f"\n\n{e}\n\n" + tr("Run with the saved setup?"))
+            return ok == QMessageBox.StandardButton.Yes
         changes = setup_changes(saved, data)
         if cfg_path != self.controller.config_path:
             changes = ["run.output_gpkg"] + [c for c in changes if c != "run.output_gpkg"]

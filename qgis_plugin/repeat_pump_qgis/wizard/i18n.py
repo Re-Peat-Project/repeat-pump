@@ -216,6 +216,9 @@ ID: dict[str, str] = {
     "Create run": "Buat proses", "Open an existing run...": "Buka proses yang ada...", "Open a run config": "Buka konfigurasi proses",
     "Save setup": "Simpan pengaturan", "Unsaved setup": "Pengaturan belum disimpan", "Run without saving": "Jalankan tanpa menyimpan",
     "Cancel": "Batal",
+    "The setup form was opened but cannot be checked, so any change in it would not be used:":
+        "Formulir pengaturan dibuka tetapi tidak dapat diperiksa, sehingga perubahan di dalamnya tidak akan dipakai:",
+    "Run with the saved setup?": "Jalankan dengan pengaturan yang tersimpan?",
     "The setup has changes that are not saved, so the engine would not use them:":
         "Pengaturan memiliki perubahan yang belum disimpan, sehingga mesin tidak akan memakainya:",
     "Choose where the output GeoPackage should go.": "Pilih lokasi GeoPackage keluaran.",
