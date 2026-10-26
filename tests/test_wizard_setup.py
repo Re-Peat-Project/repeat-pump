@@ -71,6 +71,15 @@ def test_coverage_and_overlap_use_the_subkhg_extent():
     assert any("does not overlap" in f.text for f in pf.assess(d).errors)
 
 
+def test_a_single_straight_canal_is_not_called_disjoint():
+    """One east-west canal has a flat extent (no area); it lies inside the sub-KHGs and must not block the setup."""
+    x0, y0, x1, y1 = BOX
+    d = good(); d["canals"] = L("canals", fields=["canal_class"], features=1, extent=(x0 + 10, (y0 + y1) / 2, x1 - 10, (y0 + y1) / 2))
+    assert not pf.assess(d).findings
+    d["canals"] = L("canals", fields=["canal_class"], features=1, extent=(x1 + 100, y0, x1 + 100, y1))     # flat and outside
+    assert any("does not overlap" in f.text for f in pf.assess(d).errors)
+
+
 def test_river_levels_and_the_dtm_datum_are_picked_up():
     d = good(); d["rivers"] = L("rivers", fields=["dry_season_wl_m"]); d["dtm"] = L("dtm", vertical_crs="EPSG:5773")
     a = pf.assess(d)
