@@ -43,7 +43,13 @@ def build_grid(ctx, net: bo.CanalNet, grid_m: float) -> bo.Grid:
             surface[surface == src.nodata] = np.nan
     domain &= np.isfinite(surface)
     depth = np.zeros((ny, nx))
-    if ctx.has_layer("inputs_clipped_peat_depth"):
+    if "peat_depth" in ctx.report["inputs"]:              # a depth raster (metres, from stage 1): averaged onto the grid
+        with rasterio.open(ctx.report["inputs"]["peat_depth"]) as src:
+            win = from_bounds(minx, maxy - ny * grid_m, minx + nx * grid_m, maxy, src.transform)
+            depth = src.read(1, window=win, out_shape=(ny, nx), resampling=Resampling.average, boundless=True,
+                             fill_value=np.nan).astype("float64")
+        depth = np.where(np.isfinite(depth) & (depth > 0), depth, 0.0)
+    elif ctx.has_layer("inputs_clipped_peat_depth"):
         pe = ctx.read_layer("inputs_clipped_peat_depth")
         mid = (pe["depth_min_m"] + pe["depth_max_m"]) / 2.0
         shapes = [(g, float(d)) for g, d in zip(pe.geometry, mid) if np.isfinite(d) and d > 0]

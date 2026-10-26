@@ -14,7 +14,7 @@ from .i18n import tr
 from .widgets import button, clear, label, layer_filter
 
 ROLE_NAMES = {"subkhg": "Sub-KHG polygons", "subkhg_priority": "Sub-KHG priority table (CSV, optional)", "canals": "Canal lines",
-              "sekat_existing": "Existing sekat (optional)", "rivers": "Rivers", "burn_area": "Burn-scar polygons", "peat_depth": "Peat-depth polygons"}
+              "sekat_existing": "Existing sekat (optional)", "rivers": "Rivers", "burn_area": "Burn-scar polygons", "peat_depth": "Peat depth (class polygons or a depth raster)"}
 
 
 def csv_header(path: str) -> list[str]:

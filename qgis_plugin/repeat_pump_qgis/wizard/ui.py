@@ -359,7 +359,7 @@ class WizardPanel(QWidget):
                 ("subkhg", "Sub-KHG polygons", "polygon", False), ("canals", "Canal lines", "line", False),
                 ("canal_edits", "Canal edits (optional)", "line", True), ("sekat_existing", "Existing sekat (optional)", "point", True),
                 ("rivers", "River polygons or lines, the water sources (optional)", "vector", True),
-                ("burn_area", "Burn-scar polygons", "polygon", False), ("peat_depth", "Peat-depth polygons", "polygon", False),
+                ("burn_area", "Burn-scar polygons", "polygon", False), ("peat_depth", "Peat depth (class polygons or a depth raster)", "polygon_raster", False),
                 ("concession", "Concession polygons (optional, a feasibility filter)", "polygon", True),
                 ("tma_obs", "Water-level observations (optional, for validation)", "point", True)]
         for key, text, kind, optional in spec:

@@ -145,6 +145,8 @@ FIELDS: dict[str, Field_] = {f.key: f for f in [
     Field_("run.clip_margin_m", "Clip margin around sub-KHGs", "float", "m", "Extra distance kept around the selected sub-KHGs."),
     Field_("inputs.dtm.vertical_rmse_m", "DTM vertical accuracy (RMSE)", "float", "m", "From the LiDAR provider. Needed to judge if a dA step is larger than the DTM noise."),
     Field_("inputs.moisture.higher_is_wetter", "Moisture index: higher means wetter", "bool", "", "Depends on the index used (check its definition)."),
+    Field_("inputs.peat_depth.units", "Unit of the peat depth raster", "enum", "", "Check the raster's metadata: the BRGM peat depth models are in centimetres, the class-midpoint raster of the neraca module in metres.", ("m", "cm"),
+           ("Metres", "Centimetres")),
     Field_("run.vertical_datum", "Vertical datum of the DTM", "text", "", "Must be the same as the river water levels. Needed if river levels are used."),
     Field_("inputs.rivers.vertical_datum", "Vertical datum of river water levels", "text", "", "Needed if the rivers layer has dry-season water levels."),
     Field_("topology.snap_tolerance_m", "Snap tolerance", "float", "m", "Canal ends closer than this are joined. Larger snaps are listed for your review."),

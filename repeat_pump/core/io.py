@@ -22,7 +22,7 @@ from rasterio.enums import Resampling
 from rasterio.merge import merge
 from rasterio.vrt import WarpedVRT
 from shapely import make_valid
-from shapely.geometry import box
+from shapely.geometry import box, shape
 
 from .config import (Config, CRSMismatchError, InputError, NeedsHuman, SurfaceTypeError, require_many, resolve, snake_name)
 from .context import RunContext
@@ -254,6 +254,45 @@ def _to_bool(s: pd.Series) -> pd.Series:
     return s.map(f)
 
 
+def peat_depth_raster(cfg: Config, ctx: RunContext, bounds: tuple, extent, clip_dir: Path, val: dict, clip) -> Path:
+    """Crop a peat depth raster, convert it to metres and write ``peat_depth.tif`` (float32, NaN no-data). The file's no-data, the extra
+    ``nodata`` values (the BRGM Betara clip holds -8888 cells) and negative depths are dropped. The peat area (depth > 0) becomes the
+    polygon layer ``inputs_clipped_peat_depth`` that stage 10 reads; stages 6 and 12 read the raster itself."""
+    from rasterio import features
+
+    sec = cfg.inputs.peat_depth
+    src = crop_rasters(cfg, [sec.path], "peat_depth", bounds, clip_dir / "peat_depth_src.tif", Resampling.nearest, ctx)
+    with rasterio.open(src) as r:
+        check_memory(cfg, r.width * r.height, 8, 3, "peat_depth")
+        arr, prof = r.read(1).astype("float64"), r.profile
+        bad = ~np.isfinite(arr) | (arr == r.nodata) if r.nodata is not None else ~np.isfinite(arr)
+    extra = np.isin(arr, sec.nodata or []) & ~bad
+    negative = (arr < 0) & ~bad & ~extra
+    arr[bad | extra | negative] = np.nan
+    arr *= 0.01 if sec.units == "cm" else 1.0
+    if extra.any() or negative.any():
+        ctx.warn(f"peat_depth: {int(extra.sum())} cell(s) with an extra no-data value {sec.nodata} and {int(negative.sum())} negative cell(s) dropped")
+    v = arr[np.isfinite(arr)]
+    if not v.size:
+        raise InputError("peat_depth: the raster has no valid cell inside the analysis extent (check its CRS and no-data)")
+    med = float(np.median(v))
+    if (sec.units == "m" and med > 30) or (sec.units == "cm" and float(v.max()) < 0.3):     # tropical peat is centimetres to ~20 m deep
+        ctx.warn(f"peat_depth: the values (median {med:g} after conversion to m) do not look like {sec.units}; check inputs.peat_depth.units")
+    val["peat_depth_raster"] = dict(units=sec.units, valid_cells=int(v.size), min_m=float(v.min()), median_m=med, max_m=float(v.max()),
+                                    extra_nodata_cells=int(extra.sum()), negative_cells=int(negative.sum()))
+    dst = clip_dir / "peat_depth.tif"
+    prof.update(dtype="float32", nodata=np.nan, compress="deflate")
+    with rasterio.open(dst, "w", **prof) as out:
+        out.write(arr.astype("float32"), 1)
+    peat = np.isfinite(arr) & (arr > 0)
+    polys = [shape(g) for g, _ in features.shapes(peat.astype("uint8"), mask=peat, transform=prof["transform"])]
+    gdf = gpd.GeoDataFrame({"peat_class": ["raster"] * len(polys), "depth_min_m": np.nan, "depth_max_m": np.nan}, geometry=polys,
+                           crs=cfg.run.crs)
+    check_overlap(ctx, "peat_depth", gdf.geometry.union_all() if len(gdf) else box(*bounds), extent)
+    ctx.write_layer("inputs_clipped_peat_depth", clip(gdf), "1")
+    return dst
+
+
 def _footprint(obj) -> "box":
     if isinstance(obj, gpd.GeoDataFrame) and (obj.geom_type.isin(["Polygon", "MultiPolygon"]).all()):
         return obj.geometry.union_all()
@@ -429,17 +468,20 @@ def run_stage1(ctx: RunContext) -> None:
     val["burn_freq_unparsed"] = bad
     ctx.write_layer("inputs_clipped_burn_area", clip(ba), "1")
 
-    # peat depth
-    pd_ = read_vector(cfg, cfg.inputs.peat_depth.path, "peat_depth", ctx, cfg.inputs.peat_depth.layer, cfg.inputs.peat_depth.columns)
-    col = find_col(pd_, ["peat_thick", "peat_depth", "peat_class"], "peat_depth")
-    parsed, bad = parse_peat_class(pd_[col])
-    pd_["peat_class"] = pd_[col].astype(str)
-    pd_[["depth_min_m", "depth_max_m"]] = parsed
-    if bad:
-        ctx.warn(f"peat_depth: {len(bad)} unparsed thickness class(es): {bad[:10]}")
-    val["peat_class_unparsed"] = bad
-    check_overlap(ctx, "peat_depth", _footprint(pd_), extent)
-    ctx.write_layer("inputs_clipped_peat_depth", clip(pd_), "1")
+    # peat depth: thickness-class polygons here; a depth raster is cropped with the other rasters below
+    if not cfg.inputs.peat_depth.is_raster:
+        pd_ = read_vector(cfg, cfg.inputs.peat_depth.path, "peat_depth", ctx, cfg.inputs.peat_depth.layer, cfg.inputs.peat_depth.columns)
+        col = find_col(pd_, ["peat_thick", "peat_depth", "peat_class"], "peat_depth")
+        parsed, bad = parse_peat_class(pd_[col])
+        pd_["peat_class"] = pd_[col].astype(str)
+        pd_[["depth_min_m", "depth_max_m"]] = parsed
+        if bad:
+            ctx.warn(f"peat_depth: {len(bad)} unparsed thickness class(es): {bad[:10]}")
+        val["peat_class_unparsed"] = bad
+        check_overlap(ctx, "peat_depth", _footprint(pd_), extent)
+        ctx.write_layer("inputs_clipped_peat_depth", clip(pd_), "1")
+    elif cfg.inputs.peat_depth.units is None:
+        raise NeedsHuman("inputs.peat_depth.units must be declared for a peat depth raster: m or cm (the BRGM rasters are in cm)")
 
     for key, name in (("concession", "inputs_clipped_concession"), ("tma_obs", "inputs_clipped_tma_obs")):
         sec = getattr(cfg.inputs, key)
@@ -460,5 +502,7 @@ def run_stage1(ctx: RunContext) -> None:
         "dtm": str(crop_rasters(cfg, [dtm_cfg.path], "dtm", bounds, clip_dir / "dtm.tif", Resampling.bilinear, ctx)),
         "moisture": str(crop_rasters(cfg, cfg.inputs.moisture.paths, "moisture", bounds, clip_dir / "moisture.tif", Resampling.bilinear, ctx)),
     }
+    if cfg.inputs.peat_depth.is_raster:
+        ctx.report["inputs"]["peat_depth"] = str(peat_depth_raster(cfg, ctx, bounds, extent, clip_dir, val, clip))
     _note_cloud_inputs(cfg, ctx)
     ctx.set_counts("1", subkhg_selected=len(ids), canals=int(len(ctx.read_layer("inputs_clipped_canals"))))
