@@ -205,6 +205,7 @@ ID: dict[str, str] = {
     # ---------------------------------------------------------------- wizard chrome
     "Learn mode": "Mode belajar", "Show log": "Tampilkan log", "Hide log": "Sembunyikan log",
     "Run setup": "Pengaturan proses", "Edit setup": "Ubah pengaturan", "Hide setup": "Sembunyikan pengaturan",
+    "The run config was changed outside the wizard; it was read again.": "Konfigurasi proses diubah di luar wizard; sudah dibaca ulang.",
     "Save setup": "Simpan pengaturan", "Unsaved setup": "Pengaturan belum disimpan", "Run without saving": "Jalankan tanpa menyimpan",
     "Cancel": "Batal",
     "The setup form was opened but cannot be checked, so any change in it would not be used:":
@@ -213,6 +214,8 @@ ID: dict[str, str] = {
     "The setup has changes that are not saved, so the engine would not use them:":
         "Pengaturan memiliki perubahan yang belum disimpan, sehingga mesin tidak akan memakainya:",
     "Output GeoPackage (the run folder is its folder)": "GeoPackage keluaran (folder proses adalah foldernya)",
+    "Run name (names the map group, the reports and the output layers; empty = the run folder's name)":
+        "Nama proses (nama grup di peta, laporan, dan layer keluaran; kosong = nama folder proses)",
     "Starting config (policy parameters; yours are saved in the run folder)":
         "Konfigurasi awal (parameter kebijakan; milik Anda disimpan di folder proses)",
     "Sub-KHG priority table (CSV)": "Tabel prioritas sub-KHG (CSV)",
