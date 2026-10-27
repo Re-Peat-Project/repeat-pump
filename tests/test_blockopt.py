@@ -142,3 +142,14 @@ def test_lazy_greedy_rank_gives_the_same_rise_as_the_full_greedy_search():
         best = max((c for c in range(15) if c not in chosen), key=lambda c: obj.benefit(chosen + [c]))
         chosen.append(best)
         assert np.isclose(obj.benefit(chosen), obj.benefit([i for i, _ in order[:k + 1]]))
+
+
+def test_held_water_is_capped_at_the_land_surface():
+    """A block on high ground cannot hold water above the land of a lower stretch upstream; that would be ponding, not storage."""
+    z = np.array([2.0, 1.0, 3.0])                      # node 0 the block, node 1 a low spot upstream, node 2 higher again
+    net = bo.CanalNet(z, [[1], [2], []], np.zeros((3, 2)), np.array(["c"] * 3, dtype=object), {})
+    base = z - 1.0
+    lv = net.levels(base, {0: 1.6})
+    assert lv[0] == 1.6 and lv[1] == 1.0 and lv[2] == 2.0      # node 1 stops at its surface, node 2 is not raised (1.6 < 2.0)
+    order = bo.greedy_rank(net, base, [0], np.array([1.6]), {})
+    assert np.isclose(order[0][1], (1.6 - 1.0) + (1.0 - 0.0))

@@ -94,18 +94,28 @@ class CanalNet:
 
     def levels(self, base: np.ndarray, blocks: dict) -> np.ndarray:
         """Water level per node after building ``blocks`` ({node: crest level}). A block raises its own node and every
-        node upstream of it whose level is lower than the crest (the Urzainki rule, on the directed network)."""
+        node upstream of it whose level is lower than the crest (the Urzainki rule, on the directed network). The level is
+        capped at the land surface: where the land upstream lies below the crest (flat ground, a local low) water above the
+        surface is ponding, not water held in the peat, so it is not counted; the water still passes on upstream."""
         wt = base.copy()
         for node, crest in blocks.items():
             if not (crest > wt[node]):
                 continue
-            q = deque([node])
+            seen, q = {node}, deque([node])
             while q:
                 k = q.popleft()
                 if wt[k] < crest:
-                    wt[k] = crest
-                    q.extend(self.up[k])
+                    wt[k] = max(wt[k], self.held(k, crest))
+                    for u in self.up[k]:
+                        if u not in seen:
+                            seen.add(u)
+                            q.append(u)
         return wt
+
+    def held(self, k: int, crest: float) -> float:
+        """Level a crest holds at node ``k``: the crest, but never above the land surface there."""
+        z = self.z_land[k]
+        return min(crest, z) if np.isfinite(z) else crest
 
 
 # ----------------------------------------------------------------------------- objectives (larger benefit is better)
@@ -125,9 +135,11 @@ def greedy_rank(net: CanalNet, base: np.ndarray, nodes: list, crest: np.ndarray,
         while q:
             k = q.popleft()
             if wt[k] < c:
-                g += c - wt[k] if np.isfinite(wt[k]) else 0.0
-                if apply:
-                    wt[k] = c
+                lv = net.held(k, c)
+                if lv > wt[k] and np.isfinite(wt[k]):
+                    g += lv - wt[k]
+                    if apply:
+                        wt[k] = lv
                 for u in net.up[k]:
                     if u not in seen:
                         seen.add(u)

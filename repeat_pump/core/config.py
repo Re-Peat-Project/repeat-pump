@@ -160,6 +160,8 @@ class ProfilesCfg(_M):
     bank_offsets_m: list[float] = [6, 10]
     sample_step_m: float = 5
     smoothing_window_m: float = 50
+    direction_fallback: Literal["flow_acc", "forward"] = "flow_acc"   # canals neither the profile nor a river connection can orient:
+                                                                      # downstream = the end with more flow accumulation (stage 3), or the digitised direction
 
 
 class SekatCfg(_M):
@@ -172,7 +174,8 @@ class SekatCfg(_M):
     edits: Optional[PathCfg] = None        # manual changes to the proposals: points with an action column, add | delete (see core/sekat.py)
     dedup_tol_m: Optional[float] = None    # a proposed sekat within this distance of an existing one, or of one proposed on another canal, is dropped (legacy DEDUP_TOL, 50 m); null = off
     target_rise_share: Optional[float] = None   # balance: keep the fewest proposals that give this share (0-1) of the canal rewetting all of them give; null = keep all
-    balance_drawdown_m: Optional[float] = None  # dry-season canal level below the land used to score the rewetting (needed with target_rise_share)
+    balance_drawdown_m: Optional[float] = None  # dry-season canal level below the land used to score the rewetting (needed with target_rise_share or max_blocks)
+    max_blocks: Optional[int] = None            # budget: at most this many new sekat, the ones that rewet the most canal first; null = no cap
 
 
 class CriterionCfg(_M):

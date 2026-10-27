@@ -71,6 +71,30 @@ def smooth(z: np.ndarray, step: float, window_m: float) -> np.ndarray:
     return median_filter(zi, size=k, mode="nearest")
 
 
+FLOW_ACC_RATIO = 1.5      # one end must collect at least 1.5 times the flow of the other to count as downstream
+
+
+def flow_acc_direction(ctx, line) -> str | None:
+    """forward / reverse from the flow accumulation at the canal's two ends (maximum within two cells), or None when it does not
+    tell them apart. The accumulation comes from the burned, breached DTM of stage 3, so it follows the canal network."""
+    path = ctx.report.get("inputs", {}).get("flow_acc")
+    if not path:
+        return None
+    from shapely.geometry import Point
+    from .prioritise import zonal
+    with rasterio.open(path) as src:
+        r = 2 * max(abs(src.res[0]), abs(src.res[1]))
+        a0 = zonal(src, Point(line.coords[0]).buffer(r), "max")
+        a1 = zonal(src, Point(line.coords[-1]).buffer(r), "max")
+    if not (np.isfinite(a0) and np.isfinite(a1)) or max(a0, a1) <= 0:
+        return None
+    if a1 >= FLOW_ACC_RATIO * max(a0, 1.0):
+        return "forward"                  # more water at the digitised end: it drains that way
+    if a0 >= FLOW_ACC_RATIO * max(a1, 1.0):
+        return "reverse"
+    return None
+
+
 def run(ctx) -> None:
     cfg = ctx.cfg
     pc = cfg.profiles
@@ -102,7 +126,7 @@ def run(ctx) -> None:
     rivers = ctx.read_layer("inputs_clipped_rivers") if ctx.has_layer("inputs_clipped_rivers") else None
     rpts = river_sources(ctx, canals, rivers) if rivers is not None else None
     dist = endpoint_distance_to_rivers(canals, rpts) if rpts is not None and len(rpts) else {}
-    n_unres = 0
+    n_unres = n_fa = 0
     for cid, line in zip(canals["canal_id"], canals.geometry):
         r = can_rows[cid]
         if r["direction"] != "ambiguous":
@@ -114,10 +138,18 @@ def run(ctx) -> None:
             if d0 != d1:
                 r["direction"], r["direction_method"] = ("reverse" if d0 < d1 else "forward"), "network"
                 continue
+        fa = flow_acc_direction(ctx, line) if pc.direction_fallback == "flow_acc" else None
+        if fa is not None:
+            r["direction"], r["direction_method"] = fa, "flow_acc"
+            n_fa += 1
+            continue
         r["direction_method"] = "unresolved"
         n_unres += 1
+    if n_fa:
+        ctx.warn(f"Stage 5: {n_fa} canal(s) with no clear slope and no river connection oriented by flow accumulation (stage 3): "
+                 "downstream is the end where more water collects")
     if n_unres:
-        ctx.warn(f"Stage 5: {n_unres} canal(s) with ambiguous flow direction could not be resolved (no river connection); treated as forward")
+        ctx.warn(f"Stage 5: {n_unres} canal(s) with ambiguous flow direction could not be resolved; treated as forward")
 
     # canal-level attributes
     for c in ("direction", "direction_method", "z_start_m", "z_end_m"):

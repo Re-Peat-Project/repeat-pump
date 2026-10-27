@@ -179,7 +179,8 @@ def balance(ctx, pr: gpd.GeoDataFrame, canals: gpd.GeoDataFrame, prof: pd.DataFr
     from . import blockopt as bo
     sk = ctx.cfg.sekat
     require(sk, ["balance_drawdown_m"], "Stage 7", "sekat")
-    if not 0 < sk.target_rise_share <= 1:
+    share = 1.0 if sk.target_rise_share is None else sk.target_rise_share
+    if not 0 < share <= 1:
         raise InputError(f"Stage 7: sekat.target_rise_share must be between 0 and 1, not {sk.target_rise_share}")
     dA, step = sk.dA_m, ctx.cfg.profiles.sample_step_m
     net = bo.CanalNet.from_profiles(canals, prof)
@@ -201,16 +202,20 @@ def balance(ctx, pr: gpd.GeoDataFrame, canals: gpd.GeoDataFrame, prof: pd.DataFr
         i = ok[j]
         pr.loc[i, ["benefit_rank", "gain_m2", "cum_share"]] = [rank, g * step, cum / total if total > 0 else 1.0]
     # keep every block up to and including the one that reaches the share
-    reach = pr.loc[pr["cum_share"] >= sk.target_rise_share - 1e-9, "benefit_rank"].min()
+    reach = pr.loc[pr["cum_share"] >= share - 1e-9, "benefit_rank"].min()
+    if sk.max_blocks is not None:                       # the budget cap wins over the share
+        reach = min(reach, int(sk.max_blocks))
     keep = pr["benefit_rank"] <= reach
     kept, low = pr[keep].copy(), pr[~keep].copy()
     if total <= 0:
         ctx.warn("Stage 7: the proposed sekat raise no canal water (sekat.balance_drawdown_m is not larger than sekat.dA_m); all are kept")
         return pr, pr.iloc[0:0]
     ctx.report["sekat_balance"] = dict(head_rule=len(pr), kept=len(kept), low_benefit=len(low), target_rise_share=sk.target_rise_share,
+                                       max_blocks=sk.max_blocks, share_kept=round(float(kept["gain_m2"].sum()) / (total * step), 3) if total > 0 else None,
                                        rise_m2_all=round(total * step), rise_m2_kept=round(float(kept["gain_m2"].sum())))
-    ctx.log.info("Stage 7: %d of %d head-rule sekat give %.0f %% of the canal rewetting; %d moved to sekat_low_benefit",
-                 len(kept), len(pr), 100 * sk.target_rise_share, len(low))
+    ctx.log.info("Stage 7: %d of %d head-rule sekat give %.0f %% of the canal rewetting%s; %d moved to sekat_low_benefit",
+                 len(kept), len(pr), 100 * float(kept["gain_m2"].sum()) / (total * step) if total > 0 else 100,
+                 f" (budget cap {sk.max_blocks})" if sk.max_blocks is not None and len(kept) == sk.max_blocks else "", len(low))
     rows = kept.to_dict("records")
     respace(rows, {c: [r["dist_down_m"] for r in ex_rows if r.get("snapped") and r["canal_id"] == c and "dist_down_m" in r]
                    for c in kept["canal_id"].unique()}, canals, dA)
@@ -317,7 +322,7 @@ def run(ctx) -> None:
     pr_gdf = gpd.GeoDataFrame(prop_rows, geometry="geometry", crs=ctx.crs) if prop_rows else gpd.GeoDataFrame(
         {"sekat_pro_id": []}, geometry=[], crs=ctx.crs)
     low = None
-    if sk.target_rise_share is not None and len(pr_gdf):
+    if (sk.target_rise_share is not None or sk.max_blocks is not None) and len(pr_gdf):
         pr_gdf, low = balance(ctx, pr_gdf, canals, prof, ex_rows)
     ctx.write_layer("sekat_existing_assessed", ex_gdf, "7")
     if len(pr_gdf) and "manual" in pr_gdf:

@@ -214,6 +214,7 @@ FIELDS: dict[str, Field_] = {f.key: f for f in [
     Field_("sekat.dedup_tol_m", "Merge proposed sekat closer than", "float", "m", "A proposal this close to an existing sekat, or to one on another canal, is dropped. The KLH guide uses 50 m. Empty: keep all."),
     Field_("sekat.target_rise_share", "Balance: share of the rewetting to keep", "float", "0-1",
            "Keeps the fewest proposed sekat that give this share of the canal rewetting of all of them; the others go to the low-benefit layer. Empty: keep all."),
+    Field_("sekat.max_blocks", "Budget: most new sekat", "int", "", "At most this many new sekat, those that rewet the most canal first. Empty: no cap."),
     Field_("sekat.balance_drawdown_m", "Dry-season canal level below the land", "float", "m", "Only used to rank the proposed sekat by how much canal they rewet."),
     Field_("sekat.slope_reinforced_pct", "Slope for reinforced blocks", "float", "%", "From this land slope a block is flagged leaky or reinforced instead of standard."),
     Field_("pumping.routing", "How routes are built", "enum", "", "One shared network connects all targets to the sources at the least cost; the other mode routes each target alone (the old method, for comparison).", ("steiner", "per_target"),

@@ -116,3 +116,13 @@ def test_stage_7_balance_keeps_the_fewest_sekat_for_the_target_share(world11):
     cfg["sekat"].pop("balance_drawdown_m")
     with pytest.raises(MissingParameters, match="balance_drawdown_m"):
         run_pipeline(load_config(write_cfg(tmp / "b2.yaml", cfg)), resume_from=7, stop_after=7)
+
+
+def test_stage_7_budget_cap_keeps_at_most_max_blocks_best_first(world11):
+    cfg, tmp, _ = world11
+    cfg = copy.deepcopy(cfg)
+    cfg["sekat"].update(max_blocks=1, balance_drawdown_m=1.0)
+    c = run_pipeline(load_config(write_cfg(tmp / "cap.yaml", cfg)), resume_from=7, stop_after=7)
+    kept = c.read_layer("sekat_proposed")
+    assert len(kept) == 1 and int(kept["benefit_rank"].iloc[0]) == 1
+    assert c.report["sekat_balance"]["max_blocks"] == 1

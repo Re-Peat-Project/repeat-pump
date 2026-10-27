@@ -74,7 +74,7 @@ def needs_by_stage(cfg: Config) -> dict[int, list[str]]:
     if cfg.inputs.concession is not None:
         need[6].append("prioritise.feasibility.concession_mode")
     need[7] = ["sekat.max_spacing_m", "sekat.snap_tolerance_m", "sekat.min_spacing_m"]
-    if cfg.sekat.target_rise_share is not None:
+    if cfg.sekat.target_rise_share is not None or cfg.sekat.max_blocks is not None:
         need[7].append("sekat.balance_drawdown_m")
     for sid in (8, 9, 10):
         need[sid] = ["pumping.enabled"]
@@ -113,7 +113,7 @@ OPTIONS_BY_STAGE: dict[int, list[str]] = {
     4: ["segments.max_length_m", "segments.min_length_m"],
     5: ["profiles.bank_offsets_m", "profiles.sample_step_m", "profiles.smoothing_window_m"],
     6: ["prioritise.ring_buffer_m", "prioritise.top_fraction", "prioritise.upstream_method"],
-    7: ["sekat.dA_m", "sekat.slope_reinforced_pct", "sekat.min_new_spacing_m", "sekat.dedup_tol_m", "sekat.target_rise_share"],
+    7: ["sekat.dA_m", "sekat.slope_reinforced_pct", "sekat.min_new_spacing_m", "sekat.dedup_tol_m", "sekat.target_rise_share", "sekat.max_blocks"],
     8: [],
     9: ["pumping.routing", "pumping.allow_gate_addition", "pumping.sekat_scope"],
     10: ["pumping.demand_mode", "pumping.max_units_per_station"],

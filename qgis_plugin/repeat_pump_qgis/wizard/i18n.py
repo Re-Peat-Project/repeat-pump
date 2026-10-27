@@ -509,6 +509,9 @@ ID: dict[str, str] = {
     "Secondary": "Sekunder",
     "Tertiary": "Tersier",
     "For a sekat-only plan, choose No for Plan pumps on the stage 8 card, then run again.": "Untuk rencana sekat saja, pilih Tidak pada Rencanakan pompa di kartu tahap 8, lalu jalankan lagi.",
+    "Budget: most new sekat": "Anggaran: jumlah sekat baru terbanyak",
+    "At most this many new sekat, those that rewet the most canal first. Empty: no cap.":
+        "Paling banyak sejumlah ini sekat baru, didahulukan yang paling banyak membasahi kanal. Kosong: tanpa batas.",
     "Plan pumps": "Rencanakan pompa",
     "{name} has no perennial or dry_season_wl_m column, so no river can be a pump water source. Add one, or plan sekat only (switch off Plan pumps on the stage 8 card).":
         "{name} tidak punya kolom perennial atau dry_season_wl_m, sehingga tidak ada sungai yang bisa menjadi sumber air pompa. Tambahkan kolomnya, atau rencanakan sekat saja (matikan Rencanakan pompa pada kartu tahap 8).", "Left out, low benefit": "Tidak dipakai, manfaat rendah",

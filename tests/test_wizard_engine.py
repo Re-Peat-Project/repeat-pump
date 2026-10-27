@@ -125,7 +125,7 @@ def test_check_lists_options_that_are_never_missing_and_skips_auto_accept():
     assert "sekat.dA_m" in opts and "pumping.routing" in opts and "hydro.flow_algorithm" in opts
     assert "review.auto_accept" not in opts, "auto_accept would skip the review stops"
     cfg = load_config(EXAMPLE)
-    assert all(get_value(cfg, k) is not None or k.endswith(("overshoot_max_m", "ids", "n", "max_units_per_station", "canal_classes", "river_buffer_m", "source_snap_m", "min_new_spacing_m", "dedup_tol_m", "target_rise_share", "dtm.source")) for ks in OPTIONS_BY_STAGE.values() for k in ks)
+    assert all(get_value(cfg, k) is not None or k.endswith(("overshoot_max_m", "ids", "n", "max_units_per_station", "canal_classes", "river_buffer_m", "source_snap_m", "min_new_spacing_m", "dedup_tol_m", "target_rise_share", "max_blocks", "dtm.source")) for ks in OPTIONS_BY_STAGE.values() for k in ks)
     assert not (opts & {k for s in out["stages"] for k in s["missing"]} - {"run.vertical_datum"})
 
 
