@@ -23,7 +23,7 @@ app = QgsApplication([], False)
 QgsApplication.initQgis()
 
 from repeat_pump_qgis import maplayout as ML  # noqa: E402
-from repeat_pump_qgis.run_layout import spec_for_run  # noqa: E402
+from repeat_pump_qgis.run_layout import logo_base64, spec_for_run  # noqa: E402
 from repeat_pump_qgis.wizard import i18n  # noqa: E402
 
 i18n.set_language("id")                              # legend labels in Indonesian, as on the KLH sheets
@@ -62,7 +62,7 @@ def main():
             if a.templates:                                  # generic: no layers, no paths, placeholder text; filled by maplayout.fill_layout
                 blank = ML.LayoutSpec(title="Peta\nJudul peta", subtitle="KHG nama KHG", paper=paper, orientation=orient, placeholder=True,
                                       sources=["Sumber data"], institution="Nama instansi", crs=QgsCoordinateReferenceSystem("EPSG:4326"),
-                                      extent=QgsRectangle(105.0, -3.4, 106.2, -2.4), name=f"RE-PEAT {paper} {orient}")
+                                      extent=QgsRectangle(105.0, -3.4, 106.2, -2.4), name=f"RE-PEAT {paper} {orient}", logo=logo_base64())
                 tdir.mkdir(parents=True, exist_ok=True)
                 ML.save_template(ML.build_layout(project, blank), str(tdir / f"klh_{paper}_{orient}.qpt"))
 

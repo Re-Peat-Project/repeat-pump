@@ -30,10 +30,18 @@ TITLE = "Peta\nIntervensi Pembasahan di Lahan Gambut"
 
 
 def khg_title(config_path: str | Path) -> str:
-    """'KHG Sugihan - Lumpur' from a run in a RE-PEAT KHG work folder (``_khg/<code>_<name>/05_pump``), else the run folder name."""
+    """'KHG Sugihan - Lumpur' from a run in a RE-PEAT KHG work folder (``_khg/<code>_<name>/05_pump``), else from the run name when it
+    has the same ``<code>_<name>`` form (a run copied elsewhere), else the run folder name."""
     p = Path(config_path).resolve()
     k = p.parent.parent if p.parent.name == "05_pump" else p.parent
-    name = k.name.split("_", 1)[-1] if "_" in k.name and k.name[0].isdigit() else k.name
+    name = k.name
+    if not (name[:1].isdigit() and "_" in name):
+        try:
+            run = str((read_setup(p).get("run") or {}).get("name") or "")
+        except Exception:
+            run = ""
+        name = run if run[:1].isdigit() and "_" in run else name
+    name = name.split("_", 1)[-1] if name[:1].isdigit() and "_" in name else name
     return "KHG " + name.replace("_", " - ").title()
 
 
@@ -107,9 +115,9 @@ def run_layers(data: dict, project: QgsProject, symbol_k: float = 1.0) -> list:
         project.addMapLayer(lyr, False)
         layers.append(lyr)
     kf = gpkg.parent.parent / "00_inputs"
-    for fname, name, sym in (("rivers.gpkg", "rivers", QgsLineSymbol.createSimple({"color": "92,160,214", "width": "0.6"})),
-                             ("khg.gpkg", "khg", QgsFillSymbol.createSimple({"color": "0,0,0,0", "outline_color": "60,60,60", "outline_width": "0.5",
-                                                                             "outline_style": "dash"}))):
+    for fname, name, sym in (("rivers.gpkg", "rivers", QgsLineSymbol.createSimple({"color": "0,112,255", "width": "0.8"})),     # KLH rivers
+                             ("khg.gpkg", "khg", QgsFillSymbol.createSimple({"color": "0,0,0,0", "outline_color": "0,112,255", "outline_width": "0.6",
+                                                                             "outline_style": "dot"}))):          # KLH: Batas KHG, blue dotted
         lyr = QgsVectorLayer(str(kf / fname), name, "ogr")
         if lyr.isValid() and lyr.featureCount():
             lyr.setRenderer(QgsSingleSymbolRenderer(sym))
@@ -118,22 +126,63 @@ def run_layers(data: dict, project: QgsProject, symbol_k: float = 1.0) -> list:
     return layers
 
 
-def inset_layers(data_dir: Optional[Path], khg_gpkg: Path, project: QgsProject):
-    """The national KHG boundaries (grey) and this KHG (red) for the locator inset; ([], None) when the national layer is not found."""
-    if data_dir is None or not (data_dir / "batas_khg_indonesia.gpkg").is_file():
-        return [], None
-    nat = QgsVectorLayer(str(data_dir / "batas_khg_indonesia.gpkg"), "KHG Indonesia", "ogr")
-    if not nat.isValid():
-        return [], None
-    nat.setRenderer(QgsSingleSymbolRenderer(QgsFillSymbol.createSimple({"color": "220,218,210", "outline_color": "150,148,140", "outline_width": "0.1"})))
-    project.addMapLayer(nat, False)
+CONTEXT = Path(__file__).parent / "resources" / "context"
+LOGO = CONTEXT / "klh_bplh_logo_ring_commons.png"
+INSET_CREDIT = "Peta inset: Natural Earth; batas provinsi geoBoundaries (© kontributor OpenStreetMap)"
+
+
+def logo_base64(path: Path = LOGO) -> str:
+    """The picture embedded in the layout (``base64:``), so a saved template carries the logo without a file."""
+    import base64
+    return "base64:" + base64.b64encode(path.read_bytes()).decode() if path.is_file() else ""
+
+
+def inset_layers(data_dir: Optional[Path], khg_gpkg: Path, project: QgsProject, k: float = 1.0):
+    """The locator inset as on the KLH sheets: Indonesia's provinces (light, labelled in capitals), the neighbouring countries in white
+    (labelled), over the sea colour of the inset; this KHG in dark red on top. From the context bundled with the plugin
+    (resources/context, Natural Earth and geoBoundaries). ([], None) when it cannot be read. ``k`` scales the label sizes with the paper."""
+    from qgis.core import QgsPalLayerSettings, QgsTextBufferSettings, QgsTextFormat, QgsVectorLayerSimpleLabeling
+    from qgis.PyQt.QtGui import QColor, QFont
+    ctx = CONTEXT / "locator_context.gpkg"
+    layers = []
+
+    def label(lyr, expr, size, bold=False, color="#1a1a1a"):
+        fmt = QgsTextFormat()
+        font = QFont("Arial")
+        font.setBold(bold)
+        fmt.setFont(font)
+        fmt.setSize(size * k)
+        fmt.setColor(QColor(color))
+        buf = QgsTextBufferSettings()
+        buf.setEnabled(True)
+        buf.setSize(0.6)
+        buf.setColor(QColor("white"))
+        fmt.setBuffer(buf)
+        s = QgsPalLayerSettings()
+        s.fieldName, s.isExpression = expr, True
+        s.setFormat(fmt)
+        lyr.setLabeling(QgsVectorLayerSimpleLabeling(s))
+        lyr.setLabelsEnabled(True)
+
+    prov = QgsVectorLayer(f"{ctx}|layername=provinces_idn", "Provinsi", "ogr")
+    world = QgsVectorLayer(f"{ctx}|layername=countries", "Negara", "ogr")
+    if prov.isValid() and world.isValid():
+        world.setSubsetString("\"ISO_A3\" <> 'IDN'")
+        world.setRenderer(QgsSingleSymbolRenderer(QgsFillSymbol.createSimple({"color": "255,255,255", "outline_color": "130,130,130", "outline_width": "0.15"})))
+        label(world, 'CASE WHEN "NAME" IN (\'Malaysia\', \'Brunei\', \'Timor-Leste\', \'Papua New Guinea\', \'Philippines\', \'Singapore\') THEN "NAME" END',
+              5.5, bold=True, color="#333333")
+        prov.setRenderer(QgsSingleSymbolRenderer(QgsFillSymbol.createSimple({"color": "224,239,246", "outline_color": "60,60,60", "outline_width": "0.12"})))
+        label(prov, 'upper("name_id")', 3.6, bold=True)
+        for lyr in (world, prov):
+            project.addMapLayer(lyr, False)
+        layers = [prov, world]
     hl = QgsVectorLayer(str(khg_gpkg), "KHG", "ogr") if khg_gpkg.is_file() else None
     if hl is not None and hl.isValid():
-        hl.setRenderer(QgsSingleSymbolRenderer(QgsFillSymbol.createSimple({"color": "208,59,59", "outline_color": "120,20,20", "outline_width": "0.2"})))
+        hl.setRenderer(QgsSingleSymbolRenderer(QgsFillSymbol.createSimple({"color": "168,0,0", "outline_color": "60,0,0", "outline_width": "0.2"})))
         project.addMapLayer(hl, False)
     else:
         hl = None
-    return [nat], hl
+    return layers, hl
 
 
 def spec_for_run(config_path: str | Path, project: QgsProject, paper: str = "A3", orientation: str = "landscape", title: str = TITLE,
@@ -149,11 +198,11 @@ def spec_for_run(config_path: str | Path, project: QgsProject, paper: str = "A3"
     rep = Path(data["run"]["output_gpkg"]).parent / "run_report.json"
     budget = json.loads(rep.read_text(encoding="utf8")).get("budget") if rep.is_file() else None
     gpkg = Path(data["run"]["output_gpkg"])
-    ins, hl = inset_layers(data_dir, gpkg.parent.parent / "00_inputs" / "khg.gpkg", project)
+    ins, hl = inset_layers(data_dir, gpkg.parent.parent / "00_inputs" / "khg.gpkg", project, ML.symbol_scale(paper))
     whole = next((l for l in layers if l.name() == "interventions"), None) or next((l for l in layers if l.name() == "subkhg_selected"), None)
     return ML.LayoutSpec(title=title, subtitle=subtitle if subtitle is not None else khg_title(cfg_path), layers=layers,
                          legend_names={l.id(): LEGEND_NAMES[l.name()] for l in layers if l.name() in LEGEND_NAMES},
                          extent=whole.extent() if whole is not None else None, crs=QgsCoordinateReferenceSystem(data["run"]["crs"]),
-                         paper=paper, orientation=orientation, sources=source_lines(data["inputs"], data_dir or Path("."), catalog),
+                         paper=paper, orientation=orientation, sources=source_lines(data["inputs"], data_dir or Path("."), catalog) + ([INSET_CREDIT] if ins else []),
                          institution=institution, inset_layers=ins, inset_highlight=hl, name=f"RE-PEAT {data['run'].get('name', '')} {paper} {orientation}",
-                         budget_rows=budget_rows(budget))
+                         budget_rows=budget_rows(budget), logo=logo_base64())

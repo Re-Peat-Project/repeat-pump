@@ -52,6 +52,9 @@ class LayoutSpec:
     name: str = ""
     placeholder: bool = False                      # a template: every item, including an empty inset map, and no layers
     budget_rows: list = field(default_factory=list)   # rows of text, the first the header; a box in the map's top-right corner when given
+    logo: str = ""                                    # picture path or "base64:..." (embedded, so a template carries it)
+    inset_background: str = "#9ddaf6"                 # the sea of the KLH locator maps
+    inset_note: str = "Areal Pemetaan"                # key of the highlighted area in the inset
 
 
 def symbol_scale(paper: str) -> float:
@@ -261,7 +264,10 @@ def build_layout(project: QgsProject, spec: LayoutSpec) -> QgsPrintLayout:
     _label(layout, "note", spec.note, 10 * f, sx + pad, syy + 0.65 * shh, sw - 2 * pad, 0.08 * shh)
     logo = QgsLayoutItemPicture(layout)
     logo.setId("logo")
-    logo.setFrameEnabled(False)                              # a placeholder: choose the institution's logo in the layout designer
+    logo.setFrameEnabled(False)                              # the KLH logo by default; choose another in the layout designer
+    if spec.logo:
+        logo.setPicturePath(spec.logo)
+        logo.setResizeMode(QgsLayoutItemPicture.ResizeMode.Zoom)
     layout.addLayoutItem(logo)
     lsz = 0.22 * shh
     _place(logo, sx + pad, syy + shh - lsz - pad, lsz, lsz)
@@ -286,14 +292,27 @@ def build_layout(project: QgsProject, spec: LayoutSpec) -> QgsPrintLayout:
         ins.setLayers(lyrs)
         ins.setKeepLayerSet(True)
         ins.setFrameEnabled(True)
+        ins.setBackgroundEnabled(True)
+        ins.setBackgroundColor(QColor(spec.inset_background))
         c = QgsCoordinateTransform(crs, wgs, project).transformBoundingBox(mp.extent()).center()
         aspect = (iw - 2 * pad) / max(1e-6, ih - 2 * pad)
-        half_h = 5.0
+        half_h = 9.0                                         # western Indonesia around the KHG, as on the KLH sheets
         ins.zoomToExtent(QgsRectangle(c.x() - half_h * aspect, c.y() - half_h, c.x() + half_h * aspect, c.y() + half_h))
         ov = QgsLayoutItemMapOverview("frame", ins)
         ov.setLinkedMap(mp)
-        ov.setFrameSymbol(QgsFillSymbol.createSimple({"color": "208,59,59,60", "outline_color": "208,59,59", "outline_width": "0.4"}))
+        ov.setFrameSymbol(QgsFillSymbol.createSimple({"color": "168,0,0,70", "outline_color": "168,0,0", "outline_width": "0.4"}))
         ins.overviews().addOverview(ov)
+        if spec.inset_note:                              # the key in the inset's lower left, as on the KLH sheets
+            k = ih - 2 * pad
+            kx, ky, ks = ix + pad + 0.03 * (iw - 2 * pad), iy + pad + 0.86 * k, 0.07 * k
+            sw = QgsLayoutItemShape(layout)
+            sw.setShapeType(QgsLayoutItemShape.Shape.Rectangle)
+            sw.setId("inset_key_swatch")
+            sw.setSymbol(QgsFillSymbol.createSimple({"color": "168,0,0", "outline_color": "60,0,0", "outline_width": "0.2"}))
+            layout.addLayoutItem(sw)
+            _place(sw, kx, ky, 1.6 * ks, ks)
+            _label(layout, "inset_key", spec.inset_note, 9 * f, kx + 1.6 * ks + 0.4 * ks, ky - 0.3 * ks, 0.5 * (iw - 2 * pad), 1.6 * ks,
+                   bold=True, valign=Qt.AlignmentFlag.AlignVCenter)
     return layout
 
 
@@ -336,12 +355,17 @@ def _budget_table(layout, rows: list, map_box: tuple, f: float):
     frame.setFrameEnabled(True)
     frame.setFrameStrokeWidth(QgsLayoutMeasurement(0.3, MM))
     table.addFrame(frame)
+    _fit_budget_frame(frame, table, len(rows), f, map_box)
+    return frame
+
+
+def _fit_budget_frame(frame, table, n_rows: int, f: float, map_box: tuple) -> None:
+    """Size the table's frame to its rows and put it in the top-right corner of the map (x, y, w, h in mm)."""
     mx, my, mw, mh = map_box
     w = min(0.42 * mw, table.totalWidth() + 1.0)
-    h = len(rows) * (10 * f * PT_MM * 1.2 + 2 * table.cellMargin()) + 0.5
+    h = n_rows * (10 * f * PT_MM * 1.2 + 2 * table.cellMargin()) + 0.5
     pad = 0.015 * mw
     _place(frame, mx + mw - w - pad, my + pad, w, h)
-    return frame
 
 
 def _legend_sizes(lg: QgsLayoutItemLegend, k: float) -> None:
@@ -498,10 +522,16 @@ def fill_layout(layout: QgsLayout, spec: LayoutSpec, project: QgsProject) -> lis
         f = (page.width() * page.height() / (1189 * 841)) ** 0.35
         box = lg.sizeWithUnits()
         fit_legend(lg, box.width(), box.height(), f)              # the legend keeps the box the template gives it
+    lg_item = item("logo")
+    if lg_item is not None and spec.logo:
+        lg_item.setPicturePath(spec.logo)
     bt = item("budget_table")
     if bt is not None and spec.budget_rows:
         page = layout.pageCollection().page(0).pageSize()
-        _set_budget_rows(bt.multiFrame(), spec.budget_rows, (page.width() * page.height() / (1189 * 841)) ** 0.35)
+        ff = (page.width() * page.height() / (1189 * 841)) ** 0.35
+        _set_budget_rows(bt.multiFrame(), spec.budget_rows, ff)
+        p0, sz = mp.positionWithUnits(), mp.sizeWithUnits()
+        _fit_budget_frame(bt, bt.multiFrame(), len(spec.budget_rows), ff, (p0.x(), p0.y(), sz.width(), sz.height()))
     elif bt is None and spec.budget_rows:
         missing.append("budget_table")
     ins = item("map_inset")

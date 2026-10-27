@@ -15,6 +15,35 @@ from qgis.PyQt.QtGui import QColor, QFont
 
 TEAL, AMBER, AMBER_DARK, INK, WATER = "#2B6B6B", "#E0922F", "#7A4300", "#17261F", "#3F9DAA"
 
+# KLH map sheets (Peta Intervensi Pembasahan, KHG Mendahara-Batanghari, Sept 2026): colours sampled from the legend swatches
+KLH = {"red": "#e60000", "orange": "#e69800", "sky": "#00c5ff", "green": "#4ce600", "tmat_normal": "#38a800",
+       "burnt_fill": "#ffbee8", "magenta": "#e600a9", "plan_green": "#267300", "khg_blue": "#0070ff", "canal_blue": "#73b2ff"}
+DROP_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 1.5C12 1.5 4.5 10.5 4.5 15.5a7.5 7.5 0 0 0 15 0'
+            'C19.5 10.5 12 1.5 12 1.5Z" fill="param(fill) #00c5ff" stroke="param(outline) #000" stroke-width="param(outline-width) 1"/>'
+            '<circle cx="12" cy="16" r="1.4" fill="#000000"/></svg>')
+
+
+def _drop(color: str, size: float = 4.2):
+    """The KLH water-table station marker: a water drop, embedded (no SVG file needed)."""
+    import base64
+    from qgis.core import QgsSvgMarkerSymbolLayer
+    sl = QgsSvgMarkerSymbolLayer("base64:" + base64.b64encode(DROP_SVG.encode()).decode(), size)
+    sl.setFillColor(QColor(color))
+    sl.setStrokeColor(QColor("#000000"))
+    sl.setStrokeWidth(0.3)
+    return QgsMarkerSymbol([sl])
+
+
+def _square_dot(color: str, size: float = 3.4, hollow: bool = False):
+    """The KLH sekat marker: a coloured square with a white centre (hollow: the outline only, for blocks left out)."""
+    from qgis.core import QgsSimpleMarkerSymbolLayer
+    sym = QgsMarkerSymbol.createSimple({"name": "square", "color": "255,255,255,255" if hollow else color, "outline_color": color,
+                                        "outline_width": "0.5" if hollow else "0.2", "size": f"{size:g}"})
+    if not hollow:
+        sym.appendSymbolLayer(QgsSimpleMarkerSymbolLayer.create({"name": "square", "color": "255,255,255,255", "outline_style": "no",
+                                                                 "size": f"{size * 0.38:g}"}))
+    return sym
+
 # need score 0..1 in five equal steps (the score is already on a 0..1 scale), light to dark orange-red (ColorBrewer OrRd)
 NEED_CLASSES = [(0.0, 0.2, "#fdd49e", "0.0 to 0.2 (lowest need)"), (0.2, 0.4, "#fdbb84", "0.2 to 0.4"), (0.4, 0.6, "#fc8d59", "0.4 to 0.6"),
                 (0.6, 0.8, "#e34a33", "0.6 to 0.8"), (0.8, 1.0001, "#b30000", "0.8 to 1.0 (highest need)")]
@@ -110,46 +139,44 @@ def style_layer(layer: QgsVectorLayer) -> None:
                        (_symbol("point", {"name": "square", "color": "#C9C3B3", "outline_color": "#8A948F", "outline_width": "0.3", "size": "2.6"}),
                         "ELSE", "Other candidates")])
     elif name == "sekat_proposed":                    # reinforced blocks differ from standard ones
-        std = {"name": "square", "color": AMBER, "outline_color": AMBER_DARK, "outline_width": "0.4", "size": "3.2"}
-        if _has(layer, "sekat_type"):
-            _rules(layer, [(_symbol("point", std), '"sekat_type" = \'standard\'', "Proposed sekat, standard"),
-                           (_symbol("point", {**std, "name": "diamond", "color": "#C0661A", "size": "3.8"}), "ELSE", "Proposed sekat, leaky or reinforced")])
+        if _has(layer, "sekat_type"):                 # KLH: Sekat Kanal Perencanaan, dark green square with a white centre
+            _rules(layer, [(_square_dot(KLH["plan_green"]), '"sekat_type" = \'standard\'', "Proposed sekat, standard"),
+                           (_square_dot(KLH["plan_green"], 4.4), "ELSE", "Proposed sekat, leaky or reinforced")])
         else:
-            layer.setRenderer(QgsSingleSymbolRenderer(_symbol("point", std)))
+            layer.setRenderer(QgsSingleSymbolRenderer(_square_dot(KLH["plan_green"])))
     elif name == "sekat_existing_assessed" and _has(layer, "snapped"):   # existing sekat not on an analysed canal are marked
-        _rules(layer, [(_symbol("point", {"name": "square", "color": "#2E9E7B", "outline_color": "#FFFFFF", "outline_width": "0.3", "size": "2.8"}),
-                        '"snapped"', "Existing sekat"),
-                       (_symbol("point", {"name": "cross2", "color": "#C0392B", "outline_color": "#C0392B", "outline_width": "0.5", "size": "2.6"}),
-                        "ELSE", "Existing sekat, not on an analysed canal")])
+        _rules(layer, [(_square_dot(KLH["magenta"], 3.0), '"snapped"', "Existing sekat"),       # KLH: Sekat Kanal Terbangun, magenta
+                       (_square_dot(KLH["magenta"], 2.4, hollow=True), "ELSE", "Existing sekat, not on an analysed canal")])
     elif name == "interventions" and _has(layer, "intervention"):     # one colour per treatment, translucent over the canals
-        colours = {"close_canals": "#2a78d6", "revegetate_fire": "#eb6834", "block_water": "#1baf7a", "block_wells": "#eda100",
-                   "block": "#e87ba4", "maintain": "#008300"}       # the validated categorical order of the HTML report
+        # KLH intervention colours where the meaning matches: burnt with canals red, burnt without canals orange, not burnt with
+        # canals sky blue, not burnt without canals green; the two classes KLH has no colour for take other ArcGIS palette colours
+        colours = {"close_canals": "#c29ed7", "revegetate_fire": KLH["orange"], "block_water": "#0084a8", "block_wells": KLH["red"],
+                   "block": KLH["sky"], "maintain": KLH["green"]}
         from qgis.core import QgsCategorizedSymbolRenderer, QgsRendererCategory
         from .i18n import tr
         from ..intervention_labels import LABELS
         rgba = lambda h, a: ",".join(str(int(h[i:i + 2], 16)) for i in (1, 3, 5)) + f",{a}"    # noqa: E731  (8-digit hex reads as #AARRGGBB)
-        cats = [QgsRendererCategory(code, _symbol("polygon", {"color": rgba(col, 150), "outline_color": rgba(col, 255), "outline_width": "0.4"}), tr(LABELS[code]))
+        cats = [QgsRendererCategory(code, _symbol("polygon", {"color": rgba(col, 190), "outline_color": "110,110,110,255", "outline_width": "0.2"}), tr(LABELS[code]))
                 for code, col in colours.items()]
         layer.setRenderer(QgsCategorizedSymbolRenderer("intervention", cats))
     elif name == "neraca_stations" and _has(layer, "depth_end_cm"):     # KLH water-table classes (TMAT = -depth), at the end of the dry season
         from qgis.core import QgsRuleBasedRenderer
         root = QgsRuleBasedRenderer.Rule(None)
-        for expr, col, lab in (('"depth_end_cm" < 0', "#2a78d6", "AP-TMAT, Tergenang (>0 m)"),
-                               ('"depth_end_cm" >= 0 AND "depth_end_cm" <= 40', "#0ca30c", "AP-TMAT, Normal (-0,4 m <= TMAT <= 0 m)"),
-                               ('"depth_end_cm" > 40 AND "depth_end_cm" <= 80', "#fab219", "AP-TMAT, Rawan (-0,8 m <= TMAT < -0,4 m)"),
-                               ('"depth_end_cm" > 80', "#d03b3b", "AP-TMAT, Sangat Rawan (< -0,8 m)")):
-            root.appendChild(QgsRuleBasedRenderer.Rule(_symbol("point", {"name": "circle", "color": col, "outline_color": "#ffffff", "outline_width": "0.3", "size": "3.0"}),
-                                                       filterExp=expr, label=lab))
+        for expr, col, lab in (('"depth_end_cm" < 0', KLH["sky"], "AP-TMAT, Tergenang (>0 m)"),
+                               ('"depth_end_cm" >= 0 AND "depth_end_cm" <= 40', KLH["tmat_normal"], "AP-TMAT, Normal (-0,4 m <= TMAT <= 0 m)"),
+                               ('"depth_end_cm" > 40 AND "depth_end_cm" <= 80', KLH["orange"], "AP-TMAT, Rawan (-0,8 m <= TMAT < -0,4 m)"),
+                               ('"depth_end_cm" > 80', KLH["red"], "AP-TMAT, Sangat Rawan (< -0,8 m)")):
+            root.appendChild(QgsRuleBasedRenderer.Rule(_drop(col), filterExp=expr, label=lab))
         layer.setRenderer(QgsRuleBasedRenderer(root))
     elif name == "sekat_reach":                       # the canal water each kept sekat holds back, flowing from the block upstream
-        layer.setRenderer(QgsSingleSymbolRenderer(_flow_line("#2a78d6", 0.7)))
+        layer.setRenderer(QgsSingleSymbolRenderer(_flow_line(KLH["khg_blue"], 0.7)))
     elif name == "pump_routes":                       # pumped water, from the river intake to the target
         layer.setRenderer(QgsSingleSymbolRenderer(_flow_line("#6250d6", 0.9)))
     elif name == "inputs_clipped_burn_area":          # context for the paths: where the peat has burnt
-        layer.setRenderer(QgsSingleSymbolRenderer(_symbol("polygon", {"color": "227,73,72,80", "outline_style": "no"})))
+        layer.setRenderer(QgsSingleSymbolRenderer(_symbol("polygon", {"color": "255,190,232,170", "outline_color": KLH["magenta"],
+                                                                       "outline_width": "0.2"})))     # KLH: Areal Terbakar, pink
     elif name == "sekat_low_benefit":                 # left out by the balance: quiet, under the proposals
-        layer.setRenderer(QgsSingleSymbolRenderer(_symbol("point", {"name": "circle", "color": "#C9C3B3", "outline_color": "#8A948F",
-                                                                     "outline_width": "0.2", "size": "2.0"})))
+        layer.setRenderer(QgsSingleSymbolRenderer(_square_dot(KLH["plan_green"], 2.4, hollow=True)))
     elif name == "sekat_scope":                       # in the plan by where it sits; the rest is greyed out (rules must not overlap: each match is drawn)
         base = {"name": "square", "outline_color": "#FFFFFF", "outline_width": "0.3", "size": "3.2"}
         _rules(layer, [(_symbol("point", {**base, "color": "#2E9E7B"}), '"planned" AND "scope" = \'target\'', "Sekat on selected canals"),
@@ -173,9 +200,9 @@ def style_layer(layer: QgsVectorLayer) -> None:
         if _has(layer, "direction_method"):           # canals whose drainage direction could not be told apart stand out
             _rules(layer, [(_symbol("line", {"color": AMBER, "width": "0.6", "line_style": "dash"}), '"direction_method" = \'unresolved\'',
                             "Canal, flow direction unknown"),
-                           (_symbol("line", {"color": TEAL, "width": "0.5"}), "ELSE", "Canal")])
+                           (_symbol("line", {"color": KLH["canal_blue"], "width": "0.6"}), "ELSE", "Canal")])
         else:
-            layer.setRenderer(QgsSingleSymbolRenderer(_symbol("line", {"color": TEAL, "width": "0.5"})))
+            layer.setRenderer(QgsSingleSymbolRenderer(_symbol("line", {"color": KLH["canal_blue"], "width": "0.6"})))
         if _has(layer, "ipg"):                        # the gap-analysis result, readable on the map (IPG above 1 means enough sekat)
             _label(layer, 'CASE WHEN "ipg" IS NULL THEN \'\' ELSE \'IPG \' || format_number("ipg", 1) END', 8.0, TEAL)
     elif name in LOOK:

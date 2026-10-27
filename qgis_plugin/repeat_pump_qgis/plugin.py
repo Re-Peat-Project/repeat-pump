@@ -37,8 +37,12 @@ class RepeatPumpPlugin:
         self.setup_action = QAction("Set up engine environment", self.iface.mainWindow())
         self.setup_action.triggered.connect(self.setup_environment)
         self.iface.addPluginToMenu("RE-PEAT Interventions", self.setup_action)
+        from . import templates
+        templates.register()                     # the KLH layout templates in Layout Manager, "Create from template"
 
     def unload(self):
+        from . import templates
+        templates.unregister()
         if self.provider is not None:
             QgsApplication.processingRegistry().removeProvider(self.provider)
         if self.dock is not None:
