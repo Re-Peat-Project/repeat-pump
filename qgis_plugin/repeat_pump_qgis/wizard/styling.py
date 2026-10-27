@@ -38,14 +38,16 @@ LOOK: dict[str, tuple[str, dict]] = {
 
 
 def _symbol(kind: str, props: dict):
-    return (QgsLineSymbol if kind == "line" else QgsMarkerSymbol).createSimple(props)
+    from qgis.core import QgsFillSymbol
+    return {"line": QgsLineSymbol, "polygon": QgsFillSymbol}.get(kind, QgsMarkerSymbol).createSimple(props)
 
 
 def _rules(layer: QgsVectorLayer, rules: list[tuple]) -> None:
     """Rule-based renderer from ``(symbol, filter expression, label)``; the last rule may use ``"ELSE"``."""
+    from .i18n import tr
     root = QgsRuleBasedRenderer.Rule(None)
     for symbol, expr, label in rules:
-        root.appendChild(QgsRuleBasedRenderer.Rule(symbol, 0, 0, expr, label))
+        root.appendChild(QgsRuleBasedRenderer.Rule(symbol, 0, 0, expr, tr(label)))       # legend labels in the wizard's language
     layer.setRenderer(QgsRuleBasedRenderer(root))
 
 
@@ -104,14 +106,25 @@ def style_layer(layer: QgsVectorLayer) -> None:
                        (_symbol("point", {"name": "cross2", "color": "#C0392B", "outline_color": "#C0392B", "outline_width": "0.5", "size": "2.6"}),
                         "ELSE", "Existing sekat, not on an analysed canal")])
     elif name == "interventions" and _has(layer, "intervention"):     # one colour per treatment, translucent over the canals
-        colours = {"close_canals": "#7D4FB5", "revegetate_fire": "#C0392B", "block_water": "#2F6F9F", "block_wells": "#C98A1B",
-                   "block": "#2E9E7B", "maintain": "#B9B4A6"}
+        colours = {"close_canals": "#2a78d6", "revegetate_fire": "#eb6834", "block_water": "#1baf7a", "block_wells": "#eda100",
+                   "block": "#e87ba4", "maintain": "#008300"}       # the validated categorical order of the HTML report
         from qgis.core import QgsCategorizedSymbolRenderer, QgsRendererCategory
         from .i18n import tr
         from ..intervention_labels import LABELS
-        cats = [QgsRendererCategory(code, _symbol("polygon", {"color": col + "99", "outline_color": col, "outline_width": "0.4"}), tr(LABELS[code]))
+        rgba = lambda h, a: ",".join(str(int(h[i:i + 2], 16)) for i in (1, 3, 5)) + f",{a}"    # noqa: E731  (8-digit hex reads as #AARRGGBB)
+        cats = [QgsRendererCategory(code, _symbol("polygon", {"color": rgba(col, 150), "outline_color": rgba(col, 255), "outline_width": "0.4"}), tr(LABELS[code]))
                 for code, col in colours.items()]
         layer.setRenderer(QgsCategorizedSymbolRenderer("intervention", cats))
+    elif name == "neraca_stations" and _has(layer, "depth_end_cm"):     # KLH water-table classes (TMAT = -depth), at the end of the dry season
+        from qgis.core import QgsRuleBasedRenderer
+        root = QgsRuleBasedRenderer.Rule(None)
+        for expr, col, lab in (('"depth_end_cm" < 0', "#2a78d6", "AP-TMAT, Tergenang (>0 m)"),
+                               ('"depth_end_cm" >= 0 AND "depth_end_cm" <= 40', "#0ca30c", "AP-TMAT, Normal (-0,4 m <= TMAT <= 0 m)"),
+                               ('"depth_end_cm" > 40 AND "depth_end_cm" <= 80', "#fab219", "AP-TMAT, Rawan (-0,8 m <= TMAT < -0,4 m)"),
+                               ('"depth_end_cm" > 80', "#d03b3b", "AP-TMAT, Sangat Rawan (< -0,8 m)")):
+            root.appendChild(QgsRuleBasedRenderer.Rule(_symbol("point", {"name": "circle", "color": col, "outline_color": "#ffffff", "outline_width": "0.3", "size": "3.0"}),
+                                                       filterExp=expr, label=lab))
+        layer.setRenderer(QgsRuleBasedRenderer(root))
     elif name == "sekat_low_benefit":                 # left out by the balance: quiet, under the proposals
         layer.setRenderer(QgsSingleSymbolRenderer(_symbol("point", {"name": "circle", "color": "#C9C3B3", "outline_color": "#8A948F",
                                                                      "outline_width": "0.2", "size": "2.0"})))

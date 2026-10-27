@@ -25,7 +25,7 @@ def test_a_khg_folder_fills_the_inputs_lidar_first_and_reports_what_is_missing(t
     root, data, hub = tmp_path / "_khg", tmp_path / "_data", tmp_path / "re-peat"
     k = root / "16.02.01_sugihan_lumpur"
     for f in ("00_inputs/canals.gpkg", "00_inputs/rivers.gpkg", "00_inputs/blocks.gpkg", "01_dem/inputs/demnas.tif",
-              "01_dem/inputs/lidar_oki25.tif", "02_delineation/subkhg_units.gpkg", "04_prioritisation/national_layers/subkhg_priority.csv", "04_prioritisation/national_layers/unit_prioritas.gpkg",
+              "01_dem/inputs/lidar_oki25.tif", "02_delineation/subkhg_units.gpkg", "04_prioritisation/national_layers/subkhg_priority.csv", "04_prioritisation/national_layers/unit_prioritas.gpkg", "03_neraca/runs/balance/neraca_map.gpkg",
               "cache/16.02.01/annual/ndmi_2019.tif", "cache/16.02.01/annual/ndmi_2023.tif", "cache/16.02.01/annual/ndmi_2024_60m.tif"):
         _touch(k / f)
     _touch(data / khgsetup.BURN_FILE)

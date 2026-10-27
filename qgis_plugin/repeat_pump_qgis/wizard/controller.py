@@ -16,7 +16,13 @@ from ..runconfig import attach_preset, detach_preset, set_dotted, unset_dotted, 
 from . import viewmodel as vm
 from .i18n import tr
 
-PRESET_RESOURCE = Path(__file__).parents[1] / "resources" / "proposed_defaults.yaml"
+def _resource(name: str) -> Path:
+    """A file bundled in the plugin's resources (installed copy), or the repo's configs/ folder in a source checkout."""
+    p = Path(__file__).parents[1] / "resources" / name
+    return p if p.exists() else Path(__file__).parents[3] / "configs" / name
+
+
+PRESET_RESOURCE = _resource("proposed_defaults.yaml")
 
 
 def _flag(name: str):
@@ -171,7 +177,7 @@ class WizardController(QObject):
 
     def load_preview(self) -> None:
         """Ask the engine what every stage would ask for, using the bundled template config, so the demo view can show real menus."""
-        template = Path(__file__).parents[1] / "resources" / "example_khg.yaml"
+        template = _resource("example_khg.yaml")
         if self.preview_json is not None or not self.engine_ready or not template.exists():
             return
         py = runner.get_python()
@@ -262,6 +268,29 @@ class WizardController(QObject):
                 self.notice.emit("success", tr("The run was cleared. Your settings and data are untouched."))
             self.refresh_check()
         self._submit("RE-PEAT: start over", lambda task: runner.run_reset(py, cfg), done)
+
+    def export_html(self, on_written: Callable) -> None:
+        """Write the run's interactive HTML report (repeat-pump report-html) next to its GeoPackage, then hand its path to ``on_written``."""
+        if self.running is not None or not self.config_path or not self.engine_ready or self.busy:
+            return
+        py, cfg = runner.get_python(), str(self.config_path)
+        out = self.config_path.parent / "report.html"
+        self.busy = tr("Writing the HTML report...")
+        self.changed.emit()
+
+        def work(task):
+            return runner.run_engine(py, ["report-html", "--config", cfg, "--out", str(out)], str(self.config_path.parent),
+                                     _Feedback(task, self.log_line.emit))
+
+        def done(res, err):
+            self.busy = ""
+            self.changed.emit()
+            if err or res not in (0, None):
+                self.notice.emit("error", tr("Could not write the HTML report: {err}").format(err=err or tr("see the log")))
+            else:
+                self.notice.emit("success", tr("HTML report written: {path}").format(path=out))
+                on_written(out)
+        self._submit("RE-PEAT: HTML report", work, done)
 
     def set_preset(self, enabled: bool) -> None:
         """Opt the open run into (or out of) the proposed-defaults preset, then re-check. Values already in the run YAML win."""

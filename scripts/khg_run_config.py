@@ -67,6 +67,8 @@ def run_config(folder: Path, tertiary: bool = False) -> tuple[dict, list[str]]:
                                       vectors=vectors, params=params, drop=drop + ["canal_edits"], columns=columns)
     data["inputs"]["dtm"]["vertical_rmse_m"] = None          # the preset suggests it for the DTM type; a delivery value wins
     data["inputs"]["moisture"]["higher_is_wetter"] = True
+    if "neraca_map" in inp:                               # for the HTML report
+        data["inputs"]["neraca_map"] = {"path": inp["neraca_map"]["path"]}
     return data, missing
 
 

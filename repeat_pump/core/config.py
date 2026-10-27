@@ -135,6 +135,7 @@ class InputsCfg(_M):
     moisture: MoistureCfg
     concession: Optional[PathCfg] = None
     tma_obs: Optional[PathCfg] = None
+    neraca_map: Optional[PathCfg] = None          # optional, for the HTML report only: repeat-neraca's neraca_map.gpkg (balance per sub-KHG, stations)
     subkhg_indicators: Optional[PathCfg] = None   # optional: the sub-KHG prioritisation's unit_prioritas (csv or gpkg); turns on the interventions in stage 11
 
 

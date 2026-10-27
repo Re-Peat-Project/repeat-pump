@@ -67,7 +67,18 @@ def main(argv=None) -> int:
     g.add_argument("--crs")
     g.add_argument("--out", help="output GeoPackage (layer burn_area)")
     g.add_argument("--years", nargs=2, type=int, metavar=("FIRST", "LAST"), help="inclusive year window")
+    h = sub.add_parser("report-html", help="write the interactive HTML report of a finished run (one self-contained file)")
+    h.add_argument("--config", required=True)
+    h.add_argument("--out", help="output HTML (default: report.html next to the run's GeoPackage)")
     a = ap.parse_args(argv)
+    if a.cmd == "report-html":
+        from .core import html_report
+        try:
+            print(f"wrote {html_report.build(a.config, a.out)}")
+        except Exception as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 1
+        return 0
     if a.cmd == "fetch-burn":
         missing = [n for n, v in (("--bounds", a.bounds), ("--crs", a.crs), ("--out", a.out), ("--years", a.years)) if not v]
         if missing:

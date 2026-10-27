@@ -134,7 +134,9 @@ class SetupExtras(QWidget):
         self.crs_note = label("", "paramHelp")
         lay.addWidget(self.crs_note)
         self.reproject = QCheckBox()
+        self._reproject_touched = False
         self.reproject.toggled.connect(lambda _b: self.refresh())
+        self.reproject.clicked.connect(lambda _b: setattr(self, "_reproject_touched", True))
         lay.addWidget(self.reproject)
         self.datum = QLineEdit()
         self.datum.textEdited.connect(self._datum_typed)
@@ -361,7 +363,13 @@ class SetupExtras(QWidget):
                 if g and not self._col_choice.get((role, col)):
                     self._col_choice[(role, col)] = g
         self._rebuild_columns()
-        a = self.assessment = preflight.assess(self._infos, reproject=self.reproject.isChecked(), columns=self.columns())
+        a = preflight.assess(self._infos, reproject=self.reproject.isChecked(), columns=self.columns())
+        if a.needs_reproject and not self.reproject.isChecked() and not self._reproject_touched:
+            self.reproject.blockSignals(True)               # layers in another system: reproject them, unless the person said no
+            self.reproject.setChecked(True)
+            self.reproject.blockSignals(False)
+            a = preflight.assess(self._infos, reproject=True, columns=self.columns())
+        self.assessment = a
         self._fill_ids(layers.get("subkhg"), a.subkhg_id_field)
         self._rebuild_classes(layers.get("canals"))
         if not prio and self.mode.currentData() == "top_n" and not self._mode_touched:

@@ -63,6 +63,8 @@ Click the water-drop button in the toolbar, or *Plugins > RE-PEAT Pompanisasi > 
    them until you re-run (the button says *Re-run to apply your change*).
 8. *Cancel run* stops the engine and anything it started, even if it is silent (for example a long download).
 
+The results card has *Export HTML report* (an interactive page next to the GeoPackage) and *Make map layout* (a KLH-style print layout, A0 to A4, opened in the layout designer; an edited layout saved as a template can be chosen as *Own template* next time).
+
 When the plugin is updated, the wizard updates its engine environment by itself (it compares the engine hash written into the zip).
 
 The wizard never imports the engine. It runs the same command as the Processing algorithms and reads `run_state.json`,

@@ -47,6 +47,10 @@ Inputs (all in the same projected CRS in metres, or set `run.auto_reproject: tru
 
 **Tertiary canals:** off by default (`topology.canal_classes: [primer, sekunder]`, as in the KLH guide). Add `tersier` to include them; the wizard has a tick box and `scripts/khg_run_config.py` a `--tertiary` flag.
 
+**HTML report:** `repeat-pump report-html --config run.yaml` writes `report.html` next to the GeoPackage: one self-contained page (D3 and MapLibre vendored; the basemap needs internet, the run layers draw without it) with the key numbers, an interactive map (interventions or dry-season water balance per sub-KHG, canals, kept and low-benefit sekat, existing sekat, SiTMAT stations in the KLH water-table classes), the rewetting curve, interventions per class, the monthly water balance, the station water table and a searchable, sortable sub-KHG table. English and Bahasa Indonesia, light and dark. It only re-states the run's files; `inputs.neraca_map` (repeat-neraca's `neraca_map.gpkg`) adds the water balance and stations.
+
+**Map layouts (QGIS):** the wizard's *Make map layout* builds a print layout in the style of the KLH peat maps (A0 to A4, landscape or portrait): map with a lat/long border, title with north arrow, scale and scale bar, the legend in columns, data sources from `re-peat/sites/data_catalog.csv`, institution, logo placeholder and a locator inset from `_data/batas_khg_indonesia.gpkg`. It opens in the layout designer for manual changes. Empty templates are in `qgis_plugin/repeat_pump_qgis/resources/layouts/klh_<paper>_<orientation>.qpt`; edit one in the designer, save it, and choose it as *Own template*: the wizard fills it by item id. Batch, with QGIS's Python: `python-qgis.bat scripts/make_layouts.py --config run.yaml --out folder --papers A0 A3 --pdf`.
+
 **Sekat only:** `pumping.enabled: false` skips stages 8-10 (network, routing, pumps) and asks none of their parameters. Use it when no river in the analysis extent can serve as a water source (stage 9 needs a river with `perennial` or `dry_season_wl_m`). A worked example: `re-peat/sites/16.02.01_sugihan_lumpur/pump.yaml`.
 
 ## 3. Run from the command line

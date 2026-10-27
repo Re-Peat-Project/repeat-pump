@@ -23,7 +23,7 @@ repeat-pump = "repeat_pump.cli:main"
 include = ["repeat_pump*"]
 
 [tool.setuptools.package-data]
-"repeat_pump.data" = ["*.csv", "*.md"]
+"repeat_pump.data" = ["*.csv", "*.md", "report_assets/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -65,6 +65,7 @@ def setup_from_khg(khg_dir: str | Path, hub: Optional[str | Path] = None, data: 
     put("rivers", _first(k / "00_inputs" / "rivers.gpkg"))
     put("sekat_existing", _first(k / "00_inputs" / "blocks.gpkg"))
     put("burn_area", _first(data / BURN_FILE))
+    put("neraca_map", _first(k / "03_neraca" / "runs" / "balance" / "neraca_map.gpkg"))
     put("subkhg_indicators", _first(k / "04_prioritisation" / "national_layers" / "unit_prioritas.gpkg", k / "04_prioritisation" / "unit_prioritas.gpkg"))
     ndmi = _latest(list(k.glob("cache/*/annual/ndmi_*.tif")))
     if ndmi is None:

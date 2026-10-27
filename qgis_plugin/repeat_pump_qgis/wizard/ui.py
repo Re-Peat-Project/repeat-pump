@@ -379,7 +379,8 @@ class WizardPanel(QWidget):
         form.addWidget(label("KHG (fills every input from its work folder)", "paramLabel"))
         form.addLayout(khg_row)
         self._refresh_khg_list()
-        bundled = Path(__file__).parents[1] / "resources" / "example_khg.yaml"
+        from .controller import _resource
+        bundled = _resource("example_khg.yaml")
         self.template = file_widget("open", "YAML (*.yaml *.yml)")
         if bundled.exists():
             self.template.setFilePath(str(bundled))
@@ -1028,9 +1029,23 @@ class WizardPanel(QWidget):
         folder = gpkg.parent
         row.addWidget(button("Open the run folder", "secondary", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))))
         row.addWidget(button("Open run report", "secondary", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder / "run_report.md")))))
+        row.addWidget(button("Export HTML report", "primary", lambda: self.controller.export_html(
+            lambda p: QDesktopServices.openUrl(QUrl.fromLocalFile(str(p))))))
+        row.addWidget(button("Make map layout", "secondary", self._make_layout))
         row.addStretch(1)
         lay.addLayout(row)
         return f
+
+    def _make_layout(self) -> None:
+        if self.controller.config_path is None:
+            return
+        from .layout_dialog import make_layout
+        try:
+            err = make_layout(self.iface, self.controller.config_path, self)
+        except Exception as e:                      # a layout problem must not take the wizard down
+            err = str(e)
+        if err:
+            QMessageBox.warning(self, tr("Make map layout"), err)
 
     def _callout(self, tone: str, title: str, text: str) -> QWidget:
         f = QFrame()
