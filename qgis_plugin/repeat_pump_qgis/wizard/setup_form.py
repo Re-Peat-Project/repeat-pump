@@ -404,6 +404,9 @@ class SetupExtras(QWidget):
                          ("inputs.moisture.higher_is_wetter", (inp.get("moisture") or {}).get("higher_is_wetter"))):
             if val is not None:
                 self._loaded[key] = val
+        et = (data.get("optimise") or {}).get("et_mm_day")
+        if et is not None:
+            self._loaded["optimise.et_mm_day"] = et
         for v, c in ((data.get("topology") or {}).get("canal_class_map") or {}).items():
             self._class_choice[str(v)] = c
         self._classes_for = ()

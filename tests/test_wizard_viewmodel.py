@@ -135,7 +135,7 @@ def test_warnings_are_routed_to_the_stage_they_belong_to():
     assert vm.warnings_for(2, ws) == [ws[1]]
     assert vm.warnings_for(7, ws) == [ws[3]]
     assert vm.warnings_for(9, ws) == [ws[2]]
-    assert vm.warnings_for(11, ws) == ws                      # the report shows everything
+    assert vm.warnings_for(12, ws) == ws                      # the report shows everything
     assert vm.warnings_for(5, ws) == []
 
 
@@ -243,7 +243,7 @@ def test_layers_after_a_stage_exclude_names_an_earlier_stage_also_makes():
     assert "sekat_proposed" in after2 and "pump_routes" in after2 and "canal_segments" in after2
     after6 = vm.layers_after(6)
     assert "canal_segments" not in after6 and "sekat_proposed" in after6 and "canals_clean" not in after6
-    assert vm.layers_after(10) == ["interventions", "sekat_optimised", "qa_optimisation"] and vm.layers_after(12) == []
+    assert vm.layers_after(10) == ["sekat_optimised", "qa_optimisation", "interventions"] and vm.layers_after(12) == []
 
 
 # ---------------------------------------------------------------- shared config builder
@@ -292,43 +292,43 @@ def test_design_period_is_a_decision_field_with_a_translation():
         i18n.set_language("en")
 
 
-def _opt_model(world, enabled, stage11="done", **extra_state):
+def _opt_model(world, enabled, stage10="done", **extra_state):
     cfg, tmp = world
     cfg["pumping"]["allow_gate_addition"] = True
     cfg["optimise"] = {"enabled": enabled}
     chk = check(load_config(write_cfg(tmp / "o.yaml", cfg)))
-    stages = {str(i): {"status": "done"} for i in range(1, 11)}
-    stages["11"] = {"status": stage11}
+    stages = {str(i): {"status": "done"} for i in range(1, 10)}
+    stages["10"] = {"status": stage10}
     stages.update(extra_state)
     return vm.WizardModel(chk, {"stages": stages, "warnings": [], "report": {}})
 
 
-def test_optional_stage_12_is_switched_off_by_default_and_counts_as_done(world):
+def test_optional_stage_11_is_switched_off_by_default_and_counts_as_done(world):
     m = _opt_model(world, enabled=False)
-    v = m.stage(12)
+    v = m.stage(11)
     assert v.status == "skipped" and v.optional and v.sub == "Optional, switched off" and not v.can_run
-    assert m.current == 12 or m.current == len(m.stages)                       # nothing left to do: the last stage is shown
-    assert all(x.status == "done" for x in m.stages[:11])
+    assert m.current == 12                                                     # the report, the last stage, is next
+    assert all(x.status == "done" for x in m.stages[:10])
 
 
-def test_optional_stage_12_becomes_ready_when_switched_on_and_lists_its_decisions(world):
+def test_optional_stage_11_becomes_ready_when_switched_on_and_lists_its_decisions(world):
     m = _opt_model(world, enabled=True)
-    v = m.stage(12)
+    v = m.stage(11)
     assert v.status == "ready" and not v.can_run and "empty" in v.blocking
     assert {"optimise.n_blocks", "optimise.max_evaluations", "optimise.canal_drawdown_m"} <= set(v.missing)
     assert "optimise.enabled" in {p.key for p in v.params} and "optimise.objective" in {p.key for p in v.params}
-    assert m.current == 12
+    assert m.current == 11
 
 
-def test_optional_stage_stays_locked_until_the_report_is_done(world):
-    m = _opt_model(world, enabled=True, stage11="awaiting_review")
-    assert m.stage(12).status == "locked"
+def test_optional_stage_stays_locked_until_the_stage_before_is_done(world):
+    m = _opt_model(world, enabled=True, stage10="awaiting_review")
+    assert m.stage(11).status == "locked"
 
 
-def test_report_stage_lists_every_warning_and_stage_12_its_own():
-    ws = ["Stage 12: 2 candidates cannot raise anything", "Stage 9: 1 target(s) unreachable", "dtm covers only 84%"]
-    assert vm.warnings_for(11, ws) == ws
-    assert vm.warnings_for(12, ws) == [ws[0]]
+def test_report_stage_lists_every_warning_and_stage_11_its_own():
+    ws = ["Stage 11: 2 candidates cannot raise anything", "Stage 9: 1 target(s) unreachable", "dtm covers only 84%"]
+    assert vm.warnings_for(12, ws) == ws
+    assert vm.warnings_for(11, ws) == [ws[0]]
 
 
 def test_dotted_helpers():
@@ -423,3 +423,14 @@ def test_weighting_method_is_a_stage_6_decision_and_ahp_swaps_the_weight_fields(
     f = rc.write_run_config(d, tmp_path / "ahp.yaml")
     p = {x.key for x in model(cfg_path=f).stage(6).params}
     assert "prioritise.ahp_matrix" in p and "prioritise.criteria.burn_freq.weight" not in p
+
+
+def test_a_run_from_the_old_stage_order_shows_its_last_stages_as_not_run():
+    """Before 2026-10-27 the report was stage 11 and the optimisation 12: those entries (and their counts) must not be read as the
+    new stages, or the report card shows the optimisation's empty numbers."""
+    chk = {"stages": [{"id": 10, "name": "pumps"}, {"id": 11, "name": "optimise"}, {"id": 12, "name": "report"}]}
+    old = {"stages": {"10": {"name": "pumps", "status": "done"}, "11": {"name": "report", "status": "done"}, "12": {"name": "optimise", "status": "skipped"}},
+           "report": {"counts": {"10": {"stations": 1}, "11": {"warnings": 3}}}}
+    new = vm._current_order(chk, old)
+    assert set(new["stages"]) == {"10"} and set(new["report"]["counts"]) == {"10"}
+    assert vm._current_order(chk, {"stages": {"11": {"name": "optimise", "status": "skipped"}}}) == {"stages": {"11": {"name": "optimise", "status": "skipped"}}}

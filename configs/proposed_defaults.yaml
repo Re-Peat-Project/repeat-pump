@@ -57,10 +57,18 @@ pumping:
   water_table_rise_m: 0.40        # LOW. Restores a 0.8 m dry-season water table to the 0.4 m limit of PP 57/2016. Set per site
   design_period_days: 120         # MED. Dry season July to October [Ritzema2014]. Used only where the priority table has no design_period_days
 
-# Stage 12 (optimise) is deliberately not proposed. transmissivity_multiplier changes results about 100-fold and has no
-# defensible default; the other optimise.* values are meaningless without it. See docs/proposed_defaults.md.
+optimise:                         # stage 11, optional: stays off (optimise.enabled: false) until switched on. Examples to start from
+  n_blocks: 10                    # POLICY. How many of the kept sekat the budget allows; read it off the budget estimate of stage 12
+  max_evaluations: 500            # LOW. Layouts each algorithm scores; at least twice the GA population (30). More is slower, rarely better
+  canal_drawdown_m: 1.0           # MED. Dry-season canal level below the land, the same as sekat.balance_drawdown_m
+  grid_m: 100                     # LOW. Cell of the groundwater model (objective pde or screen_then_pde); 50 m is about 4 times slower
+  dry_days: 30                    # LOW. Length of the dry spell simulated from a wet start
+  et_mm_day: 3.7                  # MED. Evapotranspiration of a dry day. A KHG folder fills its own value: MOD16 June-September from the
+                                  #   neraca air inputs (4.09 Sugihan-Lumpur, 3.72 Kampar-Gaung, 2018-2025)
+# Peat properties: optimise.peat_table defaults to tropical-small and bracket_tables to [tropical-large] (Urzainki et al. 2023), so a
+# groundwater result is a range. transmissivity_multiplier only applies to the boreal table (urzainki2020) and is not proposed.
 
-interventions:                    # treatment per sub-KHG in stage 11 (needs inputs.subkhg_indicators); docs/reports/sekat_neraca_investigation.md
+interventions:                    # treatment per sub-KHG in stage 12 (needs inputs.subkhg_indicators); docs/reports/sekat_neraca_investigation.md
   protected_share: 0.5            # POLICY. Most of the unit has the FEG protected function: drainage there is closed entirely (re-peat/docs strategy)
   reach_min: 0.4                  # POLICY. Under 40 % of the unit within reach of a canal (f_reach): blocks cannot rewet most of it
   ndmi_dry: 0.30                  # LOW. Aug-Oct NDMI below 0.30 counts as dry (Sugihan-Lumpur units 0.07-0.43, Kampar-Gaung 0.28-0.47)

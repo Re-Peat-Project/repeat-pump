@@ -203,7 +203,6 @@ class WizardPanel(QWidget):
         self.controller = WizardController(self)
         i18n.set_language(self._initial_language())
         self.learn = False
-        self.preview = False               # demo view: every stage's cards and tools are shown, whatever has been run
         self._tools_live = True
         self.selected: Optional[int] = None
         self.compact = False
@@ -266,11 +265,11 @@ class WizardPanel(QWidget):
         self.learn_box.setObjectName("learn")
         self.learn_box.setCursor(Qt.CursorShape.PointingHandCursor)
         self.learn_box.toggled.connect(self._toggle_learn)
-        self.preview_box = QCheckBox(tr("Demo view"))
-        self.preview_box.setObjectName("learn")
-        self.preview_box.setToolTip(tr("Show every stage's decisions and map tools at once, even before they can run. Nothing is run or changed."))
-        self.preview_box.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.preview_box.toggled.connect(self._toggle_preview)
+        self.dock_button = QPushButton(tr("Dock"))       # shown while the wizard floats as its own window (see WizardDock)
+        self.dock_button.setObjectName("lang")
+        self.dock_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.dock_button.setToolTip(tr("Put the wizard back at the side of the QGIS window."))
+        self.dock_button.setVisible(False)
         hl.addWidget(self.crumb)
         hl.addWidget(self.run_chip)
         hl.addStretch(1)
@@ -288,7 +287,7 @@ class WizardPanel(QWidget):
             hl.addWidget(lb)
         hl.addSpacing(12)
         hl.addWidget(self.learn_box)
-        hl.addWidget(self.preview_box)
+        hl.addWidget(self.dock_button)
         main.addWidget(self.header)
 
         self.scroll = QScrollArea()
@@ -396,8 +395,8 @@ class WizardPanel(QWidget):
         adv.addWidget(label("Starting config (policy parameters; yours are saved in the run folder)", "paramLabel"))
         adv.addWidget(self.template)
         self.advanced_box.setVisible(False)
-        self.use_preset = QCheckBox(tr("Use the proposed defaults (for trial runs, not team decisions)"))
-        self.use_preset.setProperty("src", "Use the proposed defaults (for trial runs, not team decisions)")
+        self.use_preset = QCheckBox(tr("Use the proposed defaults"))
+        self.use_preset.setProperty("src", "Use the proposed defaults")
         self.use_preset.setCursor(Qt.CursorShape.PointingHandCursor)
         self.use_preset.setChecked(True)                     # suggested values on by default; each stays marked as proposed
         self.use_preset.toggled.connect(self._toggle_preset)
@@ -715,8 +714,8 @@ class WizardPanel(QWidget):
         for c, b in self.lang_buttons.items():
             b.setChecked(c == code)
         self.learn_box.setText(tr("Learn mode"))
-        self.preview_box.setText(tr("Demo view"))
-        self.preview_box.setToolTip(tr("Show every stage's decisions and map tools at once, even before they can run. Nothing is run or changed."))
+        self.dock_button.setText(tr("Dock"))
+        self.dock_button.setToolTip(tr("Put the wizard back at the side of the QGIS window."))
         self.use_preset.setText(tr(self.use_preset.property("src")))
         self.extras.retranslate()
         for w in self.setup_frame.findChildren(QLabel) + self.setup_frame.findChildren(QPushButton):
@@ -729,13 +728,6 @@ class WizardPanel(QWidget):
         self.render()
 
     # ------------------------------------------------------------------ events
-    def _toggle_preview(self, on: bool) -> None:
-        self.preview = on
-        if on:
-            self.controller.load_preview()
-        self._last_sig = None
-        self.render()
-
     def _toggle_learn(self, on: bool) -> None:
         self.learn = on
         self._last_sig = None
@@ -811,7 +803,7 @@ class WizardPanel(QWidget):
     # ------------------------------------------------------------------ rendering
     def render(self) -> None:
         c = self.controller
-        model = c.model or vm.WizardModel(c.preview_json if (self.preview and c.preview_json) else vm.placeholder_check(),
+        model = c.model or vm.WizardModel(vm.placeholder_check(),
                                           {"stages": {}, "warnings": [], "report": {}}, None, bool(c.engine_ready))
         has_run = c.config_path is not None and c.model is not None
         if self.selected is None or self.selected not in {v.id for v in model.stages}:
@@ -827,7 +819,7 @@ class WizardPanel(QWidget):
         self._sync_preset_box(model)
 
         sig = (view.id, view.status, tuple((p.key, p.from_preset) for p in view.params), tuple(p.key for p in view.options),
-               view.id in self._options_open, len(view.tiles), view.error, self.learn, self.preview, c.preview_json is not None, c.engine_ready,
+               view.id in self._options_open, len(view.tiles), view.error, self.learn, c.engine_ready,
                bool(c.busy), c.running is not None, has_run, self.compact, tuple(view.warnings), view.sub)
         if sig != self._last_sig:
             self._last_sig = sig
@@ -862,7 +854,7 @@ class WizardPanel(QWidget):
             col = QVBoxLayout()
             col.setSpacing(0)
             col.addWidget(label("RE-PEAT", "brandTitle", wrap=False))
-            col.addWidget(label("Rewetting with pompanisasi", "brandSub"))
+            col.addWidget(label("Rewetting interventions", "brandSub"))
             brand.addLayout(col, 1)
         else:
             brand.addStretch(1)
@@ -898,9 +890,6 @@ class WizardPanel(QWidget):
         b = self.body
         b.addWidget(self._heading(view))
         self._tools_live = view.status in ("done", "needs_review", "stale") and self.controller.output_gpkg is not None
-        if self.preview and not self._tools_live:
-            b.addWidget(self._callout("info", "Demo view", "This is what the stage offers. Nothing here runs yet: the decisions and the map tools switch on "
-                                      "once the stage before it has run and this stage has results."))
         if c.engine_ready is False:
             b.addWidget(self._callout("error", "The engine is not set up", c.engine_message + "\n" +
                                       tr("Use the Set up engine button on the left. It needs internet once and Python 3.11 or newer.")))
@@ -928,7 +917,7 @@ class WizardPanel(QWidget):
             card_ = self._options_card(view)
             card_.setEnabled(has_run)
             b.addWidget(card_)
-        if (self._tools_live and (view.layers or view.id in maptools.STAGE_VISIBLE)) or (self.preview and view.id in maptools.STAGE_VISIBLE):
+        if self._tools_live and (view.layers or view.id in maptools.STAGE_VISIBLE):
             b.addWidget(self._map_bar(view, model))
             if view.id == 2:
                 b.addWidget(self._edit_bar())
@@ -936,7 +925,7 @@ class WizardPanel(QWidget):
                 b.addWidget(self._sekat_edit_bar())
             if view.id == 9:
                 b.addWidget(self._route_edit_bar())
-        if view.id == 11 and view.status == "done" and self.controller.output_gpkg:
+        if view.id == 12 and view.status == "done" and self.controller.output_gpkg:
             b.addWidget(self._results_card())
         if has_run or c.log:
             b.addWidget(self.log_toggle)
@@ -1096,7 +1085,7 @@ class WizardPanel(QWidget):
             if fld.help:
                 lay.addWidget(label(fld.help, "paramHelp"))
             if p.from_preset:
-                lay.addWidget(label("Proposed default, not a team decision. Enter a value to make it yours; the run report lists it until then.", "paramProposed"))
+                lay.addWidget(label("Proposed default. Enter a value to replace it; the run report lists it until then.", "paramProposed"))
             row = QHBoxLayout()
             ed = self._editor(p, fld)
             self._editors[p.key] = ed
@@ -1110,7 +1099,7 @@ class WizardPanel(QWidget):
         n_missing = sum(1 for p in view.params if p.missing and not p.recommended)
         head = "Decisions for this stage" if n_missing == 0 else tr("Decisions needed ({n})").format(n=n_missing)
         lay.addWidget(label(head, "cardTitle"))
-        lay.addWidget(label("These values are choices for your team. Values marked proposed come from the proposed defaults; replace them with your own. They are saved in the run config.", "hint"))
+        lay.addWidget(label("Values marked proposed are proposed defaults; replace them where you have your own. They are saved in the run config.", "hint"))
         self._param_rows(lay, view.params)
         return f
 
@@ -1230,7 +1219,7 @@ class WizardPanel(QWidget):
         row.addWidget(button("Show every layer", "ghost", lambda: self._show_all(), live))
         if view.id >= 6:
             row.addWidget(button("Explain a segment", "secondary", self.segment_explainer.start, live and self.segment_explainer.available))
-        if view.id == 11:
+        if view.id == 12:
             row.addWidget(button("Export the map...", "secondary", self._export_map, live))
         row.addStretch(1)
         lay.addLayout(row)
@@ -1334,9 +1323,9 @@ class WizardPanel(QWidget):
         path, _ = QFileDialog.getSaveFileName(self, tr("Export the map"), f"{run}_map.pdf", "PDF (*.pdf);;PNG (*.png)")
         if not path:
             return
-        note = tr("Includes values from the proposed defaults (not team decisions).") if self.controller.model and self.controller.model.preset_path else ""
+        note = tr("Includes proposed default values.") if self.controller.model and self.controller.model.preset_path else ""
         try:
-            maptools.export_map(run, self.selected or 11, path, layers[0].crs(), note)
+            maptools.export_map(run, self.selected or 12, path, layers[0].crs(), note)
             self._notice("success", tr("Map saved to {path}.").format(path=path))
         except Exception as e:
             self._notice("error", tr("The map could not be exported: {err}").format(err=e))
@@ -1435,7 +1424,18 @@ class WizardDock(QDockWidget):
     """Dock that can float: the wizard collapses its stage rail to icons when narrow."""
 
     def __init__(self, iface=None, parent=None):
-        super().__init__("RE-PEAT Pompanisasi", parent)
+        super().__init__("RE-PEAT Interventions", parent)
         self.setObjectName("RepeatPumpWizardDock")
         self.panel = WizardPanel(iface, self)
         self.setWidget(self.panel)
+        self.topLevelChanged.connect(self._window_buttons)
+        self.panel.dock_button.clicked.connect(lambda: self.setFloating(False))
+
+    def _window_buttons(self, floating: bool) -> None:
+        """A floating dock is a tool window without minimise or maximise: give it a normal window frame while it floats. That frame
+        cannot be dragged back into the side, so the header shows a Dock button instead."""
+        if floating:
+            self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.CustomizeWindowHint | Qt.WindowType.WindowTitleHint
+                                | Qt.WindowType.WindowMinimizeButtonHint | Qt.WindowType.WindowMaximizeButtonHint | Qt.WindowType.WindowCloseButtonHint)
+            self.show()
+        self.panel.dock_button.setVisible(floating)

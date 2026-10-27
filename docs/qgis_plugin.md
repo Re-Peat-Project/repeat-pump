@@ -1,4 +1,4 @@
-# QGIS plugin: RE-PEAT Pompanisasi (external-runner design)
+# QGIS plugin: RE-PEAT Interventions (external-runner design)
 
 The plugin never imports the engine. It collects inputs, writes a run YAML and starts
 `python -m repeat_pump.cli run ...` in a separate Python environment, streaming the log into the
@@ -7,14 +7,14 @@ Processing dialog. Dependency clashes with QGIS's own Python are therefore impos
 ## Setup (automatic)
 1. Install the plugin: `python scripts/install_plugin.py` (QGIS 4 default profile), or `--profile-dir <profile>`, or
    `--zip` and use *Plugins > Install from ZIP*. The zip and the installed folder carry a copy of the engine.
-2. Enable **RE-PEAT Pompanisasi**. The first time you run any of its algorithms, the plugin builds a private Python
+2. Enable **RE-PEAT Interventions**. The first time you run any of its algorithms, the plugin builds a private Python
    environment in the QGIS profile (`<profile>/repeat_pump_env`) from a system Python 3.11+ and installs the bundled
    engine into it. It needs internet once and takes a couple of minutes. You can also trigger or repair it with
-   *Processing Toolbox > RE-PEAT Pompanisasi > Set up engine environment* (or the Plugins menu entry).
+   *Processing Toolbox > RE-PEAT Interventions > Set up engine environment* (or the Plugins menu entry).
 3. Updating the plugin updates the environment automatically (it compares the engine version).
 
 If no suitable Python is found (Python 3.11+ with pip and SSL, e.g. from python.org), the plugin says so; install one and run
-the setup again. Advanced: pick your own interpreter with *Plugins > RE-PEAT Pompanisasi > Set Python environment (advanced)*, or
+the setup again. Advanced: pick your own interpreter with *Plugins > RE-PEAT Interventions > Set Python environment (advanced)*, or
 set `REPEAT_PUMP_PYTHON`. Precedence: `REPEAT_PUMP_PYTHON`, then the chosen interpreter, then the auto-managed environment.
 
 Installation step by step, in English and Bahasa Indonesia: [install.html](install.html). Hands-on walkthrough with dummy data and
@@ -24,7 +24,7 @@ screenshots: [wizard.html](wizard.html). Operator guide: [index.html](index.html
 The wizard speaks English and Bahasa Indonesia. Use the **EN** and **ID** buttons at the top right; it starts in Indonesian when
 QGIS is set to Indonesian. Messages written by the engine (warnings, the log) stay in English.
 
-Click the water-drop button in the toolbar, or *Plugins > RE-PEAT Pompanisasi > Guided wizard*. It opens a floating panel
+Click the water-drop button in the toolbar, or *Plugins > RE-PEAT Interventions > Guided wizard*. It opens a floating panel
 (dock it to the side if you like; the stage list then collapses to icons).
 
 1. **Stage 1 > Run setup:** choose the **KHG** at the top of the form: the wizard fills every input from the KHG's work folder
@@ -32,7 +32,7 @@ Click the water-drop button in the toolbar, or *Plugins > RE-PEAT Pompanisasi > 
    GeoPackage, the priority CSV and each layer yourself (layers must be saved files). Burn scars and peat depth are optional. The
    canal class column is guessed and each of its values is shown with its count and the class it is taken as (change any guess).
    *Plan pumps* is ticked only when a river layer has a dry-season level or a perennial flag. *Include tertiary canals* is off by
-   default. With the sub-KHG indicator table chosen, stage 11 also proposes an intervention per sub-KHG (layer `interventions`). The starting config is under *Advanced*. *Create run* writes `run_config.yaml` in the output folder. *Open an existing run* resumes one.
+   default. With the sub-KHG indicator table chosen, stage 12 also proposes an intervention per sub-KHG (layer `interventions`). The starting config is under *Advanced*. *Create run* writes `run_config.yaml` in the output folder. *Open an existing run* resumes one.
    *Save setup as...* writes the form (layers, columns, selection, datum) to a JSON or YAML file; *Load setup...* fills the form from
    such a file or from any run's `run_config.yaml`, adding layers that are not on the map yet. Change the output GeoPackage and
    *Create run* to repeat a run. *Open an existing run* also refills the form.
@@ -57,13 +57,13 @@ Click the water-drop button in the toolbar, or *Plugins > RE-PEAT Pompanisasi > 
    the map zooms to them (*Show this stage on the map*, *Show every layer*). The last stage can *Export the map* as an A4 PDF or PNG.
 4. **Review stages (2, 6, 9)** stop for you: inspect the layers, then *Accept and continue* or *Re-run this stage*.
 5. **Stages 8-10 (pumps) can be switched off** with *Plan pumps* = No on the Stage 8 card: a sekat-only plan, needed when no river in the area can be a water source.
-5. **Stage 12 (block optimisation) is optional** and starts switched off (shown as *Optional, switched off* and counted as done). Choose *Yes* under *Decisions* to use it; it gives an alternative plan for which proposed sekat to build first and does not change the pump stages.
+5. **Stage 11 (block optimisation) is optional** and starts switched off (shown as *Optional, switched off* and counted as done). Choose *Yes* under *Decisions* to use it; it gives an alternative plan for which proposed sekat to build first and does not change the pump stages.
 6. *Re-run* on an earlier stage clears all later stages, because they depend on it (you are asked first). Their layers leave the map too.
 7. If you change a decision after a stage ran, that stage and the ones after it are marked **Out of date** and you cannot accept
    them until you re-run (the button says *Re-run to apply your change*).
 8. *Cancel run* stops the engine and anything it started, even if it is silent (for example a long download).
 
-The results card has *Export HTML report* (an interactive page next to the GeoPackage) and *Make map layout* (a KLH-style print layout, A0 to A4, opened in the layout designer; an edited layout saved as a template can be chosen as *Own template* next time). After stage 7 the map shows `sekat_reach`, the canal water each kept sekat holds back, with arrows pointing from the block upstream; with pumping on, `pump_routes` has arrows from the river intake to the target. The arrows move along the lines on the map canvas (QGIS symbol animation); in a layout export they stand still. The layout includes both, and the burnt area, when the run has them. With a budget estimate, a table of it (items, quantities, central cost with the low-high range, marked as proposed prices) sits in the map's top-right corner as item `budget_table`; move or delete it in the layout designer. Point and line symbols grow with the paper (A2 1.3, A1 1.6, A0 2.1 times their A3 size). The budget prices (`budget.*`) can be changed under stage 11 in the wizard.
+The results card has *Export HTML report* (an interactive page next to the GeoPackage) and *Make map layout* (a KLH-style print layout, A0 to A4, opened in the layout designer; an edited layout saved as a template can be chosen as *Own template* next time). After stage 7 the map shows `sekat_reach`, the canal water each kept sekat holds back, with arrows pointing from the block upstream; with pumping on, `pump_routes` has arrows from the river intake to the target. The arrows move along the lines on the map canvas (QGIS symbol animation); in a layout export they stand still. The layout includes both, and the burnt area, when the run has them. With a budget estimate, a table of it (items, quantities, central cost with the low-high range, marked as proposed prices) sits in the map's top-right corner as item `budget_table`; move or delete it in the layout designer. Point and line symbols grow with the paper (A2 1.3, A1 1.6, A0 2.1 times their A3 size). The budget prices (`budget.*`) can be changed under stage 12 in the wizard.
 
 When the plugin is updated, the wizard updates its engine environment by itself (it compares the engine hash written into the zip).
 
@@ -71,7 +71,7 @@ The wizard never imports the engine. It runs the same command as the Processing 
 the logs and the GeoPackage; `repeat-pump check --config X` (JSON) tells it which parameters each stage still needs.
 
 ## Use (Processing algorithms)
-Processing Toolbox > **RE-PEAT Pompanisasi**. Policy parameters live in the YAML (start from
+Processing Toolbox > **RE-PEAT Interventions**. Policy parameters live in the YAML (start from
 `configs/example_khg.yaml`; every `null` must be filled by a human before the stage that needs it).
 Layers chosen in the dialog override the input paths and must be saved files (not temporary layers).
 At a REVIEW stop (2, 6, 9) the algorithm finishes with a warning; inspect the QA layers, tick that stage

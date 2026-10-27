@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RE-PEAT Pompanisasi: Operator Guide / Panduan Operator</title>
+<title>RE-PEAT Interventions: Operator Guide / Panduan Operator</title>
 <meta name="description" content="How to go from canal, peat and elevation data to priority canals, sekat and pump stations for peatland rewetting. Dari data kanal, gambut, dan ketinggian ke kanal prioritas, sekat, dan stasiun pompa untuk pembasahan ulang gambut.">
 <style>
 :root{
@@ -99,12 +99,12 @@ figure.shot figcaption{color:var(--muted);font-size:.88rem;margin-top:.4rem}
 </head>
 <body>
 <header><div class="wrap">
-  <div class="hbar"><span class="brandname">RE-PEAT Pompanisasi</span>
+  <div class="hbar"><span class="brandname">RE-PEAT Interventions</span>
     <div class="lang" role="group" aria-label="Language / Bahasa"><button type="button" data-set="en" aria-pressed="true">English</button><button type="button" data-set="id" aria-pressed="false">Indonesia</button></div></div>
-  <div class="t-en"><h1>RE-PEAT Pompanisasi: Operator Guide</h1>
+  <div class="t-en"><h1>RE-PEAT Interventions: Operator Guide</h1>
   <p>How to go from your canal, peat and elevation data to a map of priority canals, proposed canal blocks (sekat) and pump stations for peatland rewetting. No programming needed.</p>
   <div class="toplinks"><a href="install.html">Install the plugin</a><a href="wizard.html">Wizard guide with practice data</a><a href="qgis_plugin.md">Plugin details</a></div></div>
-  <div class="t-id"><h1>RE-PEAT Pompanisasi: Panduan Operator</h1>
+  <div class="t-id"><h1>RE-PEAT Interventions: Panduan Operator</h1>
   <p>Cara berjalan dari data kanal, gambut, dan ketinggian Anda menuju peta kanal prioritas, sekat (penahan kanal) usulan, dan stasiun pompa untuk pembasahan ulang lahan gambut. Tidak perlu pemrograman.</p>
   <div class="toplinks"><a href="install.html">Pasang plugin</a><a href="wizard.html">Panduan wizard dengan data latihan</a><a href="qgis_plugin.md">Rincian plugin</a></div></div>
 </div></header>
@@ -180,7 +180,7 @@ figure.shot figcaption{color:var(--muted);font-size:.88rem;margin-top:.4rem}
 <div class="t-en">
 <h2>Before you start</h2>
 <ol>
-  <li><b>QGIS 4</b> with the <b>RE-PEAT Pompanisasi</b> plugin installed and enabled. Step-by-step instructions, in English and Bahasa Indonesia, are in <a href="install.html">install.html</a>.</li>
+  <li><b>QGIS 4</b> with the <b>RE-PEAT Interventions</b> plugin installed and enabled. Step-by-step instructions, in English and Bahasa Indonesia, are in <a href="install.html">install.html</a>.</li>
   <li><b>Internet</b> for the first engine setup, and again the first time stage 3 runs, when the tool downloads the WhiteboxTools program. After that it works offline.</li>
   <li><b>Python 3.11 or newer</b> (from python.org) installed on the computer. The plugin uses it to build its own private environment, so you do not touch Python yourself.</li>
   <li>Your data prepared as in <a href="#data">Input data</a>, all saved as files (GeoPackage, Shapefile, GeoTIFF). Temporary layers do not work.</li>
@@ -191,7 +191,7 @@ figure.shot figcaption{color:var(--muted);font-size:.88rem;margin-top:.4rem}
 <div class="t-id">
 <h2>Sebelum mulai</h2>
 <ol>
-  <li><b>QGIS 4</b> dengan plugin <b>RE-PEAT Pompanisasi</b> terpasang dan aktif. Petunjuk langkah demi langkah dalam bahasa Inggris dan Indonesia ada di <a href="install.html">install.html</a>.</li>
+  <li><b>QGIS 4</b> dengan plugin <b>RE-PEAT Interventions</b> terpasang dan aktif. Petunjuk langkah demi langkah dalam bahasa Inggris dan Indonesia ada di <a href="install.html">install.html</a>.</li>
   <li><b>Internet</b> untuk penyiapan mesin pertama, dan lagi saat tahap 3 dijalankan pertama kali, ketika alat mengunduh program WhiteboxTools. Sesudah itu alat bekerja tanpa internet.</li>
   <li><b>Python 3.11 atau lebih baru</b> (dari python.org) terpasang di komputer. Plugin memakainya untuk membangun lingkungannya sendiri, jadi Anda tidak perlu mengurus Python.</li>
   <li>Data Anda disiapkan seperti di <a href="#data">Data masukan</a>, semuanya tersimpan sebagai berkas (GeoPackage, Shapefile, GeoTIFF). Layer sementara tidak berfungsi.</li>
@@ -268,7 +268,7 @@ figure.shot figcaption{color:var(--muted);font-size:.88rem;margin-top:.4rem}
 <tr><td><code>sekat.max_spacing_m</code>, <code>snap_tolerance_m</code>, <code>min_spacing_m</code></td><td>Upper limit for spacing, how close an existing sekat must be to a canal to count, and the minimum distance from an existing sekat to a new one</td><td>7</td></tr>
 <tr><td><code>pumping.uphill_penalty_lambda</code></td><td>How strongly the routing avoids uphill (energy-costly) canals</td><td>9</td></tr>
 <tr><td><code>pumping.specific_yield</code>, <code>water_table_rise_m</code>, <code>design_period_days</code></td><td>Only when there is no water deficit from neraca air: how much water the peat needs to rise by, and over how many days it is delivered</td><td>10</td></tr>
-<tr><td><code>optimise.*</code></td><td>Only if you switch on the optional stage 12: number of blocks, search budget, canal drawdown; for the groundwater model also grid size, dry days, evapotranspiration and a transmissivity multiplier</td><td>12</td></tr>
+<tr><td><code>optimise.*</code></td><td>Only if you switch on the optional stage 11: number of blocks, search budget, canal drawdown; for the groundwater model also grid size, dry days, evapotranspiration and a transmissivity multiplier</td><td>12</td></tr>
 <tr><td><code>pumping.*</code> pump settings</td><td>Canal or pipe, roughness, pump efficiency, maximum head per station, capacity per pump, influence distance</td><td>10</td></tr>
 </tbody></table>
 <div class="note"><b>Ready-made values</b>Some settings already have a default you can keep: 500 m maximum segment length, 25 m minimum segment length, 0.40 m sekat step (PP 57/2016), 5 % slope for reinforced sekat, 15 to 100 m ring for moisture.</div>
@@ -292,7 +292,7 @@ figure.shot figcaption{color:var(--muted);font-size:.88rem;margin-top:.4rem}
 <tr><td><code>sekat.max_spacing_m</code>, <code>snap_tolerance_m</code>, <code>min_spacing_m</code></td><td>Batas atas jarak antarsekat, seberapa dekat sekat yang ada harus dari kanal agar dihitung, dan jarak minimum dari sekat yang ada ke sekat baru</td><td>7</td></tr>
 <tr><td><code>pumping.uphill_penalty_lambda</code></td><td>Seberapa kuat penentuan rute menghindari kanal menanjak (boros energi)</td><td>9</td></tr>
 <tr><td><code>pumping.specific_yield</code>, <code>water_table_rise_m</code>, <code>design_period_days</code></td><td>Hanya bila tidak ada defisit air dari neraca air: berapa kenaikan muka air yang dibutuhkan gambut, dan dalam berapa hari air disalurkan</td><td>10</td></tr>
-<tr><td><code>optimise.*</code></td><td>Hanya jika Anda mengaktifkan tahap 12 yang opsional: jumlah sekat, anggaran pencarian, selisih muka air kanal; untuk model air tanah juga ukuran grid, hari kering, evapotranspirasi, dan pengali transmisivitas</td><td>12</td></tr>
+<tr><td><code>optimise.*</code></td><td>Hanya jika Anda mengaktifkan tahap 11 yang opsional: jumlah sekat, anggaran pencarian, selisih muka air kanal; untuk model air tanah juga ukuran grid, hari kering, evapotranspirasi, dan pengali transmisivitas</td><td>12</td></tr>
 <tr><td><code>pumping.*</code> pengaturan pompa</td><td>Kanal atau pipa, kekasaran, efisiensi pompa, tinggi tekan maksimum per stasiun, kapasitas per pompa, jarak pengaruh</td><td>10</td></tr>
 </tbody></table>
 <div class="note"><b>Nilai bawaan</b>Beberapa pengaturan sudah punya nilai bawaan yang boleh Anda pakai: panjang segmen maksimum 500 m, panjang segmen minimum 25 m, langkah sekat 0,40 m (PP 57/2016), kemiringan 5 % untuk sekat yang diperkuat, cincin 15 sampai 100 m untuk kelembapan.</div>
@@ -306,7 +306,7 @@ figure.shot figcaption{color:var(--muted);font-size:.88rem;margin-top:.4rem}
 <h3>In QGIS with the guided wizard (recommended)</h3>
 <p>The wizard takes you through the stages one at a time. Install the plugin first (see <a href="install.html">install.html</a>), then:</p>
 <ol>
-  <li>Open the wizard with the water-drop button on the toolbar, or <i>Plugins &rsaquo; RE-PEAT Pompanisasi &rsaquo; Guided wizard</i>. If it asks for the engine, click <b>Set up engine</b> and wait a few minutes.</li>
+  <li>Open the wizard with the water-drop button on the toolbar, or <i>Plugins &rsaquo; RE-PEAT Interventions &rsaquo; Guided wizard</i>. If it asks for the engine, click <b>Set up engine</b> and wait a few minutes.</li>
   <li>On stage 1, open <b>Run setup</b>. Choose the output GeoPackage, a starting config, the priority table (CSV) and each input layer, then click <b>Create run</b>. The run folder is the folder of the GeoPackage; your settings are saved there in <code>run_config.yaml</code>.</li>
   <li>Each stage card has a <b>Decisions</b> box with the settings that stage needs. Empty ones are highlighted and the Run button stays off until you fill them. The wizard never fills them in for you.</li>
   <li>Click <b>Run stage</b>. The result numbers appear on the card and the stage's layers are added to the map. QGIS stays usable while it runs, and <b>Cancel run</b> stops it.</li>
@@ -320,7 +320,7 @@ figure.shot figcaption{color:var(--muted);font-size:.88rem;margin-top:.4rem}
 <h3>In QGIS with the Processing algorithms</h3>
 <p>The same work is available as separate algorithms, useful for repeating only part of a run or for batch use.</p>
 <ol>
-  <li>Open the <b>Processing Toolbox</b> and find <b>RE-PEAT Pompanisasi</b>.</li>
+  <li>Open the <b>Processing Toolbox</b> and find <b>RE-PEAT Interventions</b>.</li>
   <li>Choose <b>Run full pipeline</b>. Pick your config file, then each input layer. Choose where to save the output GeoPackage.</li>
   <li>Click <b>Run</b>. <b>The very first run</b> also builds the tool's private environment, which needs internet and takes a few minutes. This happens only once (you can also trigger it with <i>Set up engine environment</i>).</li>
   <li>The log window shows each stage. The result layers are added to your project when it finishes.</li>
@@ -337,7 +337,7 @@ python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accep
 <h3>Di QGIS dengan wizard terpandu (disarankan)</h3>
 <p>Wizard membawa Anda melewati tahap-tahap satu per satu. Pasang plugin dulu (lihat <a href="install.html">install.html</a>), lalu:</p>
 <ol>
-  <li>Buka wizard dengan tombol tetesan air di toolbar, atau lewat <i>Plugins &rsaquo; RE-PEAT Pompanisasi &rsaquo; Guided wizard</i>. Jika wizard meminta mesin, klik <b>Siapkan mesin</b> dan tunggu beberapa menit.</li>
+  <li>Buka wizard dengan tombol tetesan air di toolbar, atau lewat <i>Plugins &rsaquo; RE-PEAT Interventions &rsaquo; Guided wizard</i>. Jika wizard meminta mesin, klik <b>Siapkan mesin</b> dan tunggu beberapa menit.</li>
   <li>Di tahap 1, buka <b>Pengaturan proses</b>. Pilih GeoPackage keluaran, konfigurasi awal, tabel prioritas (CSV), dan setiap layer masukan, lalu klik <b>Buat proses</b>. Folder proses adalah folder GeoPackage tersebut; pengaturan Anda disimpan di sana dalam <code>run_config.yaml</code>.</li>
   <li>Setiap kartu tahap memiliki kotak <b>Keputusan</b> berisi pengaturan yang dibutuhkan tahap itu. Kolom yang kosong disorot dan tombol Jalankan tetap mati sampai Anda mengisinya. Wizard tidak pernah mengisinya untuk Anda.</li>
   <li>Klik <b>Jalankan tahap</b>. Angka hasil muncul di kartu dan layer tahap itu ditambahkan ke peta. QGIS tetap bisa dipakai selama proses berjalan, dan <b>Batalkan proses</b> menghentikannya.</li>
@@ -351,7 +351,7 @@ python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accep
 <h3>Di QGIS dengan algoritma Processing</h3>
 <p>Pekerjaan yang sama tersedia sebagai algoritma terpisah, berguna untuk mengulang sebagian proses atau untuk pemakaian batch.</p>
 <ol>
-  <li>Buka <b>Processing Toolbox</b> dan cari <b>RE-PEAT Pompanisasi</b>.</li>
+  <li>Buka <b>Processing Toolbox</b> dan cari <b>RE-PEAT Interventions</b>.</li>
   <li>Pilih <b>Run full pipeline</b>. Pilih berkas konfigurasi Anda, lalu setiap layer masukan. Pilih lokasi penyimpanan GeoPackage keluaran.</li>
   <li>Klik <b>Run</b>. <b>Proses pertama</b> juga membangun lingkungan pribadi alat, yang membutuhkan internet dan beberapa menit. Ini hanya terjadi sekali (Anda juga dapat memicunya dengan <i>Set up engine environment</i>).</li>
   <li>Jendela log menampilkan setiap tahap. Layer hasil ditambahkan ke proyek Anda setelah selesai.</li>
@@ -620,7 +620,7 @@ python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accep
 <tr><td>"The engine is older than the plugin"</td><td>You installed a newer plugin</td><td>Click <b>Set up engine</b> in the wizard to update the engine.</td></tr>
 <tr><td>Run button is off and a field is highlighted</td><td>The stage needs a decision from you</td><td>Fill in the highlighted field in the <b>Decisions</b> box. Commas work as decimal marks.</td></tr>
 <tr><td>Stage shows <b>Out of date</b></td><td>A setting or input changed after the stage ran</td><td>Click <b>Re-run to apply your change</b>. Later stages are re-run after it.</td></tr>
-<tr><td>Stage 12 shows <b>Optional, switched off</b></td><td>The block optimisation is off by default</td><td>Choose <b>Yes</b> under Decisions on the stage 12 card, fill in the decisions it asks for, then run it.</td></tr>
+<tr><td>Stage 11 shows <b>Optional, switched off</b></td><td>The block optimisation is off by default</td><td>Choose <b>Yes</b> under Decisions on the stage 11 card, fill in the decisions it asks for, then run it.</td></tr>
 <tr><td>Stage shows <b>Interrupted</b></td><td>The run was cancelled or QGIS closed while it ran</td><td>Run the stage again.</td></tr>
 <tr><td>Canals "have no connection to a river"</td><td>A gap bigger than the snap tolerance</td><td>Add a bridging line in the canal edits layer.</td></tr>
 <tr><td>Target "unreachable"</td><td>See the <code>reason</code> in <code>qa_unreachable_targets</code></td><td>Add a gate, fix topology, or accept that the target cannot be served.</td></tr>
@@ -641,7 +641,7 @@ python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accep
 <tr><td>"Mesin lebih lama daripada plugin"</td><td>Anda memasang plugin yang lebih baru</td><td>Klik <b>Siapkan mesin</b> di wizard untuk memperbarui mesin.</td></tr>
 <tr><td>Tombol Jalankan mati dan ada kolom yang disorot</td><td>Tahap itu membutuhkan keputusan dari Anda</td><td>Isi kolom yang disorot di kotak <b>Keputusan</b>. Koma dapat dipakai sebagai tanda desimal.</td></tr>
 <tr><td>Tahap menampilkan <b>Usang</b></td><td>Sebuah pengaturan atau masukan berubah setelah tahap dijalankan</td><td>Klik <b>Jalankan ulang untuk menerapkan perubahan</b>. Tahap sesudahnya dijalankan ulang setelahnya.</td></tr>
-<tr><td>Tahap 12 menampilkan <b>Opsional, nonaktif</b></td><td>Optimasi penempatan sekat nonaktif secara bawaan</td><td>Pilih <b>Ya</b> di bawah Keputusan pada kartu tahap 12, isi keputusan yang diminta, lalu jalankan.</td></tr>
+<tr><td>Tahap 11 menampilkan <b>Opsional, nonaktif</b></td><td>Optimasi penempatan sekat nonaktif secara bawaan</td><td>Pilih <b>Ya</b> di bawah Keputusan pada kartu tahap 11, isi keputusan yang diminta, lalu jalankan.</td></tr>
 <tr><td>Tahap menampilkan <b>Terhenti</b></td><td>Proses dibatalkan atau QGIS ditutup saat berjalan</td><td>Jalankan tahap itu lagi.</td></tr>
 <tr><td>Kanal "have no connection to a river"</td><td>Celah lebih besar daripada toleransi penyambungan</td><td>Tambahkan garis penyambung di layer suntingan kanal.</td></tr>
 <tr><td>Sasaran "unreachable"</td><td>Lihat <code>reason</code> di <code>qa_unreachable_targets</code></td><td>Tambahkan pintu air, perbaiki topologi, atau terima bahwa sasaran itu tidak dapat dilayani.</td></tr>
@@ -696,8 +696,8 @@ python -m repeat_pump.cli run --config my_khg.yaml --accept 2 --accept 6 --accep
 </main>
 </div>
 <footer>
-  <span class="t-en">RE-PEAT Pompanisasi · Departemen Teknik Geodesi UGM · Full specification: <a href="https://github.com/danylaksono/rewetting-peat/blob/main/AGENTS.md">AGENTS.md</a> · Installation: <a href="install.html">install.html</a> · Wizard guide: <a href="wizard.html">wizard.html</a></span>
-  <span class="t-id">RE-PEAT Pompanisasi · Departemen Teknik Geodesi UGM · Spesifikasi lengkap: <a href="https://github.com/danylaksono/rewetting-peat/blob/main/AGENTS.md">AGENTS.md</a> · Pemasangan: <a href="install.html">install.html</a> · Panduan wizard: <a href="wizard.html">wizard.html</a></span>
+  <span class="t-en">RE-PEAT Interventions · Departemen Teknik Geodesi UGM · Full specification: <a href="https://github.com/danylaksono/rewetting-peat/blob/main/AGENTS.md">AGENTS.md</a> · Installation: <a href="install.html">install.html</a> · Wizard guide: <a href="wizard.html">wizard.html</a></span>
+  <span class="t-id">RE-PEAT Interventions · Departemen Teknik Geodesi UGM · Spesifikasi lengkap: <a href="https://github.com/danylaksono/rewetting-peat/blob/main/AGENTS.md">AGENTS.md</a> · Pemasangan: <a href="install.html">install.html</a> · Panduan wizard: <a href="wizard.html">wizard.html</a></span>
 </footer>
 <script>
 (function () {

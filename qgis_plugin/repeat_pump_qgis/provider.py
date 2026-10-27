@@ -1,4 +1,4 @@
-"""Processing provider "RE-PEAT Pompanisasi" (spec section 7), external-runner version.
+"""Processing provider "RE-PEAT Interventions" (spec section 7), external-runner version.
 
 Declares typed parameters, writes a run YAML and calls the repeat-pump CLI in a separate
 Python environment. No analysis logic lives here and ``repeat_pump`` is never imported.
@@ -46,7 +46,7 @@ VECTOR_INPUTS = [
 
 
 class _StageAlgorithm(QgsProcessingAlgorithm):
-    NAME, DISPLAY, FIRST, LAST = "", "", 1, 11
+    NAME, DISPLAY, FIRST, LAST = "", "", 1, 12
 
     def name(self):
         return self.NAME
@@ -55,7 +55,7 @@ class _StageAlgorithm(QgsProcessingAlgorithm):
         return self.DISPLAY
 
     def group(self):
-        return "RE-PEAT Pompanisasi"
+        return "RE-PEAT Interventions"
 
     def groupId(self):
         return "repeat_pump"
@@ -64,7 +64,7 @@ class _StageAlgorithm(QgsProcessingAlgorithm):
         return type(self)()
 
     def shortHelpString(self):
-        return ("Runs stages %d-%d of the repeat-pump engine in a separate Python environment (set it under Plugins > RE-PEAT Pompanisasi). "
+        return ("Runs stages %d-%d of the repeat-pump engine in a separate Python environment (set it under Plugins > RE-PEAT Interventions). "
                 "The YAML config holds the policy parameters; layers chosen here override the input paths." % (self.FIRST, self.LAST))
 
     def initAlgorithm(self, config=None):
@@ -155,7 +155,7 @@ class SetupEnvironment(QgsProcessingAlgorithm):
         return "Set up engine environment"
 
     def group(self):
-        return "RE-PEAT Pompanisasi"
+        return "RE-PEAT Interventions"
 
     def groupId(self):
         return "repeat_pump"
@@ -188,14 +188,15 @@ ALGORITHMS = [
     _make("hydrology_segments_profiles", "2. Hydro-conditioning, segments and profiles (stages 3-5)", 3, 5),
     _make("prioritise_segments", "3. Prioritise canal segments (stage 6)", 6, 6),
     _make("place_sekat", "4. Sekat gap analysis and placement (stage 7)", 7, 7),
-    _make("route_and_size_pumps", "5. Network, routing, pumps and report (stages 8-11)", 8, 11),
-    _make("run_full_pipeline", "Run full pipeline (stages 1-11)", 1, 11),
-    _make("optimise_blocks", "6. Canal blocking optimisation, optional (stage 12)", 12, 12),
+    _make("route_and_size_pumps", "5. Network, routing and pumps, optional (stages 8-10)", 8, 10),
+    _make("optimise_blocks", "6. Canal blocking optimisation, optional (stage 11)", 11, 11),
+    _make("report", "7. Interventions, budget and report (stage 12)", 12, 12),
+    _make("run_full_pipeline", "Run full pipeline (stages 1-12)", 1, 12),
 ]
 
 
 def _optimise_help(self):
-    return ("Optional stage 12 (Urzainki et al. 2020): chooses which of the proposed sekat to build. It is an alternative plan: stages 8-10 "
+    return ("Optional stage 11 (Urzainki et al. 2020): chooses which of the proposed sekat to build. It is an alternative plan: stages 8-10 "
             "still assume every proposed sekat is built. Needs the optimise.* values in the YAML config (set optimise.enabled: true); "
             "with it off the stage is recorded as skipped. Gains are relative to comparator layouts, not field-validated water table changes. "
             "Run stages 1-7 first.")
@@ -209,7 +210,7 @@ class RepeatPumpProvider(QgsProcessingProvider):
         return "repeat_pump"
 
     def name(self):
-        return "RE-PEAT Pompanisasi"
+        return "RE-PEAT Interventions"
 
     def loadAlgorithms(self):
         self.addAlgorithm(SetupEnvironment())

@@ -1,10 +1,10 @@
 [general]
-name=RE-PEAT Pompanisasi
+name=RE-PEAT Interventions
 qgisMinimumVersion=3.34
 qgisMaximumVersion=4.99
-description=Canal prioritisation, sekat placement and pump routing for peat rewetting (runs the repeat-pump engine in a separate Python environment)
+description=Sekat placement, interventions per sub-KHG, budget estimate and optional pump routing for peat rewetting (runs the repeat-pump engine in a separate Python environment)
 about=Thin Processing adapter. The analysis runs in an external Python environment where the repeat-pump package is installed; this plugin only collects inputs, writes a run config and streams the log.
-version=0.3.0
+version=0.4.0
 author=Departemen Teknik Geodesi UGM
 email=danylaksono@ugm.ac.id
 tracker=https://github.com/Re-Peat-Project/repeat-pump/issues

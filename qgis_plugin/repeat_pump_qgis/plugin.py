@@ -29,14 +29,14 @@ class RepeatPumpPlugin:
         from .wizard.ui import svg_pixmap
         self.wizard_action = QAction(QIcon(svg_pixmap(theme.DROP_SVG, theme.TEAL_DARK, 24)), "Guided wizard (stage by stage)", self.iface.mainWindow())
         self.wizard_action.triggered.connect(self.show_wizard)
-        self.iface.addPluginToMenu("RE-PEAT Pompanisasi", self.wizard_action)
+        self.iface.addPluginToMenu("RE-PEAT Interventions", self.wizard_action)
         self.iface.addToolBarIcon(self.wizard_action)
         self.action = QAction("Set Python environment (advanced)...", self.iface.mainWindow())
         self.action.triggered.connect(self.choose_python)
-        self.iface.addPluginToMenu("RE-PEAT Pompanisasi", self.action)
+        self.iface.addPluginToMenu("RE-PEAT Interventions", self.action)
         self.setup_action = QAction("Set up engine environment", self.iface.mainWindow())
         self.setup_action.triggered.connect(self.setup_environment)
-        self.iface.addPluginToMenu("RE-PEAT Pompanisasi", self.setup_action)
+        self.iface.addPluginToMenu("RE-PEAT Interventions", self.setup_action)
 
     def unload(self):
         if self.provider is not None:
@@ -49,7 +49,7 @@ class RepeatPumpPlugin:
             self.iface.removeToolBarIcon(self.wizard_action)
         for a in (self.action, self.setup_action, self.wizard_action):
             if a is not None:
-                self.iface.removePluginMenu("RE-PEAT Pompanisasi", a)
+                self.iface.removePluginMenu("RE-PEAT Interventions", a)
 
     def show_wizard(self):
         if self.dock is None:
@@ -70,7 +70,7 @@ class RepeatPumpPlugin:
         ok, msg = check_environment(path)
         if ok:
             set_python(path)
-        (QMessageBox.information if ok else QMessageBox.warning)(self.iface.mainWindow(), "RE-PEAT Pompanisasi", msg)
+        (QMessageBox.information if ok else QMessageBox.warning)(self.iface.mainWindow(), "RE-PEAT Interventions", msg)
 
     def setup_environment(self):
         import processing

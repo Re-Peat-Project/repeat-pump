@@ -30,7 +30,7 @@ def test_the_page_carries_the_run_numbers(tmp_path):
     for acc in ([], [2], [2, 6]):
         with pytest.raises(ReviewRequired):
             run_pipeline(c, accept=acc)
-    run_pipeline(c, accept=[2, 6, 9], stop_after=11)
+    run_pipeline(c, accept=[2, 6, 9], stop_after=12)
     out = html_report.build(tmp_path / "c.yaml", tmp_path / "r.html")
     html = out.read_text(encoding="utf8")
     data = json.loads(re.search(r'<script type="application/json" id="data">(.*?)</script>', html, re.S).group(1))

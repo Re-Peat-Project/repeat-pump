@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Installing RE-PEAT Pompanisasi / Memasang RE-PEAT Pompanisasi</title>
-<meta name="description" content="How to install the RE-PEAT Pompanisasi QGIS plugin and set up its engine. Cara memasang plugin QGIS RE-PEAT Pompanisasi dan menyiapkan mesinnya.">
+<title>Installing RE-PEAT Interventions / Memasang RE-PEAT Interventions</title>
+<meta name="description" content="How to install the RE-PEAT Interventions QGIS plugin and set up its engine. Cara memasang plugin QGIS RE-PEAT Interventions dan menyiapkan mesinnya.">
 <style>
 :root {
   --ground: #f4f1ea; --card: #ffffff; --ink: #17261f; --muted: #4c5e57; --line: #e3decf;
@@ -90,7 +90,7 @@ footer { max-width: 780px; margin: 0 auto; padding: 0 20px 40px; color: var(--mu
 
 <!-- ============================================================ ENGLISH -->
 <div class="t-en" lang="en">
-<h1>Installing the RE-PEAT Pompanisasi plugin</h1>
+<h1>Installing the RE-PEAT Interventions plugin</h1>
 <p class="lead">This page covers installing the plugin in QGIS, setting up the Python engine behind it, and checking that it works. Most of the time goes to the first engine setup, which takes a few minutes.</p>
 
 <nav class="toc" aria-label="Contents">
@@ -120,7 +120,7 @@ footer { max-width: 780px; margin: 0 auto; padding: 0 20px 40px; color: var(--mu
 <ol class="steps">
 <li>In QGIS, open <em>Plugins</em>, then <em>Manage and Install Plugins</em>.</li>
 <li>Choose the <em>Install from ZIP</em> tab, select <code>repeat_pump_qgis.zip</code>, and click <em>Install Plugin</em>.</li>
-<li>Open the <em>Installed</em> tab and tick <em>RE-PEAT Pompanisasi</em> so it is enabled.</li>
+<li>Open the <em>Installed</em> tab and tick <em>RE-PEAT Interventions</em> so it is enabled.</li>
 </ol>
 
 <h3>From a command line</h3>
@@ -128,16 +128,16 @@ footer { max-width: 780px; margin: 0 auto; padding: 0 20px 40px; color: var(--mu
 <pre><code>python scripts/install_plugin.py</code></pre>
 <p>For a different QGIS profile, pass its folder (the one that contains <code>python/plugins</code>):</p>
 <pre><code>python scripts/install_plugin.py --profile-dir "C:\path\to\profile"</code></pre>
-<p>Start QGIS and enable <em>RE-PEAT Pompanisasi</em> in the Plugin Manager, as in step 3 above.</p>
+<p>Start QGIS and enable <em>RE-PEAT Interventions</em> in the Plugin Manager, as in step 3 above.</p>
 
 <h2 id="e-engine">Set up the engine</h2>
 <p>The analysis does not run inside QGIS. The plugin starts it in a separate Python environment, so its libraries cannot clash with the ones QGIS ships. The plugin builds that environment for you.</p>
 <ol class="steps">
-<li>Open the wizard with the water-drop button on the toolbar, or from <em>Plugins</em>, <em>RE-PEAT Pompanisasi</em>, <em>Guided wizard</em>.</li>
+<li>Open the wizard with the water-drop button on the toolbar, or from <em>Plugins</em>, <em>RE-PEAT Interventions</em>, <em>Guided wizard</em>.</li>
 <li>If the engine is missing, the wizard says so and the left side shows a <em>Set up engine</em> button. Click it.</li>
-<li>Wait. The plugin creates a folder named <code>repeat_pump_env</code> inside your QGIS profile and installs the engine into it. This needs internet and takes a few minutes. The same setup also runs by itself the first time you start a Processing algorithm, and you can start it from <em>Processing Toolbox</em>, <em>RE-PEAT Pompanisasi</em>, <em>Set up engine environment</em>.</li>
+<li>Wait. The plugin creates a folder named <code>repeat_pump_env</code> inside your QGIS profile and installs the engine into it. This needs internet and takes a few minutes. The same setup also runs by itself the first time you start a Processing algorithm, and you can start it from <em>Processing Toolbox</em>, <em>RE-PEAT Interventions</em>, <em>Set up engine environment</em>.</li>
 </ol>
-<div class="callout"><p>If you use your own Python environment where <code>repeat-pump</code> is already installed, skip this step. Point the plugin at it with <em>Plugins</em>, <em>RE-PEAT Pompanisasi</em>, <em>Set Python environment (advanced)</em>, or set the <code>REPEAT_PUMP_PYTHON</code> environment variable to the full path of its <code>python.exe</code>.</p></div>
+<div class="callout"><p>If you use your own Python environment where <code>repeat-pump</code> is already installed, skip this step. Point the plugin at it with <em>Plugins</em>, <em>RE-PEAT Interventions</em>, <em>Set Python environment (advanced)</em>, or set the <code>REPEAT_PUMP_PYTHON</code> environment variable to the full path of its <code>python.exe</code>.</p></div>
 
 <h2 id="e-check">Check that it works</h2>
 <ul>
@@ -183,7 +183,7 @@ footer { max-width: 780px; margin: 0 auto; padding: 0 20px 40px; color: var(--mu
 
 <!-- ============================================================ INDONESIA -->
 <div class="t-id" lang="id">
-<h1>Memasang plugin RE-PEAT Pompanisasi</h1>
+<h1>Memasang plugin RE-PEAT Interventions</h1>
 <p class="lead">Halaman ini menjelaskan cara memasang plugin di QGIS, menyiapkan mesin Python di baliknya, dan memeriksa bahwa semuanya berjalan. Waktu terlama terpakai untuk penyiapan mesin pertama, yang memakan beberapa menit.</p>
 
 <nav class="toc" aria-label="Daftar isi">
@@ -213,7 +213,7 @@ footer { max-width: 780px; margin: 0 auto; padding: 0 20px 40px; color: var(--mu
 <ol class="steps">
 <li>Di QGIS, buka <em>Plugins</em>, lalu <em>Manage and Install Plugins</em>.</li>
 <li>Pilih tab <em>Install from ZIP</em>, pilih <code>repeat_pump_qgis.zip</code>, lalu klik <em>Install Plugin</em>.</li>
-<li>Buka tab <em>Installed</em> dan centang <em>RE-PEAT Pompanisasi</em> agar plugin aktif.</li>
+<li>Buka tab <em>Installed</em> dan centang <em>RE-PEAT Interventions</em> agar plugin aktif.</li>
 </ol>
 
 <h3>Dari command line</h3>
@@ -221,16 +221,16 @@ footer { max-width: 780px; margin: 0 auto; padding: 0 20px 40px; color: var(--mu
 <pre><code>python scripts/install_plugin.py</code></pre>
 <p>Untuk profil QGIS lain, berikan foldernya (folder yang berisi <code>python/plugins</code>):</p>
 <pre><code>python scripts/install_plugin.py --profile-dir "C:\path\to\profile"</code></pre>
-<p>Jalankan QGIS dan aktifkan <em>RE-PEAT Pompanisasi</em> di Plugin Manager, seperti pada langkah 3 di atas.</p>
+<p>Jalankan QGIS dan aktifkan <em>RE-PEAT Interventions</em> di Plugin Manager, seperti pada langkah 3 di atas.</p>
 
 <h2 id="i-engine">Siapkan mesin</h2>
 <p>Analisis tidak berjalan di dalam QGIS. Plugin menjalankannya di lingkungan Python terpisah, sehingga pustakanya tidak bentrok dengan pustaka bawaan QGIS. Lingkungan itu dibangun otomatis oleh plugin.</p>
 <ol class="steps">
-<li>Buka wizard dengan tombol tetesan air di toolbar, atau lewat <em>Plugins</em>, <em>RE-PEAT Pompanisasi</em>, <em>Guided wizard</em>.</li>
+<li>Buka wizard dengan tombol tetesan air di toolbar, atau lewat <em>Plugins</em>, <em>RE-PEAT Interventions</em>, <em>Guided wizard</em>.</li>
 <li>Jika mesin belum ada, wizard memberi tahu dan di sisi kiri muncul tombol <em>Siapkan mesin</em>. Klik tombol itu.</li>
-<li>Tunggu. Plugin membuat folder bernama <code>repeat_pump_env</code> di dalam profil QGIS Anda dan memasang mesin ke dalamnya. Proses ini perlu internet dan memakan beberapa menit. Penyiapan yang sama juga berjalan sendiri saat Anda pertama kali menjalankan algoritma Processing, dan bisa dimulai dari <em>Processing Toolbox</em>, <em>RE-PEAT Pompanisasi</em>, <em>Set up engine environment</em>.</li>
+<li>Tunggu. Plugin membuat folder bernama <code>repeat_pump_env</code> di dalam profil QGIS Anda dan memasang mesin ke dalamnya. Proses ini perlu internet dan memakan beberapa menit. Penyiapan yang sama juga berjalan sendiri saat Anda pertama kali menjalankan algoritma Processing, dan bisa dimulai dari <em>Processing Toolbox</em>, <em>RE-PEAT Interventions</em>, <em>Set up engine environment</em>.</li>
 </ol>
-<div class="callout"><p>Jika Anda memakai lingkungan Python sendiri yang sudah berisi <code>repeat-pump</code>, lewati langkah ini. Arahkan plugin ke lingkungan itu lewat <em>Plugins</em>, <em>RE-PEAT Pompanisasi</em>, <em>Set Python environment (advanced)</em>, atau atur variabel lingkungan <code>REPEAT_PUMP_PYTHON</code> ke jalur lengkap <code>python.exe</code>-nya.</p></div>
+<div class="callout"><p>Jika Anda memakai lingkungan Python sendiri yang sudah berisi <code>repeat-pump</code>, lewati langkah ini. Arahkan plugin ke lingkungan itu lewat <em>Plugins</em>, <em>RE-PEAT Interventions</em>, <em>Set Python environment (advanced)</em>, atau atur variabel lingkungan <code>REPEAT_PUMP_PYTHON</code> ke jalur lengkap <code>python.exe</code>-nya.</p></div>
 
 <h2 id="i-check">Periksa hasilnya</h2>
 <ul>

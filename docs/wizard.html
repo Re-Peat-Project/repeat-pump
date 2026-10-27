@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Wizard guide with practice data / Panduan wizard dengan data latihan</title>
-<meta name="description" content="A hands-on walkthrough of the RE-PEAT Pompanisasi wizard in QGIS using a small set of dummy data. Panduan praktik wizard RE-PEAT Pompanisasi di QGIS dengan data tiruan kecil.">
+<meta name="description" content="A hands-on walkthrough of the RE-PEAT Interventions wizard in QGIS using a small set of dummy data. Panduan praktik wizard RE-PEAT Interventions di QGIS dengan data tiruan kecil.">
 <style>
 :root {
   --ground: #f4f1ea; --card: #ffffff; --ink: #17261f; --muted: #4c5e57; --line: #e3decf;
@@ -198,18 +198,18 @@ footer { max-width: 860px; margin: 0 auto; padding: 0 20px 40px; color: var(--mu
 <h3><span class="n">10</span> Stages 10 and 11: pumps and report</h3>
 <p>Stage 10 needs the pump settings. Choosing <i>canal</i> as the conveyance makes a new field, Manning's n, appear. That is normal: the stage asks only for what the chosen option needs.</p>
 <figure><img src="img/stage10_done_en.png" alt="Stage 10 finished with pump station counts" loading="lazy"><figcaption>Pump stations, gates that must be added, and any capacity shortfall.</figcaption></figure>
-<p>Stage 11 writes <code>run_report.md</code> and <code>run_report.json</code> next to your GeoPackage, and the card has a button to open the report.</p>
+<p>Stage 12 writes <code>run_report.md</code> and <code>run_report.json</code> next to your GeoPackage, and the card has a button to open the report.</p>
 </div>
 
 <div class="step">
-<h3><span class="n">11</span> Optional: stage 12, block optimisation</h3>
+<h3><span class="n">11</span> Optional: stage 11, block optimisation (runs before the report)</h3>
 <p>The last stage is off unless you switch it on. It answers a different question: if you can only build some of the proposed sekat, which ones should come first? It searches layouts with a genetic algorithm and simulated annealing (after Urzainki et al., 2020) and compares them with random and rule-based layouts.</p>
-<figure><img src="img/stage12_off_en.png" alt="Stage 12 shown as optional and switched off" loading="lazy"><figcaption>Switched off: the stage is counted as done and asks for nothing.</figcaption></figure>
+<figure><img src="img/stage12_off_en.png" alt="Stage 11 shown as optional and switched off" loading="lazy"><figcaption>Switched off: the stage is counted as done and asks for nothing.</figcaption></figure>
 <p>To use it, choose <i>Yes</i> under <i>Decisions</i>. The card then asks for what the search needs. The quick objective needs three values. Choosing the groundwater model adds four more (grid size, dry days, evapotranspiration, transmissivity multiplier), and the result depends strongly on the transmissivity.</p>
-<figure><img src="img/stage12_decisions_en.png" alt="Stage 12 switched on with three decisions to fill in" loading="lazy"><figcaption>Switched on, with the decisions the quick objective needs.</figcaption></figure>
+<figure><img src="img/stage12_decisions_en.png" alt="Stage 11 switched on with three decisions to fill in" loading="lazy"><figcaption>Switched on, with the decisions the quick objective needs.</figcaption></figure>
 <p>After the run, the cards show how many layouts were scored and how much better the best layout is than the average random one. The chosen sekat are on the map.</p>
-<figure><img src="img/stage12_done_en.png" alt="Stage 12 finished with result tiles" loading="lazy"><figcaption>Stage 12 done. Candidate sites, blocks to build, layouts scored, best method, and the gain over random.</figcaption></figure>
-<div class="callout"><p>Stage 12 gives an <b>alternative plan</b>. The routing and pump stages still assume every proposed sekat is built, so nothing above changes. The gain is relative to random and rule-based layouts, not a measured change in the water table. With only two candidate sites, as here, there is little to choose between; the stage matters on a real canal network.</p></div>
+<figure><img src="img/stage12_done_en.png" alt="Stage 11 finished with result tiles" loading="lazy"><figcaption>Stage 11 done. Candidate sites, blocks to build, layouts scored, best method, and the gain over random.</figcaption></figure>
+<div class="callout"><p>Stage 11 gives an <b>alternative plan</b>. The routing and pump stages still assume every proposed sekat is built, so nothing above changes. The gain is relative to random and rule-based layouts, not a measured change in the water table. With only two candidate sites, as here, there is little to choose between; the stage matters on a real canal network.</p></div>
 </div>
 
 <div class="step">
@@ -384,18 +384,18 @@ footer { max-width: 860px; margin: 0 auto; padding: 0 20px 40px; color: var(--mu
 <h3><span class="n">10</span> Tahap 10 dan 11: pompa dan laporan</h3>
 <p>Tahap 10 membutuhkan pengaturan pompa. Memilih <i>canal</i> sebagai penyaluran memunculkan kolom baru, n Manning. Itu normal: tahap hanya meminta apa yang dibutuhkan pilihan Anda.</p>
 <figure><img src="img/stage10_done_id.png" alt="Tahap 10 selesai dengan jumlah stasiun pompa" loading="lazy"><figcaption>Stasiun pompa, pintu air yang harus ditambah, dan kekurangan kapasitas jika ada.</figcaption></figure>
-<p>Tahap 11 menulis <code>run_report.md</code> dan <code>run_report.json</code> di samping GeoPackage Anda, dan kartunya memiliki tombol untuk membuka laporan.</p>
+<p>Tahap 12 menulis <code>run_report.md</code> dan <code>run_report.json</code> di samping GeoPackage Anda, dan kartunya memiliki tombol untuk membuka laporan.</p>
 </div>
 
 <div class="step">
-<h3><span class="n">11</span> Opsional: tahap 12, optimasi penempatan sekat</h3>
+<h3><span class="n">11</span> Opsional: tahap 11, optimasi penempatan sekat (berjalan sebelum laporan)</h3>
 <p>Tahap terakhir nonaktif kecuali Anda mengaktifkannya. Tahap ini menjawab pertanyaan lain: jika hanya sebagian sekat usulan yang dapat dibangun, mana yang sebaiknya lebih dulu? Tahap ini mencari tata letak dengan algoritma genetika dan simulated annealing (mengikuti Urzainki dkk., 2020) dan membandingkannya dengan tata letak acak dan berbasis aturan.</p>
-<figure><img src="img/stage12_off_id.png" alt="Tahap 12 ditampilkan sebagai opsional dan nonaktif" loading="lazy"><figcaption>Nonaktif: tahap dihitung selesai dan tidak meminta apa pun.</figcaption></figure>
+<figure><img src="img/stage12_off_id.png" alt="Tahap 11 ditampilkan sebagai opsional dan nonaktif" loading="lazy"><figcaption>Nonaktif: tahap dihitung selesai dan tidak meminta apa pun.</figcaption></figure>
 <p>Untuk memakainya, pilih <i>Ya</i> di bawah <i>Keputusan</i>. Kartu lalu meminta apa yang dibutuhkan pencarian. Objektif cepat butuh tiga nilai. Memilih model air tanah menambah empat nilai lagi (ukuran grid, hari kering, evapotranspirasi, pengali transmisivitas), dan hasilnya sangat bergantung pada transmisivitas.</p>
-<figure><img src="img/stage12_decisions_id.png" alt="Tahap 12 aktif dengan tiga keputusan yang harus diisi" loading="lazy"><figcaption>Aktif, dengan keputusan yang dibutuhkan objektif cepat.</figcaption></figure>
+<figure><img src="img/stage12_decisions_id.png" alt="Tahap 11 aktif dengan tiga keputusan yang harus diisi" loading="lazy"><figcaption>Aktif, dengan keputusan yang dibutuhkan objektif cepat.</figcaption></figure>
 <p>Setelah dijalankan, kartu menunjukkan berapa tata letak yang dinilai dan seberapa lebih baik tata letak terbaik dibandingkan rata-rata acak. Sekat terpilih ada di peta.</p>
-<figure><img src="img/stage12_done_id.png" alt="Tahap 12 selesai dengan kotak hasil" loading="lazy"><figcaption>Tahap 12 selesai. Lokasi kandidat, sekat yang dibangun, tata letak dinilai, metode terbaik, dan keunggulan atas acak.</figcaption></figure>
-<div class="callout"><p>Tahap 12 memberi <b>rencana alternatif</b>. Tahap rute dan pompa tetap mengasumsikan semua sekat usulan dibangun, jadi tidak ada yang di atas berubah. Keunggulannya relatif terhadap tata letak acak dan berbasis aturan, bukan perubahan muka air tanah yang terukur. Dengan hanya dua lokasi kandidat, seperti di sini, hampir tidak ada yang perlu dipilih; tahap ini berguna pada jaringan kanal sungguhan.</p></div>
+<figure><img src="img/stage12_done_id.png" alt="Tahap 11 selesai dengan kotak hasil" loading="lazy"><figcaption>Tahap 11 selesai. Lokasi kandidat, sekat yang dibangun, tata letak dinilai, metode terbaik, dan keunggulan atas acak.</figcaption></figure>
+<div class="callout"><p>Tahap 11 memberi <b>rencana alternatif</b>. Tahap rute dan pompa tetap mengasumsikan semua sekat usulan dibangun, jadi tidak ada yang di atas berubah. Keunggulannya relatif terhadap tata letak acak dan berbasis aturan, bukan perubahan muka air tanah yang terukur. Dengan hanya dua lokasi kandidat, seperti di sini, hampir tidak ada yang perlu dipilih; tahap ini berguna pada jaringan kanal sungguhan.</p></div>
 </div>
 
 <div class="step">

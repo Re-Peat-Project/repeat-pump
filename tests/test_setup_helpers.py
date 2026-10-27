@@ -124,3 +124,14 @@ def test_interventions_follow_the_flags_in_order():
     assert list(out["intervention"]) == ["close_canals", "revegetate_fire", "block_water", "block_wells", "block", "maintain", "block"]
     assert "protected peat" in out["reasons"].iloc[0] and "canals reach little land" in out["reasons"].iloc[1]
     assert out["intervention_otherwise"].iloc[0] == "block" and out["intervention_otherwise"].iloc[1] == ""
+
+
+def test_dry_season_et_is_the_june_to_september_mean_of_the_neraca_mod16_dekads(tmp_path):
+    from repeat_pump_qgis.khgsetup import dry_season_et
+    assert dry_season_et(tmp_path) is None
+    f = tmp_path / "03_neraca" / "inputs"
+    f.mkdir(parents=True)
+    (f / "balance_mod16_dekad.csv").write_text("unit_id,start,end,days,mm,n_px,time_cov\n"
+                                               "A,2020-05-21,2020-06-01,11,99,1,1\nA,2020-06-01,2020-06-11,10,40,1,1\n"
+                                               "B,2021-09-21,2021-10-01,10,30,1,1\nB,2021-08-01,2021-08-11,10,,1,1\n", encoding="utf8")
+    assert dry_season_et(tmp_path) == 3.5                      # (4.0 + 3.0) / 2; May and the empty value are left out

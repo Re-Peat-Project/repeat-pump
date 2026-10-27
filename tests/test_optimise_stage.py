@@ -1,4 +1,4 @@
-"""Stage 12 (optional canal blocking optimisation) on the synthetic world."""
+"""Stage 11 (optional canal blocking optimisation, before the report of stage 12) on the synthetic world."""
 import copy
 import json
 
@@ -15,7 +15,7 @@ PDE = dict(grid_m=100, dry_days=3, et_mm_day=3.0, transmissivity_multiplier=150.
 
 @pytest.fixture(scope="module")
 def world11(tmp_path_factory):
-    """The synthetic world after stages 1 to 11 (stage 12 skipped because it is off by default)."""
+    """The synthetic world after every stage (stage 11 skipped because it is off by default)."""
     tmp = tmp_path_factory.mktemp("opt")
     _, cfg = build_world(tmp)
     cfg["pumping"]["allow_gate_addition"] = True
@@ -31,14 +31,14 @@ def stage12(world11, **opt):
     cfg, tmp, _ = world11
     cfg = copy.deepcopy(cfg)
     cfg["optimise"] = opt
-    return run_pipeline(load_config(write_cfg(tmp / "o.yaml", cfg)), resume_from=12, stop_after=12)
+    return run_pipeline(load_config(write_cfg(tmp / "o.yaml", cfg)), resume_from=11, stop_after=12)     # the optimisation, then the report
 
 
 def test_off_by_default_the_stage_is_skipped_and_asks_for_nothing(world11):
     cfg, tmp, ctx = world11
-    assert ctx.state["stages"]["12"]["status"] == "skipped"
-    chk = check(load_config(write_cfg(tmp / "d.yaml", cfg)))["stages"][-1]
-    assert chk["id"] == 12 and chk["missing"] == [] and [n["key"] for n in chk["needs"]] == ["optimise.enabled"]
+    assert ctx.state["stages"]["11"]["status"] == "skipped" and ctx.state["stages"]["12"]["status"] == "done"
+    chk = next(s for s in check(load_config(write_cfg(tmp / "d.yaml", cfg)))["stages"] if s["id"] == 11)
+    assert chk["id"] == 11 and chk["missing"] == [] and [n["key"] for n in chk["needs"]] == ["optimise.enabled"]
     assert not ctx.has_layer("sekat_optimised")
 
 
@@ -48,7 +48,7 @@ def test_enabled_without_values_lists_every_missing_decision_once(world11):
     for k in ("optimise.n_blocks", "optimise.max_evaluations", "optimise.canal_drawdown_m"):
         assert k in str(e.value)
     assert "grid_m" not in str(e.value)                                   # the cheap objective needs no groundwater parameters
-    with pytest.raises(MissingParameters, match="transmissivity_multiplier"):
+    with pytest.raises(MissingParameters, match="grid_m"):          # the tropical peat tables need no multiplier
         stage12(world11, **{**CHEAP, "objective": "pde"})
 
 
@@ -56,14 +56,16 @@ def test_check_lists_the_pde_decisions_only_when_the_pde_objective_is_chosen(wor
     cfg, tmp, _ = world11
     def needs(**opt):
         c = copy.deepcopy(cfg); c["optimise"] = opt
-        return {n["key"] for n in check(load_config(write_cfg(tmp / "n.yaml", c)))["stages"][-1]["needs"]}
+        return {n["key"] for n in next(s for s in check(load_config(write_cfg(tmp / "n.yaml", c)))["stages"] if s["id"] == 11)["needs"]}
     assert needs(enabled=True) == {"optimise.enabled", "optimise.objective", "optimise.n_blocks", "optimise.max_evaluations", "optimise.canal_drawdown_m"}
-    assert {"optimise.grid_m", "optimise.dry_days", "optimise.et_mm_day", "optimise.transmissivity_multiplier"} <= needs(enabled=True, objective="pde")
+    assert {"optimise.grid_m", "optimise.dry_days", "optimise.et_mm_day"} <= needs(enabled=True, objective="pde")
+    assert "optimise.transmissivity_multiplier" not in needs(enabled=True, objective="pde")          # default peat table: tropical-small
+    assert "optimise.transmissivity_multiplier" in needs(enabled=True, objective="pde", peat_table="urzainki2020")
 
 
 def test_canal_rise_run_writes_the_alternative_plan_and_extends_the_report(world11):
     ctx = stage12(world11, **CHEAP)
-    assert ctx.state["stages"]["12"]["status"] == "done"
+    assert ctx.state["stages"]["11"]["status"] == "done"
     out = ctx.read_layer("sekat_optimised")
     assert int(out["selected_best"].sum()) == 1 and {"selected_ga", "selected_sa", "selected_greedy"} <= set(out.columns)
     qa = ctx.read_layer("qa_optimisation")
@@ -72,7 +74,7 @@ def test_canal_rise_run_writes_the_alternative_plan_and_extends_the_report(world
     assert best >= qa[qa["method"] == "random_mean"]["benefit"].iloc[0] - 1e-9
     rep = json.loads((ctx.out_dir / "run_report.json").read_text())
     assert rep["optimisation"]["blocks"] == 1 and "alternative plan" in rep["optimisation"]["note"].lower()
-    assert "Canal blocking optimisation (Stage 12)" in (ctx.out_dir / "run_report.md").read_text()
+    assert "Canal blocking optimisation (Stage 11)" in (ctx.out_dir / "run_report.md").read_text()
     # the routing and pump stages were not touched
     assert ctx.state["stages"]["10"]["status"] == "done" and ctx.has_layer("pump_stations")
 
@@ -81,7 +83,7 @@ def test_rerunning_the_stage_replaces_the_report_section(world11):
     stage12(world11, **CHEAP)
     ctx = stage12(world11, **{**CHEAP, "seed": 5})
     md = (ctx.out_dir / "run_report.md").read_text()
-    assert md.count("## Canal blocking optimisation (Stage 12)") == 1
+    assert md.count("## Canal blocking optimisation (Stage 11)") == 1
 
 
 def test_pde_objective_gives_a_non_negative_benefit_and_a_baseline_volume(world11):

@@ -184,7 +184,7 @@ def test_summary_restates_the_report_and_flags_what_needs_attention():
     assert rows["Routes"]["Total lift"] == "1.78 m" and rows["Pumps"]["Total flow"] == "28.8 L/s"
     assert s.pump_table[0][0] == "Station" and s.pump_table[1] == ["PS001", "28.8", "1.40", "0.61", "1"]
     text = " ".join(s.notes)
-    assert "cannot deliver" in text and "cannot be reached" in text and "1 values came from the proposed defaults" in text and "2 warnings" in text
+    assert "cannot deliver" in text and "cannot be reached" in text and "1 values are proposed defaults" in text and "2 warnings" in text
     assert s.files == [("Flow accumulation", "x/flow_acc.tif")]
 
 

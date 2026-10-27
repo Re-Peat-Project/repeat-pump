@@ -1,4 +1,4 @@
-"""Stage 11: run report (``run_report.md`` and ``run_report.json``) and optional validation."""
+"""Stage 12, the last: interventions, budget, run report (``run_report.md`` and ``run_report.json``) and optional validation."""
 from __future__ import annotations
 
 import json
@@ -100,7 +100,7 @@ def run(ctx) -> None:
     bd = summary.get("budget")
     if bd:
         fmt = lambda v: "-" if v is None else f"{v / 1e9:,.2f}"     # noqa: E731
-        L += [f"## Budget estimate (billion rupiah, prices of {bd.get('price_year') or 'unknown year'}, proposed, not team decisions)", "",
+        L += [f"## Budget estimate (billion rupiah, prices of {bd.get('price_year') or 'unknown year'}, proposed defaults)", "",
               "| item | quantity | low | central | high |", "|---|---|---|---|---|"]
         L += [f"| {k} | {v['quantity']:,.1f} | {fmt(v['cost_low_idr'])} | {fmt(v['cost_idr'])} | {fmt(v['cost_high_idr'])} |" for k, v in bd["by_item"].items()]
         L += [f"| **total** | | {fmt(bd['total_low_idr'])} | {fmt(bd['total_idr'])} | {fmt(bd['total_high_idr'])} |", ""]
@@ -111,8 +111,16 @@ def run(ctx) -> None:
         L += ["Table per sub-KHG and item: budget.csv. Sources of the prices: docs/proposed_defaults.md.", ""]
     L += ["## Observed vs modelled levels (validation only)", "", json.dumps(summary["tma_validation"], indent=2, default=str), ""]
     if cfg.preset["keys"]:
-        L += ["## Values from the proposed-defaults preset (not team decisions)", "", f"Preset: {cfg.preset['path']}", ""]
+        L += ["## Values from the proposed defaults", "", f"Preset: {cfg.preset['path']}", ""]
         L += [f"- {k} = {get_value(cfg, k)}" for k in cfg.preset["keys"]] + [""]
     L += ["## Parameters still null (TODO(human))", ""] + [f"- {t}" for t in todo] + [""]
     (ctx.out_dir / "run_report.md").write_text("\n".join(L), encoding="utf8")
-    ctx.set_counts("11", warnings=len(ctx.warnings), null_parameters=len(todo))
+    iv, bd = summary.get("interventions") or {}, summary.get("budget") or {}
+    held, deficit = iv.get("held_m3_selected"), iv.get("deficit_m3_selected")
+    ctx.set_counts("12", **({"units": iv.get("units")} if iv else {}),
+                   **({"held_pct": round(100 * held / deficit, 1)} if held is not None and deficit else {}),
+                   **({"budget_bn": round(bd["total_idr"] / 1e9, 1)} if bd.get("total_idr") is not None else {}),
+                   warnings=len(ctx.warnings), null_parameters=len(todo))
+    if ctx.report.get("optimisation"):                 # stage 11 ran before: its section goes into the report written here
+        from .optimise import append_to_report
+        append_to_report(ctx, ctx.report["optimisation"], pd.DataFrame(ctx.report.get("optimisation_table") or []))

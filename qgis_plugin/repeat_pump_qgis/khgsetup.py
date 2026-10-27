@@ -86,4 +86,29 @@ def setup_from_khg(khg_dir: str | Path, hub: Optional[str | Path] = None, data: 
     else:
         inputs["peat_depth"] = peat
     run = {"name": k.name, "output_gpkg": str(k / "05_pump" / f"{k.name.split('_', 1)[-1]}.gpkg")}
-    return {"run": run, "inputs": inputs}, missing
+    out = {"run": run, "inputs": inputs}
+    et = dry_season_et(k)
+    if et is not None:                              # the dry-spell loss of the optional stage 11, from this KHG's own data
+        out["optimise"] = {"et_mm_day": et}
+    return out, missing
+
+
+DRY_MONTHS = (6, 7, 8, 9)
+
+
+def dry_season_et(khg_dir: str | Path) -> Optional[float]:
+    """Mean evapotranspiration of June to September (mm/day) from the neraca air inputs: MOD16 dekads of the sub-KHG units
+    (``03_neraca/inputs/balance_mod16_dekad.csv``, repeat_common.fetch_gee_balance), every year with data. None without the file."""
+    import csv
+    f = Path(khg_dir) / "03_neraca" / "inputs" / "balance_mod16_dekad.csv"
+    if not f.is_file():
+        return None
+    rates = []
+    with f.open(encoding="utf8") as fh:
+        for r in csv.DictReader(fh):
+            try:
+                if int(r["start"][5:7]) in DRY_MONTHS and r["mm"] not in ("", "nan") and float(r["days"]) > 0:
+                    rates.append(float(r["mm"]) / float(r["days"]))
+            except (KeyError, ValueError):
+                continue
+    return round(sum(rates) / len(rates), 2) if rates else None

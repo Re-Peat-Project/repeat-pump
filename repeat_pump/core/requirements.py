@@ -95,14 +95,14 @@ def needs_by_stage(cfg: Config) -> dict[int, list[str]]:
         need[10] += [f"pumping.{k}" for k in p]
     if cfg.inputs.subkhg_indicators is not None and cfg.interventions.enabled:
         from .interventions import NEEDED
-        need[11] = ["interventions.enabled"] + [f"interventions.{k}" for k in NEEDED]
+        need[12] = ["interventions.enabled"] + [f"interventions.{k}" for k in NEEDED]
     oc = cfg.optimise
-    need[12] = ["optimise.enabled"]
+    need[11] = ["optimise.enabled"]
     if oc.enabled:
         o = ["objective", "n_blocks", "max_evaluations", "canal_drawdown_m"]
         if oc.objective != "canal_rise":
             o += ["grid_m", "dry_days", "et_mm_day"] + (["transmissivity_multiplier"] if "urzainki2020" in [oc.peat_table, *oc.bracket_tables] else [])
-        need[12] += [f"optimise.{k}" for k in o]
+        need[11] += [f"optimise.{k}" for k in o]
     return need
 
 
@@ -120,9 +120,9 @@ OPTIONS_BY_STAGE: dict[int, list[str]] = {
     8: [],
     9: ["pumping.routing", "pumping.allow_gate_addition", "pumping.sekat_scope"],
     10: ["pumping.demand_mode", "pumping.max_units_per_station"],
-    11: ["budget.enabled", "budget.price_year", "budget.sekat_standard_idr", "budget.sekat_reinforced_idr", "budget.canal_closure_idr_per_km", "budget.revegetation_idr_per_ha", "budget.well_idr", "budget.well_radius_m", "budget.pump_idr", "budget.fuel_idr_per_l", "budget.fuel_l_per_kwh", "budget.pump_hours_per_day"],
-    12: ["optimise.peat_table", "optimise.bracket_tables", "optimise.algorithms", "optimise.seed", "optimise.random_baseline_draws", "optimise.ga.population", "optimise.ga.mutation",
+    11: ["optimise.peat_table", "optimise.bracket_tables", "optimise.algorithms", "optimise.seed", "optimise.random_baseline_draws", "optimise.ga.population", "optimise.ga.mutation",
          "optimise.ga.elite", "optimise.ga.tournament", "optimise.sa.t0_fraction", "optimise.sa.cooling"],
+    12: ["budget.enabled", "budget.price_year", "budget.sekat_standard_idr", "budget.sekat_reinforced_idr", "budget.canal_closure_idr_per_km", "budget.revegetation_idr_per_ha", "budget.well_idr", "budget.well_radius_m", "budget.pump_idr", "budget.fuel_idr_per_l", "budget.fuel_l_per_kwh", "budget.pump_hours_per_day"],
 }
 
 
@@ -131,7 +131,7 @@ OPTIONS_BY_STAGE: dict[int, list[str]] = {
 FINGERPRINT_KEYS: dict[int, list[str]] = {
     1: ["run", "inputs"], 2: ["topology"], 3: ["hydro"], 4: ["segments"], 5: ["profiles"], 6: ["prioritise"], 7: ["sekat"], 8: ["pumping.enabled", "pumping.route_edits"],
     9: ["pumping.uphill_penalty_lambda", "pumping.routing", "pumping.allow_gate_addition", "pumping.sekat_scope"],
-    10: ["pumping", "sekat.dA_m"], 11: ["interventions", "budget"], 12: ["optimise", "sekat.dA_m"],
+    10: ["pumping", "sekat.dA_m"], 11: ["optimise", "sekat.dA_m"], 12: ["interventions", "budget"],
 }
 SECTIONS = FINGERPRINT_KEYS          # kept for older imports
 

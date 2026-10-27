@@ -23,8 +23,8 @@ STAGES = [
     (8, "network", network.run, False),
     (9, "routing", routing.run, True),
     (10, "pumps", pumps.run, False),
-    (11, "report", report.run, False),
-    (12, "optimise", optimise.run, False),   # optional: records "skipped" unless optimise.enabled
+    (11, "optimise", optimise.run, False),   # optional: records "skipped" unless optimise.enabled
+    (12, "report", report.run, False),       # interventions, budget and the run report: always last
 ]
 
 
@@ -64,6 +64,12 @@ def run_pipeline(cfg: Config, stop_after: Optional[int] = None, resume_from: Opt
     ctx = ctx or RunContext(cfg)
     accepted = set(accept or []) | set(cfg.review.auto_accept)
     states = ctx.state.setdefault("stages", {})
+    names = {str(s): n for s, n, _, _ in STAGES}
+    stale = sorted(int(k) for k, v in states.items() if v.get("name") not in (None, names.get(k)))
+    if stale:                       # a run made with another stage order (before 2026-10-27 the report was 11 and optimise 12)
+        for k in [k for k in states if int(k) >= stale[0]]:
+            del states[k]
+        ctx.save_state()
     for sid, name, fn, review in STAGES:
         if resume_from is not None and sid < resume_from:
             continue
@@ -88,11 +94,14 @@ def run_pipeline(cfg: Config, stop_after: Optional[int] = None, resume_from: Opt
         # on the next run while their inputs have changed.
         for later in [k for k in states if int(k) > sid]:
             del states[later]
+        counts = ctx.report.get("counts", {})              # and their numbers, so no stage shows counts of an older run
+        for k in [k for k in counts if k.isdigit() and int(k) >= sid]:
+            del counts[k]
         # warnings raised by this stage or later ones belong to results that are about to be replaced
         ctx.warnings[:] = [w for w in ctx.warnings if warning_stage(w) < sid]
         proposed = [k for k in needs_by_stage(cfg)[sid] + OPTIONS_BY_STAGE.get(sid, []) if k in cfg.preset["keys"]]
         if proposed:                                     # one line per stage; the report lists the preset file and every value
-            ctx.warn(f"Stage {sid}: {len(proposed)} proposed default(s), not team decisions: "
+            ctx.warn(f"Stage {sid}: {len(proposed)} proposed default(s): "
                      + ", ".join(f"{k} = {get_value(cfg, k)}" for k in proposed))
         states[key] = {"name": name, "status": "running"}
         ctx.save_state()

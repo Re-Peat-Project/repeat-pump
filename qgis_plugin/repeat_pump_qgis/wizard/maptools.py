@@ -23,8 +23,8 @@ STAGE_VISIBLE: dict[int, list[str]] = {
     8: ["network_edges", "network_nodes"],
     9: ["canal_segments", "pump_sources", "pump_targets", "pump_routes", "qa_unreachable_targets", "sekat_scope"],
     10: ["canal_segments", "pump_routes", "pump_stations", "gates_required"],
-    11: ["canal_segments", "sekat_proposed", "pump_routes", "pump_stations", "gates_required", "pump_sources", "pump_targets"],
-    12: ["canal_segments", "sekat_existing_assessed", "sekat_optimised"],
+    11: ["canal_segments", "sekat_existing_assessed", "sekat_optimised"],
+    12: ["canal_segments", "sekat_proposed", "pump_routes", "pump_stations", "gates_required", "pump_sources", "pump_targets"],
 }
 
 # names shown in a map legend (English here, translated when used)
@@ -40,7 +40,7 @@ LEGEND_NAMES = {
 # what a stage's map answers, used as the title of an exported map
 STAGE_QUESTION = {
     2: "Which canal ends are loose?", 6: "Which canal segments need rewetting most?", 7: "Where should new sekat go?",
-    9: "How does pumped water reach the targets?", 10: "Where do the pump stations go?", 11: "The rewetting plan",
+    9: "How does pumped water reach the targets?", 10: "Where do the pump stations go?", 12: "The rewetting plan",
 }
 
 
@@ -175,7 +175,7 @@ def export_map(run_name: str, stage: int, path: str | Path, crs, notes: str = ""
     page_w, page_h, margin = 297.0, 210.0, 10.0
 
     title = QgsLayoutItemLabel(layout)
-    title.setText(tr(STAGE_QUESTION.get(stage, "RE-PEAT pompanisasi")))
+    title.setText(tr(STAGE_QUESTION.get(stage, "RE-PEAT Interventions")))
     title.setFont(QFont("Segoe UI", 18, QFont.Weight.DemiBold))
     layout.addLayoutItem(title)
     title.attemptMove(QgsLayoutPoint(margin, margin, mm))

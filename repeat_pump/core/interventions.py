@@ -125,7 +125,7 @@ def run(ctx) -> dict | None:
         return None
     missing = [f"interventions.{k}" for k in NEEDED if getattr(ic, k) is None]
     if missing:
-        ctx.warn("Stage 11: interventions skipped, missing " + ", ".join(missing))
+        ctx.warn("Stage 12: interventions skipped, missing " + ", ".join(missing))
         return None
     ind = read_indicators(cfg)
     sk_all = gpd.read_file(resolve(cfg, cfg.inputs.subkhg.path), layer=cfg.inputs.subkhg.layer)
@@ -156,17 +156,26 @@ def run(ctx) -> dict | None:
     layer = gpd.GeoDataFrame(out[[c for c in keep if c in out]], geometry="geometry", crs=ctx.crs)
     for c in [c for c in layer if c.startswith("f_") and c not in ("f_reach", "f_water_dist")] + ["sekat_analysed"]:
         layer[c] = layer[c].astype(bool)
-    ctx.write_layer("interventions", layer, "11")
+    ctx.write_layer("interventions", layer, "12")
     layer.drop(columns="geometry").to_csv(ctx.out_dir / "interventions.csv", index=False)
     from . import budget
     try:
         ctx.report["budget"] = budget.run(ctx, out)
     except Exception as e:                                # a pricing problem must not stop the report
-        ctx.warn(f"Stage 11: budget estimate skipped ({e})")
+        ctx.warn(f"Stage 12: budget estimate skipped ({e})")
     counts = {k: int((layer["intervention"] == k).sum()) for k in CLASSES}
     otherwise = {k: int((layer["intervention_otherwise"] == k).sum()) for k in CLASSES if (layer["intervention_otherwise"] == k).any()}
     no_ind = int(layer["u_ndmi"].isna().sum()) if "u_ndmi" in layer else len(layer)
     if no_ind:
-        ctx.warn(f"Stage 11: {no_ind} sub-KHG without indicator values; their class rests on the flags that could be read")
+        ctx.warn(f"Stage 12: {no_ind} sub-KHG without indicator values; their class rests on the flags that could be read")
     return dict(counts=counts, closed_otherwise=otherwise, thresholds={k: getattr(ic, k) for k in NEEDED}, units=len(layer),
-                held_share_selected={u: round(float(s), 4) for u, s in zip(layer["subkhg_id"], layer["held_share"]) if s == s})
+                held_share_selected={u: round(float(s), 4) for u, s in zip(layer["subkhg_id"], layer["held_share"]) if s == s},
+                held_m3_selected=_total(layer, "held_m3"), deficit_m3_selected=_total(layer, "deficit_m3"))
+
+
+def _total(layer, col: str):
+    """Sum of ``col`` over the sub-KHG analysed for sekat, or None when there is none."""
+    if col not in layer or "sekat_analysed" not in layer:
+        return None
+    v = pd.to_numeric(layer.loc[layer["sekat_analysed"].astype(bool), col], errors="coerce").dropna()
+    return float(v.sum()) if len(v) else None

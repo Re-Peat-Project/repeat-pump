@@ -132,15 +132,15 @@ def run(ctx, units: pd.DataFrame) -> dict | None:
     src = budget_sources(cfg)
     pd.DataFrame(src).to_csv(ctx.out_dir / "budget_sources.csv", index=False)
     if any(r["applies"] for r in src):
-        ctx.warn("Stage 11: the budget uses proposed prices from published sources that still need checking; see budget_sources.csv")
-    ctx.write_layer("budget", b, "11")
+        ctx.warn("Stage 12: the budget uses proposed prices from published sources that still need checking; see budget_sources.csv")
+    ctx.write_layer("budget", b, "12")
     low = ctx.read_layer("sekat_low_benefit") if ctx.has_layer("sekat_low_benefit") else None
     allb = pd.concat([x for x in (kept, low) if x is not None and len(x)], ignore_index=True) if (kept is not None or low is not None) else None
     held = float(np.nansum(units.loc[units.get("sekat_analysed", False) == True, "held_m3"])) if "held_m3" in units else None   # noqa: E712
     sekat_cost = float(b.loc[b["item"].isin(["sekat_standard", "sekat_reinforced"]), "cost_idr"].sum(min_count=1) or 0)
     unpriced = sorted(set(b.loc[~b["priced"] & (b["quantity"] > 0), "item"]))
     if unpriced:
-        ctx.warn("Stage 11: budget items with a quantity but no price (set budget.* to price them): " + ", ".join(unpriced))
+        ctx.warn("Stage 12: budget items with a quantity but no price (set budget.* to price them): " + ", ".join(unpriced))
     by_item = b.groupby("item").agg(quantity=("quantity", "sum"), cost_low_idr=("cost_low_idr", lambda s: s.sum(min_count=1)),
                                     cost_idr=("cost_idr", lambda s: s.sum(min_count=1)), cost_high_idr=("cost_high_idr", lambda s: s.sum(min_count=1)))
     by_class = b.groupby("intervention")["cost_idr"].sum(min_count=1)

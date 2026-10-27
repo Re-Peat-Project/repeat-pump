@@ -30,7 +30,7 @@ const ID = {
   "No neraca map for this run.": "Tidak ada peta neraca untuk run ini.", "No SiTMAT stations for this run.": "Tidak ada stasiun SiTMAT untuk run ini.",
   "Treatment": "Penanganan", "Otherwise": "Selain itu", "Reasons": "Alasan", "New sekat": "Sekat baru", "Held": "Ditahan", "Deficit": "Defisit", "Held share": "Bagian ditahan",
   "Canal reach": "Jangkauan kanal", "Burnt": "Terbakar", "Water distance": "Jarak air", "Protected": "Lindung", "WB dry season": "NA kemarau",
-  "Generated": "Dibuat", "Values marked as proposed defaults are not team decisions.": "Nilai bertanda usulan bukan keputusan tim.",
+  "Generated": "Dibuat", "values are proposed defaults.": "nilai adalah nilai usulan.",
   "Generated from the run files; do not edit, rerun repeat-pump report-html.": "Dibuat dari berkas run; jangan diedit, jalankan ulang repeat-pump report-html.",
   "Sub-KHG polygons are simplified for display; the analysis uses the full shapes.": "Poligon sub-KHG disederhanakan untuk tampilan; analisis memakai bentuk penuh.",
   "Basemap: OpenFreeMap, data © OpenStreetMap contributors (needs internet; the run layers draw without it).": "Peta dasar: OpenFreeMap, data © kontributor OpenStreetMap (perlu internet; layer run tetap tampil tanpanya).",
@@ -39,8 +39,8 @@ const ID = {
   "selected": "terpilih", "not analysed": "tidak dianalisis", "mm/month": "mm/bulan",
   "Budget estimate": "Perkiraan anggaran", "Blocks": "Sekat", "Rupiah": "Rupiah", "Spent on sekat, in order of benefit": "Belanja sekat, menurut urutan manfaat",
   "billion rupiah": "miliar rupiah", "not priced": "belum ada harga", "low": "rendah", "central": "tengah", "high": "tinggi",
-  "Prices are proposed estimates from published sources, not team decisions; they are not adjusted for inflation.":
-    "Harga adalah perkiraan usulan dari sumber terbitan, bukan keputusan tim; belum disesuaikan dengan inflasi.",
+  "Prices are proposed estimates from published sources, not adjusted for inflation.":
+    "Harga adalah perkiraan usulan dari sumber terbitan, belum disesuaikan dengan inflasi.",
   "rupiah per m³ of water held by the sekat": "rupiah per m³ air yang ditahan sekat", "prices of": "harga tahun",
   "Sekat, wooden (kept)": "Sekat kayu (dipertahankan)", "Sekat, concrete (kept)": "Sekat beton (dipertahankan)",
   "Sekat, KLH IPG estimate (sub-KHG not analysed)": "Sekat, perkiraan IPG KLH (sub-KHG tidak dianalisis)", "Canal closure or backfill": "Penutupan atau penimbunan kanal",
@@ -116,7 +116,7 @@ function tiles() {
 }
 function footer() {
   document.getElementById("foot").innerHTML = [t("Generated from the run files; do not edit, rerun repeat-pump report-html."),
-    `${nf(D.meta.preset_values)} ${t("Values marked as proposed defaults are not team decisions.")} ${nf(D.meta.warnings)} ${t("warnings in the run report")} (${D.files.report}).`,
+    `${nf(D.meta.preset_values)} ${t("values are proposed defaults.")} ${nf(D.meta.warnings)} ${t("warnings in the run report")} (${D.files.report}).`,
     t("Sub-KHG polygons are simplified for display; the analysis uses the full shapes."),
     t("Basemap: OpenFreeMap, data © OpenStreetMap contributors (needs internet; the run layers draw without it).")].map(p => `<p>${p}</p>`).join("");
 }
@@ -377,7 +377,7 @@ function ivChart() {
 function budgetChart() {
   const B = D.budget, sub = document.getElementById("budgetsub");
   if (!B) { document.getElementById("budgetcard").hidden = true; return; }
-  sub.textContent = `${t("billion rupiah")}, ${t("prices of")} ${B.price_year || "–"}. ` + t("Prices are proposed estimates from published sources, not team decisions; they are not adjusted for inflation.") +
+  sub.textContent = `${t("billion rupiah")}, ${t("prices of")} ${B.price_year || "–"}. ` + t("Prices are proposed estimates from published sources, not adjusted for inflation.") +
     (B.idr_per_m3_held ? ` ${nf(B.idr_per_m3_held)} ${t("rupiah per m³ of water held by the sekat")}.` : "");
   const items = Object.entries(B.by_item || {}).filter(([k, v]) => v.quantity > 0).sort((a, b) => (b[1].cost_idr || 0) - (a[1].cost_idr || 0));
   if (!items.length) return empty("budget", "–");

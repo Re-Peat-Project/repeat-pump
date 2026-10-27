@@ -40,6 +40,8 @@ def run_config(folder: Path, tertiary: bool = False) -> tuple[dict, list[str]]:
     columns, params = {}, {"inputs.dtm.source": inp["dtm"]["source"], "run.name": setup["run"]["name"], "run.auto_reproject": True,
                            "inputs.moisture.higher_is_wetter": True, "run.subkhg_selection.mode": "top_n", "run.subkhg_selection.n": 3,
                            "topology.canal_classes": ["primer", "sekunder", "tersier"] if tertiary else ["primer", "sekunder"]}
+    if (setup.get("optimise") or {}).get("et_mm_day") is not None:     # MOD16 June-September of this KHG (khgsetup.dry_season_et)
+        params["optimise.et_mm_day"] = setup["optimise"]["et_mm_day"]
     if inp.get("peat_depth", {}).get("units"):
         params["inputs.peat_depth.units"] = inp["peat_depth"]["units"]
     for role, (path, _l) in vectors.items():

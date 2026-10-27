@@ -65,21 +65,21 @@ STAGE_TEXT: dict[int, tuple[str, str, str, str, str]] = {
          "Converts the water deficit to a flow rate, adds friction loss to the static lift, places stations and sizes them.",
          "Shows what the pumps would have to do, and where the plan falls short.",
          "Chow (1959); Mays (2011); Karassik et al. (2008)"),
-    11: ("Report",
-         "Collects everything into one report, including warnings and parameters still unset.",
-         "Writes run_report.md and run_report.json with counts, warnings, tables and the list of open parameters.",
-         "The report is what you share and what the dashboard reads.",
-         "Spec section 5, Stage 11"),
-    12: ("Block optimisation",
+    11: ("Block optimisation",
          "Optional. Compares which of the proposed sekat to build first when you can only build some of them.",
          "Scores layouts of new sekat with a canal-level model (or a 2D groundwater model) and searches for the best layout with a genetic algorithm and simulated annealing, next to greedy, random and rule-based comparators.",
          "Money and access limit how many sekat you can build. This shows which layout of the proposed sekat gives the most benefit. It is an alternative plan: the pump stages still assume every proposed sekat is built.",
          "Urzainki et al. (2020); Holland (1975); Kirkpatrick et al. (1983)"),
+    12: ("Report",
+         "Proposes an intervention for every sub-KHG, estimates the budget and collects everything into one report, including warnings and parameters still unset.",
+         "Writes run_report.md and run_report.json with counts, warnings, tables and the list of open parameters.",
+         "The report is what you share and what the dashboard reads.",
+         "Spec section 5, Stage 11"),
 }
 
-OPTIONAL_STAGES = {8, 9, 10, 12}      # can be switched off (pumping.enabled, optimise.enabled); then shown as "Optional, switched off" and counted as done
-SWITCH = {8: "pumping.enabled", 9: "pumping.enabled", 10: "pumping.enabled", 12: "optimise.enabled"}
-REPORT_STAGE = 11           # the stage whose card lists every warning
+OPTIONAL_STAGES = {8, 9, 10, 11}      # can be switched off (pumping.enabled, optimise.enabled); then shown as "Optional, switched off" and counted as done
+SWITCH = {8: "pumping.enabled", 9: "pumping.enabled", 10: "pumping.enabled", 11: "optimise.enabled"}
+REPORT_STAGE = 12           # the stage whose card lists every warning
 
 # stage -> list of (counts key, label, note, warn-if-positive)
 STAGE_TILES: dict[int, list[tuple[str, str, str, bool]]] = {
@@ -98,8 +98,10 @@ STAGE_TILES: dict[int, list[tuple[str, str, str, bool]]] = {
         ("unreachable", "Unreachable targets", "see the QA layer", True), ("sekat_planned", "Sekat in the plan", "see sekat_scope", False),
         ("sekat_target", "Sekat on selected canals", "", False), ("sekat_route", "Sekat on pump routes", "gates", False)],
     10: [("stations", "Pump stations", "", False), ("gates_required", "Gates required", "", False), ("shortfalls", "Capacity shortfalls", "", True)],
-    11: [("warnings", "Warnings", "", True), ("null_parameters", "Parameters still unset", "", True)],
-    12: [("candidates", "Candidate sites", "proposed sekat", False), ("blocks", "Blocks to build", "", False),
+    12: [("units", "Sub-KHG with an intervention", "", False), ("held_pct", "Water held by the sekat", "% of the deficit of the analysed sub-KHG", False),
+         ("budget_bn", "Budget estimate", "billion rupiah, central", False),
+         ("warnings", "Warnings", "", True), ("null_parameters", "Parameters still unset", "", True)],
+    11: [("candidates", "Candidate sites", "proposed sekat", False), ("blocks", "Blocks to build", "", False),
          ("evaluations", "Layouts scored", "all algorithms", False), ("best_method", "Best method", "", False),
          ("gain_vs_random", "Gain over random", "times the random mean", False)],
 }
@@ -107,10 +109,10 @@ STAGE_TILES: dict[int, list[tuple[str, str, str, bool]]] = {
 # layers worth showing after a stage (all in the output GeoPackage)
 STAGE_LAYERS: dict[int, list[str]] = {
     2: ["canals_clean", "qa_topology_dangles", "qa_topology_gaps"], 4: ["canal_segments"], 5: ["canal_profiles"],
-    11: ["interventions"],
+    12: ["interventions"],
     6: ["canal_segments", "qa_sensitivity"], 7: ["canals_clean", "sekat_reach", "sekat_existing_assessed", "sekat_low_benefit", "sekat_proposed"], 8: ["network_nodes", "network_edges"],
     9: ["pump_sources", "pump_targets", "pump_routes", "qa_unreachable_targets", "sekat_scope"], 10: ["pump_stations", "gates_required"],
-    12: ["sekat_optimised", "qa_optimisation"],
+    11: ["sekat_optimised", "qa_optimisation"],
 }
 
 # GeoTIFFs outside the GeoPackage, loaded from the run report
@@ -197,12 +199,12 @@ FIELDS: dict[str, Field_] = {f.key: f for f in [
     Field_("optimise.enabled", "Run the canal blocking optimisation", "bool", "", "Optional. Chooses which proposed sekat to build first when you cannot build them all. It is an alternative plan and does not change the pump stages."),
     Field_("optimise.objective", "How layouts are scored", "enum", "", "canal_rise is quick and needs few inputs. pde uses a groundwater model and needs the physical inputs below. screen_then_pde searches with canal rise and re-scores the winners with the groundwater model.", ("canal_rise", "pde", "screen_then_pde"),
            ("Canal level rise (quick)", "Groundwater model (slow)", "Quick search, then groundwater model")),
-    Field_("optimise.n_blocks", "Number of new blocks", "int", "blocks", "How many of the proposed sekat you can build."),
-    Field_("optimise.max_evaluations", "Search budget per algorithm", "int", "layouts", "How many different layouts each algorithm may score. More is better but slower."),
-    Field_("optimise.canal_drawdown_m", "Canal water level below the land", "float", "m", "Dry-season level of the canal water below the surrounding land."),
-    Field_("optimise.grid_m", "Groundwater grid cell size", "float", "m", "Cell size of the groundwater model. Smaller is more detailed and slower."),
-    Field_("optimise.dry_days", "Length of the dry spell", "int", "days", "Days of drying simulated from a saturated start."),
-    Field_("optimise.et_mm_day", "Net water loss without rain", "float", "mm/day", "Evapotranspiration the peat loses each dry day."),
+    Field_("optimise.n_blocks", "Number of new blocks", "int", "blocks", "How many of the proposed sekat the budget allows, for example 10. The budget estimate of the last stage gives the cost per sekat."),
+    Field_("optimise.max_evaluations", "Search budget per algorithm", "int", "layouts", "How many layouts each algorithm may score, for example 500. More is slower and rarely better."),
+    Field_("optimise.canal_drawdown_m", "Canal water level below the land", "float", "m", "Dry-season level of the canal water below the surrounding land, for example 1.0 m (the same as for the sekat balance)."),
+    Field_("optimise.grid_m", "Groundwater grid cell size", "float", "m", "Cell size of the groundwater model, for example 100 m. Smaller is more detailed and slower."),
+    Field_("optimise.dry_days", "Length of the dry spell", "int", "days", "Days of drying simulated from a wet start, for example 30."),
+    Field_("optimise.et_mm_day", "Net water loss without rain", "float", "mm/day", "Evapotranspiration the peat loses on a dry day, for example 3.7 mm. Filled from the KHG's neraca air data when the run is set up from a KHG folder."),
     Field_("optimise.peat_table", "Peat water properties", "enum", "", "How much water the peat stores and passes on at each depth. The boreal table needs a transmissivity multiplier; the two tropical sets (Urzainki et al. 2023, calibrated in South Sumatra) do not.", ("urzainki2020", "tropical-small", "tropical-large"),
            ("Boreal table (Urzainki 2020)", "Tropical, small conductivity", "Tropical, large conductivity")),
     Field_("optimise.bracket_tables", "Also score with", "multi", "", "Re-scores the chosen layout with these peat tables, to show how much the result depends on the peat properties.", ("urzainki2020", "tropical-small", "tropical-large"),
@@ -285,7 +287,7 @@ def _field_en(key: str) -> Field_:
     if key.startswith("prioritise.criteria.") and key.endswith(".weight"):
         name = key.split(".")[2]
         return Field_(key, f"Weight: {CRITERIA.get(name, name.replace('_', ' '))}", "float", "",
-                      "Relative importance of this criterion. Decided with the team; weights are normalised.")
+                      "Relative importance of this criterion. Weights are normalised.")
     if key == "prioritise.ahp_matrix":
         return Field_(key, "AHP pairwise matrix", "matrix", "", "Row against column: how much more important the row criterion is (1 = equal, 9 = extremely). Fill the cells above the diagonal.")
     return Field_(key, key, "text")
@@ -419,7 +421,7 @@ class Param:
     key: str
     value: Any
     recommended: bool = False
-    from_preset: bool = False     # value comes from the proposed-defaults preset, not from a team decision
+    from_preset: bool = False     # value comes from the proposed-defaults preset
     option: bool = False          # a setting with a default (advanced), not a decision the stage waits for
 
     @property
@@ -474,7 +476,7 @@ def placeholder_check() -> dict:
         for sid in STAGE_TEXT]}
 
 
-def warnings_for(stage: int, warnings: list[str], n_stages: int = 11) -> list[str]:
+def warnings_for(stage: int, warnings: list[str], n_stages: int = 12) -> list[str]:
     """Engine warnings relevant to a stage. Stage-specific ones start with ``Stage N:``; unprefixed ones come from
     input validation (stage 1); the DTM accuracy warning also matters for sekat placement (stage 7); the report shows all."""
     if stage == REPORT_STAGE:
@@ -508,11 +510,26 @@ def _fmt(v: Any) -> str:
     return f"{v:,}".replace(",", " ") if isinstance(v, int) else str(v)
 
 
+def _current_order(check: dict, state: dict) -> dict:
+    """``state`` without the stages recorded under another stage order (before 2026-10-27 the report was 11 and the optimisation
+    12): from the first stage whose stored name differs from the engine's, that stage and every later one count as not run, as the
+    engine treats them on the next run. Their counts go too, so no stage shows another stage's numbers."""
+    names = {str(s["id"]): s.get("name") for s in check.get("stages", [])}
+    stages = state.get("stages", {})
+    stale = sorted(int(k) for k, v in stages.items() if v.get("name") and names.get(k) and v["name"] != names[k])
+    if not stale:
+        return state
+    keep = lambda d: {k: v for k, v in d.items() if not (k.isdigit() and int(k) >= stale[0])}   # noqa: E731
+    report = dict(state.get("report", {}))
+    report["counts"] = keep(report.get("counts", {}))
+    return {**state, "stages": keep(stages), "report": report}
+
+
 class WizardModel:
     """State of one run. ``check`` is the ``repeat-pump check`` JSON, ``state`` is ``run_state.json``."""
 
     def __init__(self, check: dict, state: dict, running: Optional[int] = None, engine_ready: bool = True):
-        self.check, self.state, self.running, self.engine_ready = check, state, running, engine_ready
+        self.check, self.state, self.running, self.engine_ready = check, _current_order(check, state), running, engine_ready
         self.stages = self._build()
 
     # ---- derivation

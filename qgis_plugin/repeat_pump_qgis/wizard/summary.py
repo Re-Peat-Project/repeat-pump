@@ -42,6 +42,11 @@ def _n(x: Any, digits: int = 0) -> str:
         return "-"
 
 
+BUDGET_ITEMS = {"canal_closure_km": "Canal closure or backfill", "sekat_standard": "Sekat, wooden", "sekat_reinforced": "Sekat, concrete",
+                "sekat_ipg_estimate": "Sekat, KLH IPG estimate", "revegetation_ha": "Revegetation", "deep_wells": "Deep wells (sumur bor)",
+                "pump_units": "Pump units", "pump_fuel_l": "Pump fuel"}
+
+
 def summarise(report: dict) -> Summary:
     """Sections for the segments, sekat, routes and pumps, a pump table, the output files and a few honest notes."""
     c = report.get("counts", {})
@@ -80,13 +85,25 @@ def summarise(report: dict) -> Summary:
     if iv:
         from ..intervention_labels import LABELS
         inter.rows += [(tr(LABELS[k]), _n(n)) for k, n in iv.get("counts", {}).items() if n]
+    water = Section(tr("Water and budget"))
+    if iv.get("deficit_m3_selected"):
+        held = iv.get("held_m3_selected") or 0
+        water.rows += [(tr("Water held by the sekat"), f"{_n(held / 1e6, 2)} {tr('million m³')}"),
+                       (tr("Deficit of the analysed sub-KHG"), f"{_n(iv['deficit_m3_selected'] / 1e6, 1)} {tr('million m³')}"),
+                       (tr("Share of the deficit held"), f"{_n(100 * held / iv['deficit_m3_selected'], 1)} %")]
+    bd = report.get("budget") or {}
+    if bd.get("total_idr") is not None:
+        water.rows.append((tr("Budget estimate"), f"{_n(bd['total_idr'] / 1e9, 1)} {tr('billion Rp')}"))
+        water.rows.append((tr("Low to high"), f"{_n(bd['total_low_idr'] / 1e9, 1)} - {_n(bd['total_high_idr'] / 1e9, 1)}"))
+    if bd.get("unpriced"):
+        water.rows.append((tr("Not priced"), ", ".join(tr(BUDGET_ITEMS.get(i, i)) for i in bd["unpriced"])))
     opt = report.get("optimisation") or {}
-    alt = Section(tr("Stage 12, alternative plan"))
+    alt = Section(tr("Stage 11, alternative plan"))
     if opt:
         alt.rows += [(tr("Sekat chosen"), f"{_n(opt.get('blocks'))} / {_n(opt.get('candidates'))}"), (tr("Best method"), str(opt.get("best_method", "-")))]
         if opt.get("gain_vs_random"):
             alt.rows.append((tr("Better than random choice"), f"{_n(opt['gain_vs_random'], 2)} x"))
-    out.sections = [s for s in (seg, sek, route, pump, inter, alt) if s.rows]
+    out.sections = [s for s in (seg, sek, route, pump, inter, water, alt) if s.rows]
     if pumps:
         out.pump_table = [[tr("Station"), tr("Flow (L/s)"), tr("Head (m)"), tr("Power (kW)"), tr("Units")]] + [
             [str(p.get("station_id", "")), _n(p.get("q_m3s", 0) * 1000, 1), _n(p.get("h_m"), 2), _n(p.get("p_kw"), 2), _n(p.get("units_needed"))]
@@ -99,8 +116,8 @@ def summarise(report: dict) -> Summary:
         out.notes.append(tr("Some targets cannot be reached, usually because of a sekat without a gate."))
     preset = (report.get("preset") or {}).get("keys") or []
     if preset:
-        out.notes.append(tr("{n} values came from the proposed defaults, not from team decisions.").format(n=len(preset)))
+        out.notes.append(tr("{n} values are proposed defaults.").format(n=len(preset)))
     if report.get("warnings"):
         out.notes.append(tr("{n} warnings are listed in the run report.").format(n=len(report["warnings"])))
-    out.notes.append(tr("The plan assumes every proposed sekat is built (after the balance, when it is on). Stage 12, if used, is an alternative plan and does not change it."))
+    out.notes.append(tr("The plan assumes every proposed sekat is built (after the balance, when it is on). Stage 11, if used, is an alternative plan and does not change it."))
     return out

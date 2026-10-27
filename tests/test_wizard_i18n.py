@@ -37,9 +37,9 @@ def _source_strings() -> set[str]:
     for f in vm.FIELDS.values():
         out |= set(f.labels) | {f.label} | ({f.help} if f.help else set()) | ({f.unit} if f.unit and f.kind in ("float", "int") and f.unit not in ("m", "m3/s") else set())
     from repeat_pump_qgis.wizard import maptools
-    out |= set(maptools.LEGEND_NAMES.values()) | set(maptools.STAGE_QUESTION.values()) | {"RE-PEAT pompanisasi"}
+    out |= set(maptools.LEGEND_NAMES.values()) | set(maptools.STAGE_QUESTION.values()) | {"RE-PEAT Interventions"}
     out |= {"Weight: {name}", "burn frequency", "peat depth", "dryness", "upstream contribution", "AHP pairwise matrix",
-            "Relative importance of this criterion. Decided with the team; weights are normalised.",
+            "Relative importance of this criterion. Weights are normalised.",
             "Edit this in the YAML file (a matrix cannot be typed here)."}
     for fname in ("ui.py", "controller.py", "setup_form.py", "cloud_dialog.py", "cloudload.py", "canal_edit.py", "explain.py", "explain_tool.py", "preflight.py", "maptools.py", "widgets.py", "summary.py", "diagrams.py"):
         tree = ast.parse((PLUGIN / "wizard" / fname).read_text(encoding="utf8"))

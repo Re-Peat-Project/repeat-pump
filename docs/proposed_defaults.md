@@ -41,7 +41,7 @@ retrieved source (replace before real use); **POLICY** a choice, not a measureme
 
 ## Budget unit prices (`budget.*`)
 
-Stage 11 prices the quantities of the run (core/budget.py). Each price is `[low, central, high]` in rupiah of its own year, **not adjusted for inflation**, found by web search on 2026-10-27. The figures come from the search summaries of the linked pages; the pages were not all re-read, so check a figure on its page before citing it. They are proposals for trial runs: replace them with KLH's own standard (Perdirjen PPKL P.4/PPKL/PKG/PKL.0/6/2019, *Standar Biaya Pembangunan Infrastruktur Pembasahan untuk Pemulihan Ekosistem Gambut*, which BPK audits against but whose figures were not found online) or contract values.
+Stage 12 prices the quantities of the run (core/budget.py). Each price is `[low, central, high]` in rupiah of its own year, **not adjusted for inflation**, found by web search on 2026-10-27. The figures come from the search summaries of the linked pages; the pages were not all re-read, so check a figure on its page before citing it. They are proposals for trial runs: replace them with KLH's own standard (Perdirjen PPKL P.4/PPKL/PKG/PKL.0/6/2019, *Standar Biaya Pembangunan Infrastruktur Pembasahan untuk Pemulihan Ekosistem Gambut*, which BPK audits against but whose figures were not found online) or contract values.
 
 **Register for checking.** Every figure below, plus the two that were found but not used, is a row of `repeat_pump/data/budget_sources.csv`: the figure as quoted, place and period, source, URL, date accessed, how it was retrieved (all from search summaries) and a status (`to verify`, `unconfirmed`, `assumption`, `obtain from KLH`). Whoever checks a figure on its page fills `verified_by`, `verified_on` and `verified_figure`, and changes the price in the preset if the figure differs. Each run copies the register next to its `budget.csv`, and the HTML report lists it under the budget chart.
 
@@ -85,6 +85,21 @@ From the technical guide (Panduan Teknis GIS Rewetting KLH, Appendix A) and the 
 | `ANGLE_MIN`, `OSC_DIST` | 30 degrees, 300 m | Not needed: both exist to reject contour lines that run along the canal; placement walks the land profile and only a net rise of `dA` counts |
 | Contour interval (2.3, 10.3) | 0.5 m | Replaced by `sekat.dA_m` (0.40 m, PP 57/2016), without vector contours |
 
+## Stage 11 (optional block optimisation)
+
+The stage stays off (`optimise.enabled: false`) until switched on. The preset gives values to start from, so switching it on runs at once:
+
+| Key | Proposed | Confidence | Why |
+|---|---|---|---|
+| `optimise.n_blocks` | 10 | POLICY | How many of the kept sekat the budget allows; read the cost per sekat off the stage 12 budget |
+| `optimise.max_evaluations` | 500 | LOW | At least twice the GA population (30); more is slower and rarely better |
+| `optimise.canal_drawdown_m` | 1.0 m | MED | The same dry-season canal level as `sekat.balance_drawdown_m` |
+| `optimise.grid_m` | 100 m | LOW | Groundwater objectives only; 50 m is about 4 times slower |
+| `optimise.dry_days` | 30 | LOW | Length of the dry spell simulated from a wet start |
+| `optimise.et_mm_day` | 3.7 mm/day; per KHG from its data | MED | A KHG folder fills its own value: mean MOD16 evapotranspiration of June to September in `03_neraca/inputs/balance_mod16_dekad.csv` (4.09 Sugihan-Lumpur, 3.72 Kampar-Gaung, 2018-2025) |
+
+The peat properties are engine defaults, not preset values: `peat_table: tropical-small` and `bracket_tables: [tropical-large]` (Urzainki et al. 2023), so a groundwater result is reported as a range. The objective stays `canal_rise` (minutes); `pde` and `screen_then_pde` use the groundwater model and take tens of minutes per KHG (40 minutes for the Kampar-Gaung bracket run).
+
 ## Not in the preset: facts about the data
 
 Fill these from the dataset's metadata. The preset never sets the datums. It suggests the DTM error (for a declared `inputs.dtm.source`) and the moisture direction under `suggested_facts`; both are marked as proposed. A value from the delivery always wins.
@@ -97,7 +112,7 @@ Fill these from the dataset's metadata. The preset never sets the datums. It sug
 
 ## Not proposed
 
-- **Stage 12 (`optimise.*`).** `transmissivity_multiplier` changes the result about 100-fold (the re-peat benchmark found almost no block effect with the boreal tables and a realistic one at about 100 times). The other `optimise.*` values are meaningless without it. There is no measured transmissivity for any of our KHG. Instead of guessing a multiplier, set `optimise.peat_table: tropical-small` with `bracket_tables: [tropical-large]` and report the benefit as a range: the two tropical sets of Urzainki et al. (2023) carry their own scale, are calibrated at Merang-Kepayang (South Sumatra), and bracket the measured conductivity (Cobb and Harvey 2019; Kurnianto et al. 2019). The comparison of the boreal table with these sources is in repeat-neraca/docs/tropical-peat-hydraulic-parameters.md. A measured conductivity profile from the field (slug or pumping tests) would replace both.
+- **`optimise.transmissivity_multiplier`.** It changes the result about 100-fold and no measured transmissivity exists for any of our KHG. It only scales the boreal table (`peat_table: urzainki2020`); the default tropical tables do not use it.
 - **Neraca air format, sign-off on weights, licence, `pip install` on KLH machines, hydro backend.** These are decisions, not values.
 
 ## Sources read

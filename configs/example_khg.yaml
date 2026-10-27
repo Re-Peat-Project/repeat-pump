@@ -82,7 +82,7 @@ pumping:
   routing: steiner                # steiner | per_target
   allow_gate_addition: false
 
-# OPTIONAL Stage 12: canal blocking optimisation (Urzainki et al. 2020). Off by default. It gives an ALTERNATIVE block plan;
+# OPTIONAL Stage 11: canal blocking optimisation (Urzainki et al. 2020). Off by default. It gives an ALTERNATIVE block plan;
 # the routing and pump stages still assume every proposed sekat is built. Every physical value below is a human decision.
 optimise:
   enabled: false
@@ -94,9 +94,9 @@ optimise:
   grid_m: null                    # TODO(human), pde objectives
   dry_days: null                  # TODO(human), pde objectives
   et_mm_day: null                 # TODO(human), pde objectives
-  peat_table: urzainki2020         # pde objectives: urzainki2020 (boreal curves), tropical-small or tropical-large (Urzainki et al. 2023)
+  peat_table: tropical-small       # pde objectives: tropical-small or tropical-large (Urzainki et al. 2023), or urzainki2020 (boreal curves)
   transmissivity_multiplier: null # TODO(human), urzainki2020 only (100 to 1000 for tropical peat); the tropical sets ignore it
-  bracket_tables: []              # e.g. [tropical-small, tropical-large]: re-score the chosen layouts with these tables, report the range
+  bracket_tables: [tropical-large] # re-score the chosen layouts with these tables too, to report a range
   seed: 0
   random_baseline_draws: 10
 

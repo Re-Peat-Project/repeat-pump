@@ -1,4 +1,4 @@
-"""Stage 12 (optional): canal blocking optimisation after Urzainki et al. (2020) [Urzainki2020].
+"""Stage 11 (optional): canal blocking optimisation after Urzainki et al. (2020) [Urzainki2020].
 
 Chooses which ``optimise.n_blocks`` of the Stage 7 proposed sekat to build so that canal water levels (``canal_rise``) or
 the dry peat volume from a 2D Boussinesq model (``pde``) improve most, using a genetic algorithm [Holland1975] and
@@ -76,12 +76,12 @@ def run(ctx):
     cfg = ctx.cfg
     oc = cfg.optimise
     if not oc.enabled:
-        ctx.log.info("Stage 12 skipped: optimise.enabled is false")
+        ctx.log.info("Stage 11 skipped: optimise.enabled is false")
         return "skipped"
     need = ["n_blocks", "max_evaluations", "canal_drawdown_m"]
     if oc.objective != "canal_rise":
         need += ["grid_m", "dry_days", "et_mm_day"] + (["transmissivity_multiplier"] if "urzainki2020" in [oc.peat_table, *oc.bracket_tables] else [])
-    require(oc, need, "Stage 12", "optimise")
+    require(oc, need, "Stage 11", "optimise")
     dA = cfg.sekat.dA_m
     canals = ctx.read_layer("canals_clean")
     prof = ctx.read_layer("canal_profiles")
@@ -90,9 +90,9 @@ def run(ctx):
         sc = ctx.read_layer("sekat_scope")
         planned = set(sc.loc[sc["planned"].astype(bool), "sekat_pro_id"])
         cand = cand[cand["sekat_pro_id"].isin(planned)]
-        ctx.log.info("Stage 12: pumping.sekat_scope is selected, so only the %d planned sekat are candidates", len(cand))
+        ctx.log.info("Stage 11: pumping.sekat_scope is selected, so only the %d planned sekat are candidates", len(cand))
     if len(cand) == 0:
-        ctx.warn("Stage 12: there are no proposed sekat to choose from; nothing to optimise")
+        ctx.warn("Stage 11: there are no proposed sekat to choose from; nothing to optimise")
         return "skipped"
     net = bo.CanalNet.from_profiles(canals, prof)
     base = net.z_land - oc.canal_drawdown_m
@@ -102,12 +102,12 @@ def run(ctx):
     nodes = [net.node_at(c, ch) for c, ch in zip(cand["canal_id"], cand["chainage_m"])]
     keep = [i for i, n in enumerate(nodes) if n is not None]
     if len(keep) < len(cand):
-        ctx.warn(f"Stage 12: {len(cand) - len(keep)} proposed sekat are not on a profiled canal and were left out")
+        ctx.warn(f"Stage 11: {len(cand) - len(keep)} proposed sekat are not on a profiled canal and were left out")
     cand, nodes = cand.iloc[keep].reset_index(drop=True), [nodes[i] for i in keep]
     crest = np.array([net.z_land[n] - dA for n in nodes])
     ineffective = int(np.sum(crest <= np.array([base[n] for n in nodes]) + 1e-9))
     if ineffective:
-        ctx.warn(f"Stage 12: {ineffective} candidate(s) hold water no higher than the canal already stands "
+        ctx.warn(f"Stage 11: {ineffective} candidate(s) hold water no higher than the canal already stands "
                  f"(optimise.canal_drawdown_m is not larger than sekat.dA_m), so they cannot raise anything")
     fixed: dict = {}
     if ctx.has_layer("sekat_existing_assessed"):
@@ -122,25 +122,25 @@ def run(ctx):
     n_cand = len(cand)
     k = min(int(oc.n_blocks), n_cand)
     if oc.n_blocks > n_cand:
-        ctx.warn(f"Stage 12: optimise.n_blocks ({oc.n_blocks}) exceeds the {n_cand} candidate sites; all candidates are chosen")
+        ctx.warn(f"Stage 11: optimise.n_blocks ({oc.n_blocks}) exceeds the {n_cand} candidate sites; all candidates are chosen")
     proxy = bo.CanalRiseObjective(net, base, nodes, crest, fixed)
     pde = None
     if oc.objective in ("pde", "screen_then_pde"):
         grid = build_grid(ctx, net, oc.grid_m)
         if grid.shared_cells:
-            ctx.warn(f"Stage 12: {grid.shared_cells} grid cell(s) hold nodes of more than one canal; the cell takes their mean level "
+            ctx.warn(f"Stage 11: {grid.shared_cells} grid cell(s) hold nodes of more than one canal; the cell takes their mean level "
                      f"(use a smaller optimise.grid_m if canals run closer than {oc.grid_m:g} m)")
         pde = bo.PdeObjective(net, base, nodes, crest, fixed, grid, PeatTable.named(oc.peat_table), oc.dry_days, oc.et_mm_day,
                               _multiplier(oc, oc.peat_table))
         if oc.peat_table == "urzainki2020":
-            ctx.warn("Stage 12: optimise.peat_table is urzainki2020, built from boreal retention curves; its transmissivity is 100 to 1000 "
+            ctx.warn("Stage 11: optimise.peat_table is urzainki2020, built from boreal retention curves; its transmissivity is 100 to 1000 "
                      "times below tropical values. Consider tropical-small or tropical-large (optimise.peat_table, optimise.bracket_tables)")
     search_fn = pde.benefit if oc.objective == "pde" else proxy.benefit
     unit = "m of canal level rise" if pde is None else "ha m of dry peat avoided"     # screen_then_pde reports the re-scored values
     if oc.max_evaluations < 2 * oc.ga.population:
-        ctx.warn(f"Stage 12: optimise.max_evaluations ({oc.max_evaluations}) is below twice the GA population ({oc.ga.population}); "
+        ctx.warn(f"Stage 11: optimise.max_evaluations ({oc.max_evaluations}) is below twice the GA population ({oc.ga.population}); "
                  "the genetic algorithm will barely leave its random start")
-    ctx.log.info("Stage 12: %d candidates, choosing %d, objective %s, algorithms %s", n_cand, k, oc.objective, oc.algorithms)
+    ctx.log.info("Stage 11: %d candidates, choosing %d, objective %s, algorithms %s", n_cand, k, oc.objective, oc.algorithms)
     results = bo.optimise_subset(search_fn, n_cand, k, list(oc.algorithms), int(oc.max_evaluations), oc.seed, log=ctx.log.info,
                                  ga_kw=oc.ga.model_dump(), sa_kw=oc.sa.model_dump())
 
@@ -189,10 +189,10 @@ def run(ctx):
     trace = pd.DataFrame([dict(method=r.algo, evaluations=int(e), best_so_far=float(v)) for r in results for e, v in r.trace])
     if not isinstance(out, gpd.GeoDataFrame):
         out = gpd.GeoDataFrame(out, geometry="geometry", crs=ctx.crs)
-    ctx.write_layer("sekat_optimised", out, "12")
-    ctx.write_layer("qa_optimisation", qa, "12")
+    ctx.write_layer("sekat_optimised", out, "11")
+    ctx.write_layer("qa_optimisation", qa, "11")
     if len(trace):
-        ctx.write_layer("qa_optimisation_trace", trace, "12")
+        ctx.write_layer("qa_optimisation_trace", trace, "11")
 
     bracket = None
     if pde is not None and oc.bracket_tables:
@@ -204,7 +204,7 @@ def run(ctx):
             bracket[name] = dict(transmissivity_multiplier=_multiplier(oc, name), baseline_dry_volume_ha_m=float(other.dry_fixed),
                                  **{m: float(other.benefit(sel)) for m, (sel, _) in final.items()})
         vals = [b[best_algo] for b in bracket.values()]
-        ctx.log.info("Stage 12: benefit of the chosen layout over the peat tables %s: %.4g to %.4g %s", list(bracket), min(vals), max(vals), unit)
+        ctx.log.info("Stage 11: benefit of the chosen layout over the peat tables %s: %.4g to %.4g %s", list(bracket), min(vals), max(vals), unit)
 
     summary = dict(objective=oc.objective, unit=unit, peat_table=(oc.peat_table if pde is not None else None), bracket=bracket, candidates=n_cand, blocks=k, best_method=best_algo, best_benefit=float(best_val),
                    random_mean_benefit=rnd_mean, gain_vs_random=(float(best_val) / rnd_mean if rnd_mean and rnd_mean == rnd_mean and rnd_mean != 0 else None),
@@ -213,9 +213,9 @@ def run(ctx):
                    note="Alternative plan: stages 8-10 still assume every proposed sekat is built. Benefit is relative to the existing "
                         "structures only and is not a field-validated water table change.")
     ctx.report["optimisation"] = summary
-    ctx.set_counts("12", candidates=n_cand, blocks=k, evaluations=int(sum(r.evaluations for r in results)),
+    ctx.set_counts("11", candidates=n_cand, blocks=k, evaluations=int(sum(r.evaluations for r in results)),
                    best_method=best_algo, gain_vs_random=round(summary["gain_vs_random"], 2) if summary["gain_vs_random"] else 0)
-    append_to_report(ctx, summary, qa)
+    ctx.report["optimisation_table"] = qa.replace({np.nan: None}).to_dict("records")    # stage 12 writes it into the report
     return None
 
 
@@ -225,7 +225,7 @@ def _multiplier(oc, table: str) -> float:
 
 
 def append_to_report(ctx, summary: dict, table: pd.DataFrame) -> None:
-    """Stage 11 has already written the report: add (or replace) this stage's section in run_report.json and run_report.md."""
+    """Add (or replace) the optimisation section in run_report.json and run_report.md; called by stage 12 after it writes them."""
     js, md = ctx.out_dir / "run_report.json", ctx.out_dir / "run_report.md"
     if js.exists():
         data = json.loads(js.read_text(encoding="utf8"))
@@ -234,8 +234,8 @@ def append_to_report(ctx, summary: dict, table: pd.DataFrame) -> None:
         js.write_text(json.dumps(data, indent=2, default=str), encoding="utf8")
     if md.exists():
         text = md.read_text(encoding="utf8")
-        text = re.sub(r"\n## Canal blocking optimisation \(Stage 12\).*?(?=\n## |\Z)", "", text, flags=re.S)
-        L = ["", "## Canal blocking optimisation (Stage 12)", "",
+        text = re.sub(r"\n## Canal blocking optimisation \(Stage 11\).*?(?=\n## |\Z)", "", text, flags=re.S)
+        L = ["", "## Canal blocking optimisation (Stage 11)", "",
              f"Objective `{summary['objective']}`, {summary['blocks']} of {summary['candidates']} candidate sekat, best method **{summary['best_method']}**.",
              "", "This is an alternative plan. Stages 8 to 10 still assume every proposed sekat is built. The benefit is relative to the existing "
              "structures only and is not a field-validated water table change.", "", "| method | blocks | evaluations | benefit | vs random |", "|---|---|---|---|---|"]

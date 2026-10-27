@@ -101,6 +101,8 @@ ID: dict[str, str] = {
     "Shows what the pumps would have to do, and where the plan falls short.":
         "Menunjukkan apa yang harus dikerjakan pompa, dan di mana rencana belum mencukupi.",
     "Report": "Laporan",
+    "Proposes an intervention for every sub-KHG, estimates the budget and collects everything into one report, including warnings and parameters still unset.":
+        "Mengusulkan intervensi untuk setiap sub-KHG, memperkirakan anggaran dan mengumpulkan semuanya ke dalam satu laporan, termasuk peringatan dan parameter yang belum diisi.",
     "Collects everything into one report, including warnings and parameters still unset.":
         "Mengumpulkan semuanya dalam satu laporan, termasuk peringatan dan parameter yang belum diisi.",
     "Writes run_report.md and run_report.json with counts, warnings, tables and the list of open parameters.":
@@ -197,8 +199,7 @@ ID: dict[str, str] = {
     "AHP pairwise matrix": "Matriks perbandingan berpasangan AHP",
     "Edit this in the YAML file (a matrix cannot be typed here).": "Ubah ini di berkas YAML (matriks tidak dapat diketik di sini).",
     "Weight: {name}": "Bobot: {name}",
-    "Relative importance of this criterion. Decided with the team; weights are normalised.":
-        "Kepentingan relatif kriteria ini. Diputuskan bersama tim; bobot dinormalisasi.",
+    "Relative importance of this criterion. Weights are normalised.": "Kepentingan relatif kriteria ini. Bobot dinormalisasi.",
     "burn frequency": "frekuensi kebakaran", "peat depth": "kedalaman gambut", "dryness": "kekeringan", "upstream contribution": "kontribusi hulu",
     "cells": "sel", "0-1": "0-1",
     # ---------------------------------------------------------------- wizard chrome
@@ -363,7 +364,7 @@ ID: dict[str, str] = {
     "Export the map...": "Ekspor peta...",
     "Export the map": "Ekspor peta",
     "There is nothing on the map to export. Use Show this stage on the map first.": "Tidak ada yang bisa diekspor dari peta. Gunakan dulu Tampilkan tahap ini di peta.",
-    "Includes values from the proposed defaults (not team decisions).": "Memuat nilai dari nilai usulan (bukan keputusan tim).",
+    "Includes proposed default values.": "Memuat nilai usulan.",
     "Map saved to {path}.": "Peta disimpan ke {path}.",
     "The map could not be exported: {err}": "Peta tidak dapat diekspor: {err}",
     "The map could not be exported ({code}).": "Peta tidak dapat diekspor ({code}).",
@@ -374,7 +375,7 @@ ID: dict[str, str] = {
     "Stage": "Tahap",
     "Projection": "Proyeksi",
     "Legend": "Legenda",
-    "RE-PEAT pompanisasi": "RE-PEAT pompanisasi",
+    "RE-PEAT Interventions": "RE-PEAT Intervensi",
     "Which canal ends are loose?": "Ujung kanal mana yang terlepas?",
     "Which canal segments need rewetting most?": "Segmen kanal mana yang paling perlu dibasahi?",
     "Where should new sekat go?": "Di mana sekat baru sebaiknya dipasang?",
@@ -410,10 +411,10 @@ ID: dict[str, str] = {
     "Some stations cannot deliver the required flow with the installed capacity (see the run report).":
         "Beberapa stasiun tidak dapat memenuhi debit yang diperlukan dengan kapasitas terpasang (lihat laporan proses).",
     "Some targets cannot be reached, usually because of a sekat without a gate.": "Beberapa target tidak terjangkau, biasanya karena sekat tanpa pintu.",
-    "{n} values came from the proposed defaults, not from team decisions.": "{n} nilai berasal dari nilai usulan, bukan dari keputusan tim.",
+    "{n} values are proposed defaults.": "{n} nilai adalah nilai usulan.",
     "{n} warnings are listed in the run report.": "{n} peringatan tercantum di laporan proses.",
-    "The plan assumes every proposed sekat is built. Stage 12, if used, is an alternative plan and does not change it.":
-        "Rencana ini mengasumsikan setiap sekat usulan dibangun. Tahap 12, bila dipakai, adalah rencana alternatif dan tidak mengubahnya.",
+    "The plan assumes every proposed sekat is built. Stage 11, if used, is an alternative plan and does not change it.":
+        "Rencana ini mengasumsikan setiap sekat usulan dibangun. Tahap 11, bila dipakai, adalah rencana alternatif dan tidak mengubahnya.",
     "spacing = dA / slope": "jarak = dA / kemiringan", "Each reach holds water at most dA below the ground.": "Setiap ruas menahan air paling dalam dA di bawah tanah.",
     "Steeper land needs sekat closer together.": "Lahan yang lebih curam membutuhkan sekat yang lebih rapat.",
     "ground": "tanah", "canal water": "air kanal", "sekat": "sekat",
@@ -437,12 +438,10 @@ ID: dict[str, str] = {
     "Weights": "Bobot",
     "Consistency ratio {cr} (must be 0.10 or less).": "Rasio konsistensi {cr} (harus 0,10 atau kurang).",
     "Revise the comparisons.": "Perbaiki perbandingannya.",
-    "Use the proposed defaults (for trial runs, not team decisions)":
-        "Gunakan nilai usulan (untuk uji coba, bukan keputusan tim)",
+    "Use the proposed defaults": "Gunakan nilai usulan",
     "Fills the empty decision fields with researched starting values. Each one stays marked as proposed until you enter a value. Values you type always win.":
         "Mengisi kolom keputusan yang kosong dengan nilai awal hasil kajian. Setiap nilai tetap ditandai sebagai usulan sampai Anda mengisi nilainya sendiri. Nilai yang Anda ketik selalu didahulukan.",
-    "Proposed default, not a team decision. Enter a value to make it yours; the run report lists it until then.":
-        "Nilai usulan, bukan keputusan tim. Isi nilai untuk menjadikannya milik Anda; laporan proses mencantumkannya sampai saat itu.",
+    "Proposed default. Enter a value to replace it; the run report lists it until then.": "Nilai usulan. Isi nilai untuk menggantinya; laporan proses mencantumkannya sampai saat itu.",
     "Could not turn on the proposed defaults: {err}": "Tidak dapat mengaktifkan nilai usulan: {err}",
     "Choose the sub-KHG priority table (CSV).": "Pilih tabel prioritas sub-KHG (CSV).",
     "Choose a layer for: {text}.": "Pilih layer untuk: {text}.",
@@ -453,7 +452,7 @@ ID: dict[str, str] = {
     "Re-running stage {sid} clears the results of stages {first} to {last}, because they depend on it. Continue?":
         "Menjalankan ulang tahap {sid} menghapus hasil tahap {first} sampai {last}, karena bergantung padanya. Lanjutkan?",
     "Stage {n} of {total}": "Tahap {n} dari {total}", "No run yet": "Belum ada proses",
-    "Rewetting with pompanisasi": "Pembasahan ulang dengan pompanisasi",
+    "Rewetting interventions": "Intervensi pembasahan",
     "{done} of {total} stages done": "{done} dari {total} tahap selesai",
     "Start with the setup on stage 1": "Mulai dari pengaturan di tahap 1",
     "Set up": "Siapkan", "Set up engine": "Siapkan mesin", "Engine ready": "Mesin siap",
@@ -467,8 +466,7 @@ ID: dict[str, str] = {
     " · DONE": " · SELESAI", " · OUT OF DATE": " · USANG", " · REVIEW STAGE": " · TAHAP TINJAUAN",
     "What this does": "Apa yang dilakukan", "Why it matters": "Mengapa penting", "Reference:": "Referensi:",
     "Decisions for this stage": "Keputusan untuk tahap ini", "Decisions needed ({n})": "Keputusan yang diperlukan ({n})",
-    "These values are policy choices for your team. The wizard never fills them in for you. They are saved in the run config.":
-        "Nilai-nilai ini adalah pilihan kebijakan tim Anda. Wizard tidak pernah mengisinya untuk Anda. Nilai disimpan di konfigurasi proses.",
+    "These values are policy choices. The wizard never fills them in. They are saved in the run config.": "Nilai-nilai ini adalah pilihan kebijakan. Wizard tidak pernah mengisinya. Nilai disimpan di konfigurasi proses.",
     "(needed if river water levels are used)": "(diperlukan jika tinggi muka air sungai dipakai)",
     "Edit this in the run YAML file (a matrix cannot be typed here).": "Ubah ini di berkas YAML proses (matriks tidak dapat diketik di sini).",
     "Not decided": "Belum diputuskan", "Not decided yet": "Belum diputuskan", "Yes": "Ya", "No": "Tidak",
@@ -501,9 +499,9 @@ ID: dict[str, str] = {
     "Run to the next review": "Jalankan sampai tinjauan berikutnya",
     "Sekat chosen": "Sekat terpilih",
     "Share of the canal rewetting kept": "Bagian pembasahan kanal yang dipertahankan",
-    "Stage 12, alternative plan": "Tahap 12, rencana alternatif",
-    "The plan assumes every proposed sekat is built (after the balance, when it is on). Stage 12, if used, is an alternative plan and does not change it.": "Rencana mengasumsikan semua sekat usulan dibangun (setelah penyeimbangan, bila aktif). Tahap 12, bila dipakai, adalah rencana alternatif dan tidak mengubahnya.",
-    "These values are choices for your team. Values marked proposed come from the proposed defaults; replace them with your own. They are saved in the run config.": "Nilai-nilai ini adalah pilihan tim Anda. Nilai bertanda usulan berasal dari nilai usulan; ganti dengan nilai Anda sendiri. Nilai disimpan di konfigurasi run.",
+    "Stage 11, alternative plan": "Tahap 11, rencana alternatif",
+    "The plan assumes every proposed sekat is built (after the balance, when it is on). Stage 11, if used, is an alternative plan and does not change it.": "Rencana mengasumsikan semua sekat usulan dibangun (setelah penyeimbangan, bila aktif). Tahap 11, bila dipakai, adalah rencana alternatif dan tidak mengubahnya.",
+    "Values marked proposed are proposed defaults; replace them where you have your own. They are saved in the run config.": "Nilai bertanda usulan adalah nilai usulan; ganti bila Anda memiliki nilai sendiri. Nilai disimpan di konfigurasi proses.",
     "What each value of the canal class column means. The guess is filled in; change it if it is wrong.": "Arti setiap nilai pada kolom kelas kanal. Tebakan sudah diisi; ubah bila salah.",
     "Primary": "Primer",
     "Secondary": "Sekunder",
@@ -588,7 +586,7 @@ ID: dict[str, str] = {
     "Stage {n} was cancelled. Run it again when you are ready.": "Tahap {n} dibatalkan. Jalankan lagi saat Anda siap.",
     "Stage {n} failed. See the message on the card.": "Tahap {n} gagal. Lihat pesan pada kartu.",
     "Stage {n} is ready for your review.": "Tahap {n} siap Anda tinjau.", "Stage {n} finished.": "Tahap {n} selesai.",
-    # ---------------------------------------------------------------- stage 12: optional block optimisation
+    # ---------------------------------------------------------------- stage 11: optional block optimisation
     "Block optimisation": "Optimasi penempatan sekat",
     "Optional. Compares which of the proposed sekat to build first when you can only build some of them.":
         "Opsional. Membandingkan sekat usulan mana yang sebaiknya dibangun lebih dulu jika hanya sebagian yang dapat dibangun.",
@@ -606,13 +604,13 @@ ID: dict[str, str] = {
     "How layouts are scored": "Cara menilai tata letak",
     "canal_rise is quick and needs few inputs. pde uses a groundwater model and needs the physical inputs below. screen_then_pde searches with canal rise and re-scores the winners with the groundwater model.":
         "canal_rise cepat dan butuh sedikit masukan. pde memakai model air tanah dan butuh masukan fisik di bawah. screen_then_pde mencari dengan kenaikan muka air kanal lalu menilai ulang pemenangnya dengan model air tanah.",
-    "Number of new blocks": "Jumlah sekat baru", "blocks": "sekat", "How many of the proposed sekat you can build.": "Berapa banyak sekat usulan yang dapat Anda bangun.",
+    "Number of new blocks": "Jumlah sekat baru", "blocks": "sekat", "How many of the proposed sekat the budget allows, for example 10. The budget estimate of the last stage gives the cost per sekat.": "Berapa banyak sekat usulan yang dimungkinkan anggaran, misalnya 10. Perkiraan anggaran pada tahap terakhir memberi biaya per sekat.",
     "Search budget per algorithm": "Anggaran pencarian per algoritma", "layouts": "tata letak",
-    "How many different layouts each algorithm may score. More is better but slower.": "Berapa tata letak berbeda yang boleh dinilai tiap algoritma. Lebih banyak lebih baik tetapi lebih lambat.",
-    "Canal water level below the land": "Muka air kanal di bawah lahan", "Dry-season level of the canal water below the surrounding land.": "Tinggi muka air kanal di musim kemarau di bawah lahan sekitarnya.",
-    "Groundwater grid cell size": "Ukuran sel grid air tanah", "Cell size of the groundwater model. Smaller is more detailed and slower.": "Ukuran sel model air tanah. Lebih kecil lebih rinci tetapi lebih lambat.",
-    "Length of the dry spell": "Lama masa kering", "Days of drying simulated from a saturated start.": "Jumlah hari pengeringan yang disimulasikan dari kondisi jenuh.",
-    "Net water loss without rain": "Kehilangan air bersih tanpa hujan", "mm/day": "mm/hari", "Evapotranspiration the peat loses each dry day.": "Evapotranspirasi yang hilang dari gambut setiap hari kering.",
+    "How many layouts each algorithm may score, for example 500. More is slower and rarely better.": "Berapa banyak tata letak yang boleh dinilai tiap algoritma, misalnya 500. Lebih banyak lebih lambat dan jarang lebih baik.",
+    "Canal water level below the land": "Muka air kanal di bawah lahan", "Dry-season level of the canal water below the surrounding land, for example 1.0 m (the same as for the sekat balance).": "Muka air kanal musim kemarau di bawah lahan sekitarnya, misalnya 1,0 m (sama dengan untuk keseimbangan sekat).",
+    "Groundwater grid cell size": "Ukuran sel grid air tanah", "Cell size of the groundwater model, for example 100 m. Smaller is more detailed and slower.": "Ukuran sel model air tanah, misalnya 100 m. Lebih kecil lebih rinci dan lebih lambat.",
+    "Length of the dry spell": "Lama masa kering", "Days of drying simulated from a wet start, for example 30.": "Jumlah hari pengeringan yang disimulasikan dari kondisi basah, misalnya 30.",
+    "Net water loss without rain": "Kehilangan air bersih tanpa hujan", "mm/day": "mm/hari", "Evapotranspiration the peat loses on a dry day, for example 3.7 mm. Filled from the KHG's neraca air data when the run is set up from a KHG folder.": "Evapotranspirasi yang hilang dari gambut pada hari kering, misalnya 3,7 mm. Diisi dari data neraca air KHG bila run disiapkan dari folder KHG.",
     "Peat transmissivity multiplier": "Pengali transmisivitas gambut",
     "Estimate the budget": "Perkirakan anggaran",
     "Prices the quantities of the run: sekat, canal closure, revegetation, wells and pumps.": "Memberi harga pada kuantitas run: sekat, penutupan kanal, revegetasi, sumur dan pompa.",
@@ -656,8 +654,7 @@ ID: dict[str, str] = {
     "Source": "Sumber",
     "Open Sentinel-2 (no login)": "Sentinel-2 terbuka (tanpa login)",
     "Google Earth Engine (exact CPWI v2)": "Google Earth Engine (CPWI v2 persis)",
-    "Needs a free Earth Engine account and the earthengine-api package in the engine environment. Gives exactly the CPWI of the team's Earth Engine script, with radar.":
-        "Perlu akun Earth Engine gratis dan paket earthengine-api di lingkungan mesin. Menghasilkan CPWI yang persis sama dengan skrip Earth Engine tim, dengan radar.",
+    "Needs a free Earth Engine account and the earthengine-api package in the engine environment. Gives exactly the CPWI of the RE-PEAT Earth Engine script, with radar.": "Perlu akun Earth Engine gratis dan paket earthengine-api di lingkungan mesin. Menghasilkan CPWI yang persis sama dengan skrip Earth Engine RE-PEAT, dengan radar.",
     "Sentinel-2 only: no radar and a different cloud mask than the Earth Engine script, so values differ from CPWI. The result is labelled as an approximation.":
         "Hanya Sentinel-2: tanpa radar dan dengan masker awan yang berbeda dari skrip Earth Engine, sehingga nilainya berbeda dari CPWI. Hasilnya diberi label sebagai pendekatan.",
     "Earth Engine project id": "ID proyek Earth Engine",
@@ -871,8 +868,27 @@ ID: dict[str, str] = {
     'The water sources are no longer on the map. Run stage 9 again.': 'Sumber air tidak lagi ada di peta. Jalankan tahap 9 lagi.',
     'Water source added. Click another, or save your edits.': 'Sumber air ditambahkan. Klik lagi, atau simpan suntingan Anda.',
     'Water source excluded. Click another, or save your edits.': 'Sumber air dikecualikan. Klik lagi, atau simpan suntingan Anda.',
-    # --- demo view
-    'Demo view': 'Tampilan demo',
-    "Show every stage's decisions and map tools at once, even before they can run. Nothing is run or changed.": 'Tampilkan keputusan dan alat peta setiap tahap sekaligus, bahkan sebelum dapat dijalankan. Tidak ada yang dijalankan atau diubah.',
-    'This is what the stage offers. Nothing here runs yet: the decisions and the map tools switch on once the stage before it has run and this stage has results.': 'Inilah yang ditawarkan tahap ini. Belum ada yang berjalan: keputusan dan alat peta aktif setelah tahap sebelumnya dijalankan dan tahap ini punya hasil.',
+    "Sub-KHG with an intervention": "Sub-KHG dengan intervensi",
+    "Water held by the sekat": "Air yang ditahan sekat",
+    "% of the deficit of the analysed sub-KHG": "% dari defisit sub-KHG yang dianalisis",
+    "billion rupiah, central": "miliar rupiah, nilai tengah",
+    "Water and budget": "Air dan anggaran",
+    "million m³": "juta m³",
+    "Deficit of the analysed sub-KHG": "Defisit sub-KHG yang dianalisis",
+    "Share of the deficit held": "Bagian defisit yang ditahan",
+    "billion Rp": "miliar Rp",
+    "Low to high": "Rendah sampai tinggi",
+    "Not priced": "Belum ada harga",
+    "Canal closure or backfill": "Penutupan atau penimbunan kanal",
+    "Sekat, wooden": "Sekat kayu",
+    "Sekat, concrete": "Sekat beton",
+    "Sekat, KLH IPG estimate": "Sekat, perkiraan IPG KLH",
+    "Revegetation": "Revegetasi",
+    "Deep wells (sumur bor)": "Sumur bor",
+    "Pump units": "Unit pompa",
+    "Pump fuel": "Bahan bakar pompa",
+    "Budget estimate": "Perkiraan anggaran",
+    # --- window
+    'Dock': 'Tambatkan',
+    'Put the wizard back at the side of the QGIS window.': 'Kembalikan wizard ke sisi jendela QGIS.',
 }

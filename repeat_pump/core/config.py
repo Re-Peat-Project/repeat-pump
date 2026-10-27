@@ -245,7 +245,7 @@ class SaCfg(_M):
 
 
 class OptimiseCfg(_M):
-    """Optional Stage 12: canal blocking optimisation after Urzainki et al. (2020). Every physical input is a human decision."""
+    """Optional Stage 11: canal blocking optimisation after Urzainki et al. (2020). Every physical input is a human decision."""
     enabled: bool = False
     objective: Literal["canal_rise", "pde", "screen_then_pde"] = "canal_rise"
     algorithms: list[Literal["ga", "sa", "greedy"]] = ["ga", "sa"]
@@ -255,10 +255,11 @@ class OptimiseCfg(_M):
     grid_m: Optional[float] = None                    # TODO(human): grid cell size of the groundwater model (pde objectives)
     dry_days: Optional[int] = None                    # TODO(human): length of the drying spell (pde objectives)
     et_mm_day: Optional[float] = None                 # TODO(human): net evapotranspiration loss without rain, mm/day (pde objectives)
-    peat_table: Literal["urzainki2020", "tropical-small", "tropical-large"] = "urzainki2020"   # peat Sy(z), T(z) of the pde objectives
+    peat_table: Literal["urzainki2020", "tropical-small", "tropical-large"] = "tropical-small"   # peat Sy(z), T(z) of the pde objectives
+                                                       # (tropical sets of Urzainki et al. 2023; urzainki2020 is the boreal table)
     transmissivity_multiplier: Optional[float] = None  # TODO(human): scales the boreal urzainki2020 transmissivity only; the tropical
                                                        # sets carry their own scale (t1) and ignore it
-    bracket_tables: list[Literal["urzainki2020", "tropical-small", "tropical-large"]] = []   # re-score the chosen layouts with these too
+    bracket_tables: list[Literal["urzainki2020", "tropical-small", "tropical-large"]] = ["tropical-large"]   # re-score the chosen layouts with these too
     seed: int = 0
     random_baseline_draws: int = 10
     ga: GaCfg = Field(default_factory=GaCfg)

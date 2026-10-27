@@ -71,7 +71,7 @@ def set_python(path: str) -> None:
 def check_environment(python: str) -> tuple[bool, str]:
     """True if ``python -m repeat_pump.cli --version`` works there."""
     if not python or not os.path.exists(python):
-        return False, "No engine environment yet. Run RE-PEAT Pompanisasi > Set up engine environment (or choose a Python with Plugins > RE-PEAT Pompanisasi > Set Python environment)."
+        return False, "No engine environment yet. Run RE-PEAT Interventions > Set up engine environment (or choose a Python with Plugins > RE-PEAT Interventions > Set Python environment)."
     try:
         r = subprocess.run([python, "-m", "repeat_pump.cli", "--version"], capture_output=True, text=True, timeout=60,
                            creationflags=CREATE_NO_WINDOW, env=clean_env(), cwd=tempfile.gettempdir())

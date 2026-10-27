@@ -194,7 +194,7 @@ class CloudLoadDialog(EngineDialog):
         self.ee_project.setVisible(ee)
         self.ee_signin.setVisible(ee)
         self.cloud.setEnabled(not ee)
-        self.source_note.setText(tr("Needs a free Earth Engine account and the earthengine-api package in the engine environment. Gives exactly the CPWI of the team's Earth Engine script, with radar.") if ee else
+        self.source_note.setText(tr("Needs a free Earth Engine account and the earthengine-api package in the engine environment. Gives exactly the CPWI of the RE-PEAT Earth Engine script, with radar.") if ee else
                                  tr("Sentinel-2 only: no radar and a different cloud mask than the Earth Engine script, so values differ from CPWI. The result is labelled as an approximation."))
 
     def _busy(self, on: bool) -> None:
