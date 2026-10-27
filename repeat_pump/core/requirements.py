@@ -145,6 +145,37 @@ def canal_edits_digest(cfg: Config) -> Optional[str]:
     return _edits_digest(cfg, cfg.inputs.canal_edits)
 
 
+def inputs_digest(cfg: Config) -> Optional[str]:
+    """Size and modification time of every input file (with its sidecars: .dbf/.shx/.prj of a shapefile, -wal of a GeoPackage).
+
+    Stage 1 copies the inputs into the run GeoPackage and every later stage reads that copy, so a file changed in place (same
+    path, e.g. a layer edited and saved in QGIS) must make stage 1 out of date. File statistics rather than a content hash: a
+    LiDAR DTM can be several GB and ``check`` runs often. The canal edits have their own content hash (``canal_edits_digest``).
+    """
+    import hashlib
+    from pathlib import Path
+
+    from .config import resolve
+    parts = []
+    for role, sec in cfg.inputs:
+        if sec is None or role == "canal_edits":
+            continue
+        for p in getattr(sec, "paths", None) or [sec.path]:
+            f = resolve(cfg, p)
+            files = sorted(q for q in f.parent.glob(f"{f.stem}.*") if q.suffix.lower() in _SIDECARS) if f.suffix.lower() == ".shp" else [f]
+            files += [Path(str(f) + "-wal")] if f.suffix.lower() == ".gpkg" else []
+            for q in files:
+                try:
+                    st = q.stat()
+                    parts.append(f"{role}|{q.name}|{st.st_size}|{st.st_mtime_ns}")
+                except OSError:
+                    parts.append(f"{role}|{q.name}|missing")
+    return hashlib.sha256("\n".join(parts).encode()).hexdigest() if parts else None
+
+
+_SIDECARS = {".shp", ".shx", ".dbf", ".prj", ".cpg"}
+
+
 def route_edits_digest(cfg: Config) -> Optional[str]:
     """The same for the manual water sources and targets (``pumping.route_edits``), carried by stage 8's fingerprint."""
     return _edits_digest(cfg, cfg.pumping.route_edits)
@@ -202,6 +233,7 @@ def fingerprint(cfg: Config, stage: int) -> dict:
         out[key] = v.model_dump(mode="json") if hasattr(v, "model_dump") else v
     if stage == 1:
         out["canal_edits_digest"] = canal_edits_digest(cfg)
+        out["inputs_digest"] = inputs_digest(cfg)
     if stage == 7:
         out["sekat_edits_digest"] = sekat_edits_digest(cfg)
     if stage == 8:
