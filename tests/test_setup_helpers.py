@@ -25,7 +25,7 @@ def test_a_khg_folder_fills_the_inputs_lidar_first_and_reports_what_is_missing(t
     root, data, hub = tmp_path / "_khg", tmp_path / "_data", tmp_path / "re-peat"
     k = root / "16.02.01_sugihan_lumpur"
     for f in ("00_inputs/canals.gpkg", "00_inputs/rivers.gpkg", "00_inputs/blocks.gpkg", "01_dem/inputs/demnas.tif",
-              "01_dem/inputs/lidar_oki25.tif", "02_delineation/subkhg_units.gpkg", "04_prioritisation/national_layers/subkhg_priority.csv",
+              "01_dem/inputs/lidar_oki25.tif", "02_delineation/subkhg_units.gpkg", "04_prioritisation/national_layers/subkhg_priority.csv", "04_prioritisation/national_layers/unit_prioritas.gpkg",
               "cache/16.02.01/annual/ndmi_2019.tif", "cache/16.02.01/annual/ndmi_2023.tif", "cache/16.02.01/annual/ndmi_2024_60m.tif"):
         _touch(k / f)
     _touch(data / khgsetup.BURN_FILE)
@@ -99,3 +99,28 @@ def test_run_plans_run_on_to_the_next_review():
     assert vm.WizardModel.plan("run_on", 3) == vm.RunPlan(None, vm.LAST_STAGE)
     assert vm.WizardModel.plan("accept_on", 6) == vm.RunPlan(None, vm.LAST_STAGE, (6,))
     assert vm.WizardModel.plan("run", 3) == vm.RunPlan(None, 3)
+
+
+def test_interventions_follow_the_flags_in_order():
+    from types import SimpleNamespace
+
+    import pandas as pd
+
+    from repeat_pump.core.interventions import CLASSES, classify
+    from repeat_pump_qgis.intervention_labels import LABELS
+    assert LABELS == CLASSES
+    ic = SimpleNamespace(protected_share=0.5, reach_min=0.4, ndmi_dry=0.3, burned_min=0.25, water_max_dist_m=5000, held_target=0.5,
+                         deficit_min_mm=50)
+    df = pd.DataFrame({
+        "i_protected":      [0.8, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
+        "u_ndmi":           [0.4, 0.2, 0.4, 0.2, 0.4, 0.4, 0.4],
+        "burned_ever_frac": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        "f_reach":          [0.9, 0.2, 0.9, 0.9, 0.9, 0.2, 0.9],
+        "f_water_dist":     [9e3, 9e3, 2e3, 9e3, 9e3, 9e3, 9e3],
+        "held_share":       [None, None, 0.1, 0.1, 0.9, None, None],
+        "deficit_mm":       [290, 290, 290, 290, 290, 290, 10],
+    })
+    out = classify(df, ic)
+    assert list(out["intervention"]) == ["close_canals", "revegetate_fire", "block_water", "block_wells", "block", "maintain", "block"]
+    assert "protected peat" in out["reasons"].iloc[0] and "canals reach little land" in out["reasons"].iloc[1]
+    assert out["intervention_otherwise"].iloc[0] == "block" and out["intervention_otherwise"].iloc[1] == ""

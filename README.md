@@ -43,6 +43,10 @@ Inputs (all in the same projected CRS in metres, or set `run.auto_reproject: tru
 
 **From a RE-PEAT KHG folder:** `python scripts/khg_run_config.py ../_khg/<code>_<name> [...]` (or `--all ../_khg`) writes `05_pump/run_config.yaml` for each KHG from its work folder, as the wizard's KHG picker does: LiDAR DTM first, the latest NDMI, the BRGM peat raster named in `re-peat/sites/<folder>/subkhg.yaml`, guessed columns and canal classes, and the proposed defaults.
 
+**Interventions per sub-KHG (stage 11):** with `inputs.subkhg_indicators` (the sub-KHG prioritisation's `unit_prioritas.gpkg`) every sub-KHG gets a treatment class and the reasons for it: close or backfill canals (protected peat), revegetation and fire readiness (canals reach little of a dry or burnt unit), sekat and water supply, sekat and deep wells, sekat, or maintain. For the selected sub-KHGs it also reports the water the kept sekat hold against the neraca deficit. Thresholds are in `interventions:` (policy values; proposed in the preset). Layer `interventions`, table `interventions.csv`. Method: `repeat_pump/core/interventions.py`; evidence: `docs/reports/sekat_neraca_investigation.md`.
+
+**Tertiary canals:** off by default (`topology.canal_classes: [primer, sekunder]`, as in the KLH guide). Add `tersier` to include them; the wizard has a tick box and `scripts/khg_run_config.py` a `--tertiary` flag.
+
 **Sekat only:** `pumping.enabled: false` skips stages 8-10 (network, routing, pumps) and asks none of their parameters. Use it when no river in the analysis extent can serve as a water source (stage 9 needs a river with `perennial` or `dry_season_wl_m`). A worked example: `re-peat/sites/16.02.01_sugihan_lumpur/pump.yaml`.
 
 ## 3. Run from the command line

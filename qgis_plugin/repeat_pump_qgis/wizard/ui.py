@@ -411,7 +411,8 @@ class WizardPanel(QWidget):
                 ("rivers", "River polygons or lines, the water sources (optional)", "vector", True),
                 ("burn_area", "Burn-scar polygons (optional)", "polygon", True), ("peat_depth", "Peat depth, class polygons or a depth raster (optional)", "polygon_raster", True),
                 ("concession", "Concession polygons (optional, a feasibility filter)", "polygon", True),
-                ("tma_obs", "Water-level observations (optional, for validation)", "point", True)]
+                ("tma_obs", "Water-level observations (optional, for validation)", "point", True),
+                ("subkhg_indicators", "Sub-KHG indicators from the prioritisation (optional, for the interventions)", "polygon", True)]
         for key, text, kind, optional in spec:
             form.addWidget(label(text, "paramLabel"))
             cb = QgsMapLayerComboBox()

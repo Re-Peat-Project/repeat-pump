@@ -93,6 +93,9 @@ def needs_by_stage(cfg: Config) -> dict[int, list[str]]:
         if "design_period_days" not in cols:
             p.append("design_period_days")
         need[10] += [f"pumping.{k}" for k in p]
+    if cfg.inputs.subkhg_indicators is not None and cfg.interventions.enabled:
+        from .interventions import NEEDED
+        need[11] = ["interventions.enabled"] + [f"interventions.{k}" for k in NEEDED]
     oc = cfg.optimise
     need[12] = ["optimise.enabled"]
     if oc.enabled:
@@ -128,7 +131,7 @@ OPTIONS_BY_STAGE: dict[int, list[str]] = {
 FINGERPRINT_KEYS: dict[int, list[str]] = {
     1: ["run", "inputs"], 2: ["topology"], 3: ["hydro"], 4: ["segments"], 5: ["profiles"], 6: ["prioritise"], 7: ["sekat"], 8: ["pumping.enabled", "pumping.route_edits"],
     9: ["pumping.uphill_penalty_lambda", "pumping.routing", "pumping.allow_gate_addition", "pumping.sekat_scope"],
-    10: ["pumping", "sekat.dA_m"], 11: [], 12: ["optimise", "sekat.dA_m"],
+    10: ["pumping", "sekat.dA_m"], 11: ["interventions"], 12: ["optimise", "sekat.dA_m"],
 }
 SECTIONS = FINGERPRINT_KEYS          # kept for older imports
 

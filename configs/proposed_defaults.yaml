@@ -13,7 +13,8 @@ run:
 
 topology:
   snap_tolerance_m: 1.0           # HIGH. Legacy NODE_TOL (segment end matching). Snaps above this need review in qa_topology_dangles
-  canal_classes: [primer, sekunder]   # HIGH. Panduan Teknis GIS step 1.2: analyse primary and secondary canals only
+  canal_classes: [primer, sekunder]   # HIGH. Panduan Teknis GIS step 1.2: analyse primary and secondary canals only. Add tersier to include the
+                                      #   small tertiary canals (about 3 times more water held at Sugihan-Lumpur, 3-4 times more sekat)
   river_buffer_m: 30              # HIGH. Panduan Teknis GIS step 8.2: river mouths are found with a 30 m canal buffer
   source_snap_m: 50               # HIGH. Legacy SNAP_MUARA: a river point must lie within 50 m of the kept canal network
 
@@ -25,8 +26,9 @@ sekat:
   min_spacing_m: 100              # LOW. The legacy script used 500 m as the MINIMUM, which would override the head rule on
                                   #   any slope steeper than dA/500 = 0.08 %. 100 m keeps proposals from clustering. Team decision.
   snap_tolerance_m: 30            # MED. Same 30 m the KLH workflow uses to match river points to canals (Panduan Teknis GIS, 7.2)
-  target_rise_share: 0.9          # POLICY. Keep the fewest head-rule sekat that give 90 % of the canal rewetting of all of them; the rest go to
-                                  #   sekat_low_benefit. Sugihan-Lumpur: 52-55 of 125 sekat gave 90 %, about 30 added under 1 % of the best one each
+  target_rise_share: 0.9          # POLICY, chosen from data (docs/reports/sekat_neraca_investigation.md). Past 90 % the water each extra sekat
+                                  #   holds drops 2.4-5 times (Sugihan-Lumpur P+S 35,766 -> 14,902 m3, Kampar-Gaung 100,007 -> 22,980 m3);
+                                  #   below it an extra sekat still holds about as much as an average one. The kept layout meets 200 m spacing
   balance_drawdown_m: 1.0         # LOW. Dry-season canal level below the land, only used to rank the sekat. The ranking barely moved
                                   #   between 0.8 and 1.2 m at Sugihan-Lumpur (scripts/sekat_spacing_check.py). Replace with canal level data
 
@@ -57,6 +59,18 @@ pumping:
 
 # Stage 12 (optimise) is deliberately not proposed. transmissivity_multiplier changes results about 100-fold and has no
 # defensible default; the other optimise.* values are meaningless without it. See docs/proposed_defaults.md.
+
+interventions:                    # treatment per sub-KHG in stage 11 (needs inputs.subkhg_indicators); docs/reports/sekat_neraca_investigation.md
+  protected_share: 0.5            # POLICY. Most of the unit has the FEG protected function: drainage there is closed entirely (re-peat/docs strategy)
+  reach_min: 0.4                  # POLICY. Under 40 % of the unit within reach of a canal (f_reach): blocks cannot rewet most of it
+  ndmi_dry: 0.30                  # LOW. Aug-Oct NDMI below 0.30 counts as dry (Sugihan-Lumpur units 0.07-0.43, Kampar-Gaung 0.28-0.47)
+  burned_min: 0.25                # POLICY. A quarter of the unit burnt at least once since 2015
+  water_max_dist_m: 5000          # LOW. Mean distance of the unit to permanent water (JRC) or a river; the hub's 2 km is from the canal
+                                  #   network to a source, and a unit's mean distance is larger (unit minimum 1.2-2.1 km at both test KHG)
+  held_target: 0.5                # POLICY. Sekat that hold under half of the deficit fall short (they held under 8 % at Sugihan-Lumpur)
+  deficit_min_mm: 50              # POLICY. Where sekat were not analysed: a KHG deficit of at least 50 mm means blocks fall short
+  specific_yield: 0.15            # MED. The neraca air value (band 0.10-0.20)
+  lateral_reach_m: 600            # MED. Block effects reach about 600 m [Urzainki2023]
 
 suggested_facts:                  # used only where the run config leaves the value empty; check against the data delivery
   dtm_rmse_by_source:             # inputs.dtm.vertical_rmse_m by inputs.dtm.source

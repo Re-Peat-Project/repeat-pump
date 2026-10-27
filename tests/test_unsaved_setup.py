@@ -65,3 +65,16 @@ def test_a_saved_setup_loads_back_with_the_same_layers_and_settings(tmp_path):
         assert refs["canals"] == [(str(tmp_path / "canals.gpkg"), None)]
         assert back["inputs"]["canals"]["columns"] == {"canal_class": "kelas"}
         assert Path(back["run"]["output_gpkg"]).is_absolute()
+
+
+def test_an_unedited_old_preset_copy_is_refreshed_and_an_edited_one_kept(tmp_path):
+    bundled = tmp_path / "bundled.yaml"
+    bundled.write_text("sekat: {max_spacing_m: 500, target_rise_share: 0.9}\n", encoding="utf8")
+    run = tmp_path / "run"
+    run.mkdir()
+    (run / rc.PRESET_FILE).write_text("sekat: {max_spacing_m: 500}\n", encoding="utf8")          # an older, unedited copy
+    rc.attach_preset({}, run, bundled)
+    assert "target_rise_share" in (run / rc.PRESET_FILE).read_text(encoding="utf8")
+    (run / rc.PRESET_FILE).write_text("sekat: {max_spacing_m: 300}\n", encoding="utf8")           # the team changed a value
+    rc.attach_preset({}, run, bundled)
+    assert (run / rc.PRESET_FILE).read_text(encoding="utf8") == "sekat: {max_spacing_m: 300}\n"

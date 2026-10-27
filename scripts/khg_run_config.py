@@ -29,16 +29,17 @@ def fields(path: str, layer=None) -> list[str]:
     return list(pyogrio.read_info(path, layer=layer)["fields"])
 
 
-def run_config(folder: Path) -> tuple[dict, list[str]]:
+def run_config(folder: Path, tertiary: bool = False) -> tuple[dict, list[str]]:
     setup, missing = khgsetup.setup_from_khg(folder)
     inp = setup["inputs"]
     if {"dtm", "moisture", "subkhg", "canals"} - set(inp):
         raise SystemExit(f"{folder.name}: required inputs not found: {', '.join(sorted({'dtm', 'moisture', 'subkhg', 'canals'} - set(inp)))}")
-    vectors = {k: (v["path"], None) for k, v in inp.items() if k in ("subkhg", "canals", "sekat_existing", "rivers", "burn_area")}
+    vectors = {k: (v["path"], None) for k, v in inp.items() if k in ("subkhg", "canals", "sekat_existing", "rivers", "burn_area", "subkhg_indicators")}
     if "peat_depth" in inp:
         vectors["peat_depth"] = (inp["peat_depth"]["path"], None)
     columns, params = {}, {"inputs.dtm.source": inp["dtm"]["source"], "run.name": setup["run"]["name"], "run.auto_reproject": True,
-                           "inputs.moisture.higher_is_wetter": True, "run.subkhg_selection.mode": "top_n", "run.subkhg_selection.n": 3}
+                           "inputs.moisture.higher_is_wetter": True, "run.subkhg_selection.mode": "top_n", "run.subkhg_selection.n": 3,
+                           "topology.canal_classes": ["primer", "sekunder", "tersier"] if tertiary else ["primer", "sekunder"]}
     if inp.get("peat_depth", {}).get("units"):
         params["inputs.peat_depth.units"] = inp["peat_depth"]["units"]
     for role, (path, _l) in vectors.items():
@@ -74,6 +75,7 @@ def main():
     ap.add_argument("folders", nargs="*")
     ap.add_argument("--all", metavar="KHG_ROOT")
     ap.add_argument("--overwrite", action="store_true")
+    ap.add_argument("--tertiary", action="store_true", help="include tertiary canals (off by default, as in the KLH guide)")
     a = ap.parse_args()
     folders = [Path(f) for f in a.folders] + (khgsetup.khg_folders(a.all) if a.all else [])
     for f in folders:
@@ -82,7 +84,7 @@ def main():
             print(f"{f.name}: kept the existing {out}")
             continue
         try:
-            data, missing = run_config(f.resolve())
+            data, missing = run_config(f.resolve(), a.tertiary)
         except SystemExit as e:
             print(e)
             continue

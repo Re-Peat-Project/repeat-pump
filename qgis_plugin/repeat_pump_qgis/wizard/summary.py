@@ -75,13 +75,18 @@ def summarise(report: dict) -> Summary:
                       (tr("Total flow"), f"{_n(sum(p.get('q_m3s', 0) for p in pumps) * 1000, 1)} L/s")]
     if "10" in c:
         pump.rows.append((tr("Gates to add or check"), _n(c["10"].get("gates_required"))))
+    iv = report.get("interventions") or {}
+    inter = Section(tr("Interventions per sub-KHG"))
+    if iv:
+        from ..intervention_labels import LABELS
+        inter.rows += [(tr(LABELS[k]), _n(n)) for k, n in iv.get("counts", {}).items() if n]
     opt = report.get("optimisation") or {}
     alt = Section(tr("Stage 12, alternative plan"))
     if opt:
         alt.rows += [(tr("Sekat chosen"), f"{_n(opt.get('blocks'))} / {_n(opt.get('candidates'))}"), (tr("Best method"), str(opt.get("best_method", "-")))]
         if opt.get("gain_vs_random"):
             alt.rows.append((tr("Better than random choice"), f"{_n(opt['gain_vs_random'], 2)} x"))
-    out.sections = [s for s in (seg, sek, route, pump, alt) if s.rows]
+    out.sections = [s for s in (seg, sek, route, pump, inter, alt) if s.rows]
     if pumps:
         out.pump_table = [[tr("Station"), tr("Flow (L/s)"), tr("Head (m)"), tr("Power (kW)"), tr("Units")]] + [
             [str(p.get("station_id", "")), _n(p.get("q_m3s", 0) * 1000, 1), _n(p.get("h_m"), 2), _n(p.get("p_kw"), 2), _n(p.get("units_needed"))]

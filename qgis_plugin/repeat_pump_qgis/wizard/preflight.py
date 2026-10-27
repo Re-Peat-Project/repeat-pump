@@ -91,6 +91,7 @@ COLUMNS: dict[str, dict[str, tuple[bool, tuple[str, ...]]]] = {
     "rivers": {"dry_season_wl_m": (False, ()), "perennial": (False, ())},
     "burn_area": {"burn_freq": (True, ("burn_frequency",))},
     "peat_depth": {"peat_thick": (True, ("peat_depth", "peat_class"))},
+    "subkhg_indicators": {"subkhg_id": (True, ("unit_id",))},
 }
 STRICT_ROLES = {"subkhg", "canals"}      # reported even when QGIS lists no fields at all; the others are only checked when fields are known
 

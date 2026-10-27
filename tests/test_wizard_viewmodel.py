@@ -243,7 +243,7 @@ def test_layers_after_a_stage_exclude_names_an_earlier_stage_also_makes():
     assert "sekat_proposed" in after2 and "pump_routes" in after2 and "canal_segments" in after2
     after6 = vm.layers_after(6)
     assert "canal_segments" not in after6 and "sekat_proposed" in after6 and "canals_clean" not in after6
-    assert vm.layers_after(10) == ["sekat_optimised", "qa_optimisation"] and vm.layers_after(12) == []
+    assert vm.layers_after(10) == ["interventions", "sekat_optimised", "qa_optimisation"] and vm.layers_after(12) == []
 
 
 # ---------------------------------------------------------------- shared config builder

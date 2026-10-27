@@ -114,6 +114,9 @@ class SetupExtras(QWidget):
         lay.addWidget(self.classes_note)
         lay.addLayout(self.classes_box)
         self._class_choice: dict[str, str] = {}
+        self.tertiary = QCheckBox()
+        self.tertiary.setChecked(False)
+        lay.addWidget(self.tertiary)
         self._classes_for: tuple = ()
 
         # water source for pumps
@@ -154,6 +157,7 @@ class SetupExtras(QWidget):
         self.mode.blockSignals(False)
         self.reproject.setText(tr("Reproject layers that use another coordinate system"))
         self.pumps.setText(tr("Plan pumps (needs a river that can supply water)"))
+        self.tertiary.setText(tr("Include tertiary canals (small; off in the KLH guide)"))
         self.datum.setPlaceholderText(tr("Vertical datum, for example EGM2008"))
         self.use_selected.setText(tr("Use the features selected on the map"))
         self.add_moisture.setText(tr("Add another moisture raster (a neighbouring tile)"))
@@ -395,6 +399,9 @@ class SetupExtras(QWidget):
         for v, c in ((data.get("topology") or {}).get("canal_class_map") or {}).items():
             self._class_choice[str(v)] = c
         self._classes_for = ()
+        classes = (data.get("topology") or {}).get("canal_classes")
+        if classes:
+            self.tertiary.setChecked("tersier" in [str(c).lower() for c in classes])
         if (data.get("pumping") or {}).get("enabled") is not None:
             self.pumps.setChecked(bool(data["pumping"]["enabled"]))
             self._pumps_touched = True
@@ -437,6 +444,7 @@ class SetupExtras(QWidget):
         a = self.assessment
         p: dict = dict(self._loaded)
         p["pumping.enabled"] = bool(self.pumps.isChecked())
+        p["topology.canal_classes"] = ["primer", "sekunder", "tersier"] if self.tertiary.isChecked() else ["primer", "sekunder"]
         cmap = self.class_map()
         if cmap:
             p["topology.canal_class_map"] = cmap

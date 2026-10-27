@@ -63,6 +63,8 @@ def run(ctx) -> None:
         "preset": cfg.preset,
         "tma_validation": _tma_validation(ctx),
     }
+    from . import interventions
+    summary["interventions"] = interventions.run(ctx)
     canals = ctx.read_layer("canals_clean")
     ipg = []
     if "n_req" in canals:
@@ -84,6 +86,16 @@ def run(ctx) -> None:
     L += ["## Routing", "", json.dumps(summary["routing"], indent=2, default=str), ""]
     L += ["## Pump stations", "", "| station | node | Q m3/s | H m | P kW | units |", "|---|---|---|---|---|---|"]
     L += [f"| {p['station_id']} | {p['node_id']} | {p['q_m3s']:.4f} | {p['h_m']:.2f} | {p['p_kw']:.2f} | {p['units_needed']} |" for p in summary["pumps"]] + [""]
+    iv = summary.get("interventions")
+    if iv:
+        L += ["## Interventions per sub-KHG", "", f"{iv['units']} sub-KHG; thresholds: {iv['thresholds']}. Layer `interventions`, table interventions.csv.", "",
+              "| class | sub-KHG |", "|---|---|"] + [f"| {interventions.CLASSES[k]} | {n} |" for k, n in iv["counts"].items()] + [""]
+        if iv.get("closed_otherwise"):
+            L += ["Without the protected-peat rule, the units with canal closure would need: "
+                  + ", ".join(f"{interventions.CLASSES[k]} {n}" for k, n in iv["closed_otherwise"].items()), ""]
+        if iv["held_share_selected"]:
+            L += ["Share of the deficit the kept sekat hold, selected sub-KHG: "
+                  + ", ".join(f"{u} {100 * s:.1f} %" for u, s in iv["held_share_selected"].items()), ""]
     L += ["## Observed vs modelled levels (validation only)", "", json.dumps(summary["tma_validation"], indent=2, default=str), ""]
     if cfg.preset["keys"]:
         L += ["## Values from the proposed-defaults preset (not team decisions)", "", f"Preset: {cfg.preset['path']}", ""]

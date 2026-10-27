@@ -103,6 +103,15 @@ def style_layer(layer: QgsVectorLayer) -> None:
                         '"snapped"', "Existing sekat"),
                        (_symbol("point", {"name": "cross2", "color": "#C0392B", "outline_color": "#C0392B", "outline_width": "0.5", "size": "2.6"}),
                         "ELSE", "Existing sekat, not on an analysed canal")])
+    elif name == "interventions" and _has(layer, "intervention"):     # one colour per treatment, translucent over the canals
+        colours = {"close_canals": "#7D4FB5", "revegetate_fire": "#C0392B", "block_water": "#2F6F9F", "block_wells": "#C98A1B",
+                   "block": "#2E9E7B", "maintain": "#B9B4A6"}
+        from qgis.core import QgsCategorizedSymbolRenderer, QgsRendererCategory
+        from .i18n import tr
+        from ..intervention_labels import LABELS
+        cats = [QgsRendererCategory(code, _symbol("polygon", {"color": col + "99", "outline_color": col, "outline_width": "0.4"}), tr(LABELS[code]))
+                for code, col in colours.items()]
+        layer.setRenderer(QgsCategorizedSymbolRenderer("intervention", cats))
     elif name == "sekat_low_benefit":                 # left out by the balance: quiet, under the proposals
         layer.setRenderer(QgsSingleSymbolRenderer(_symbol("point", {"name": "circle", "color": "#C9C3B3", "outline_color": "#8A948F",
                                                                      "outline_width": "0.2", "size": "2.0"})))
@@ -171,7 +180,7 @@ def _group(run_name: str, create: bool = True):
 
 
 # Draw order, bottom to top. Later stages add their layers last, so loading order alone would bury a route under the canals.
-DRAW_ORDER = ["dtm_conditioned", "flow_acc", "canals_clean", "network_edges", "canal_segments", "pump_routes", "canal_profiles", "network_nodes",
+DRAW_ORDER = ["dtm_conditioned", "flow_acc", "interventions", "canals_clean", "network_edges", "canal_segments", "pump_routes", "canal_profiles", "network_nodes",
               "qa_topology_gaps", "sekat_low_benefit", "sekat_existing_assessed", "sekat_proposed", "sekat_scope", "sekat_optimised", "pump_sources", "pump_targets", "gates_required",
               "pump_stations", "qa_topology_dangles", "qa_unreachable_targets"]
 

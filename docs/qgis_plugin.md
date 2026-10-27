@@ -31,7 +31,8 @@ Click the water-drop button in the toolbar, or *Plugins > RE-PEAT Pompanisasi > 
    (`_khg/<code>_<name>/`; set the `_khg` folder once with *KHG folders...*) and lists what it could not find. Or pick the output
    GeoPackage, the priority CSV and each layer yourself (layers must be saved files). Burn scars and peat depth are optional. The
    canal class column is guessed and each of its values is shown with its count and the class it is taken as (change any guess).
-   *Plan pumps* is ticked only when a river layer has a dry-season level or a perennial flag. The starting config is under *Advanced*. *Create run* writes `run_config.yaml` in the output folder. *Open an existing run* resumes one.
+   *Plan pumps* is ticked only when a river layer has a dry-season level or a perennial flag. *Include tertiary canals* is off by
+   default. With the sub-KHG indicator table chosen, stage 11 also proposes an intervention per sub-KHG (layer `interventions`). The starting config is under *Advanced*. *Create run* writes `run_config.yaml` in the output folder. *Open an existing run* resumes one.
    *Save setup as...* writes the form (layers, columns, selection, datum) to a JSON or YAML file; *Load setup...* fills the form from
    such a file or from any run's `run_config.yaml`, adding layers that are not on the map yet. Change the output GeoPackage and
    *Create run* to repeat a run. *Open an existing run* also refills the form.

@@ -53,6 +53,7 @@ CANONICAL_COLUMNS: dict[str, dict[str, bool]] = {
     "rivers": {"dry_season_wl_m": False, "perennial": False},
     "burn_area": {"burn_freq": True},
     "peat_depth": {"peat_thick": True},
+    "subkhg_indicators": {"subkhg_id": True},
 }
 
 
@@ -134,6 +135,7 @@ class InputsCfg(_M):
     moisture: MoistureCfg
     concession: Optional[PathCfg] = None
     tma_obs: Optional[PathCfg] = None
+    subkhg_indicators: Optional[PathCfg] = None   # optional: the sub-KHG prioritisation's unit_prioritas (csv or gpkg); turns on the interventions in stage 11
 
 
 class TopologyCfg(_M):
@@ -263,6 +265,20 @@ class ReviewCfg(_M):
     auto_accept: list[int] = []
 
 
+class InterventionsCfg(_M):
+    """Treatment class per sub-KHG in stage 11 (core/interventions.py). Thresholds are policy values; the preset proposes them."""
+    enabled: bool = True
+    protected_share: Optional[float] = None    # FEG protected function share from which canals are closed or backfilled
+    reach_min: Optional[float] = None          # share of the unit within reach of a canal (f_reach) below which blocks cannot help it
+    ndmi_dry: Optional[float] = None           # NDMI below this is dry
+    burned_min: Optional[float] = None         # share of the unit ever burnt from which it counts as burnt
+    water_max_dist_m: Optional[float] = None   # mean distance to permanent water (f_water_dist) up to which water counts as nearby
+    held_target: Optional[float] = None        # share of the deficit the sekat must hold to count as enough
+    deficit_min_mm: Optional[float] = None     # KHG deficit from which blocks are taken to fall short where they were not analysed
+    specific_yield: Optional[float] = None     # water held = canal rise x specific_yield x lateral_reach_m (neraca: 0.15)
+    lateral_reach_m: Optional[float] = None
+
+
 class Config(_M):
     run: RunCfg
     inputs: InputsCfg
@@ -274,6 +290,7 @@ class Config(_M):
     prioritise: PrioritiseCfg = Field(default_factory=PrioritiseCfg)
     pumping: PumpingCfg = Field(default_factory=PumpingCfg)
     optimise: OptimiseCfg = Field(default_factory=OptimiseCfg)
+    interventions: InterventionsCfg = Field(default_factory=InterventionsCfg)
     review: ReviewCfg = Field(default_factory=ReviewCfg)
 
     @property
@@ -288,7 +305,7 @@ class Config(_M):
 
 # What a proposed-defaults preset may fill: policy and engineering values. Input paths and datums stay with the user. Two facts
 # about the data may be suggested through ``suggested_facts`` (DTM error by DTM type, moisture direction), flagged like the rest.
-PRESET_SECTIONS = {"topology", "hydro", "sekat", "prioritise", "pumping", "optimise"}
+PRESET_SECTIONS = {"topology", "hydro", "sekat", "prioritise", "pumping", "optimise", "interventions"}
 PRESET_RUN_KEYS = {"clip_margin_m"}
 
 

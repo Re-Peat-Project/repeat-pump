@@ -512,6 +512,42 @@ ID: dict[str, str] = {
     "Budget: most new sekat": "Anggaran: jumlah sekat baru terbanyak",
     "At most this many new sekat, those that rewet the most canal first. Empty: no cap.":
         "Paling banyak sejumlah ini sekat baru, didahulukan yang paling banyak membasahi kanal. Kosong: tanpa batas.",
+    "Include tertiary canals (small; off in the KLH guide)": "Sertakan kanal tersier (kecil; tidak dipakai dalam panduan KLH)",
+    "Sub-KHG indicators from the prioritisation (optional, for the interventions)": "Indikator sub-KHG dari prioritisasi (opsional, untuk intervensi)",
+    "Interventions per sub-KHG": "Intervensi per sub-KHG",
+    "Close or backfill canals (protected peat)": "Tutup atau timbun kanal (gambut lindung)",
+    "Revegetation and fire readiness": "Revegetasi dan kesiagaan kebakaran",
+    "Sekat and water supply": "Sekat dan pasokan air",
+    "Sekat and deep wells": "Sekat dan sumur bor",
+    "Sekat": "Sekat",
+    "Maintain and monitor": "Pertahankan dan pantau",
+    "Propose interventions per sub-KHG": "Usulkan intervensi per sub-KHG",
+    "Classifies every sub-KHG: sekat, sekat with water supply or wells, canal closure, revegetation and fire readiness, or maintain. Needs the indicator table.":
+        "Mengelompokkan setiap sub-KHG: sekat, sekat dengan pasokan air atau sumur bor, penutupan kanal, revegetasi dan kesiagaan kebakaran, atau dipertahankan. Memerlukan tabel indikator.",
+    "Protected peat share for canal closure": "Bagian gambut lindung untuk penutupan kanal",
+    "From this share of protected peat function (FEG), canals are closed or backfilled instead of blocked.":
+        "Mulai bagian fungsi lindung gambut (FEG) ini, kanal ditutup atau ditimbun, bukan disekat.",
+    "Canal reach below which blocks cannot help": "Jangkauan kanal di bawah mana sekat tidak membantu",
+    "Share of the unit within reach of a canal. Below it, water held in canals does not reach most of the land.":
+        "Bagian unit dalam jangkauan kanal. Di bawahnya, air yang ditahan di kanal tidak mencapai sebagian besar lahan.",
+    "NDMI below which land is dry": "NDMI di bawah mana lahan kering",
+    "Dry-season Sentinel-2 moisture index of the unit.": "Indeks kelembapan Sentinel-2 musim kemarau pada unit.",
+    "Burnt share from which a unit counts as burnt": "Bagian terbakar mulai mana unit dianggap terbakar",
+    "Share of the unit burnt at least once since 2015.": "Bagian unit yang pernah terbakar sejak 2015.",
+    "Water counts as nearby within": "Air dianggap dekat dalam jarak",
+    "Mean distance of the unit to permanent water or a river.": "Jarak rata-rata unit ke air permanen atau sungai.",
+    "Share of the deficit sekat must hold": "Bagian defisit yang harus ditahan sekat",
+    "Below it the sekat fall short and water supply or wells are proposed as well.":
+        "Di bawahnya sekat tidak mencukupi dan pasokan air atau sumur bor juga diusulkan.",
+    "Deficit from which blocks fall short (units not analysed)": "Defisit mulai mana sekat tidak mencukupi (unit tidak dianalisis)",
+    "For sub-KHGs where no sekat were placed: a KHG deficit this large means blocks alone fall short.":
+        "Untuk sub-KHG tanpa penempatan sekat: defisit KHG sebesar ini berarti sekat saja tidak mencukupi.",
+    "Specific yield for the water held": "Specific yield untuk air yang ditahan",
+    "Water held = canal rise x specific yield x lateral reach. The neraca air uses 0.15.":
+        "Air yang ditahan = kenaikan muka air kanal x specific yield x jangkauan lateral. Neraca air memakai 0,15.",
+    "Lateral reach of a block": "Jangkauan lateral sekat",
+    "How far into the peat a raised canal level is felt. About 600 m.": "Seberapa jauh kenaikan muka air kanal terasa ke dalam gambut. Sekitar 600 m.",
+    "mm": "mm",
     "Plan pumps": "Rencanakan pompa",
     "{name} has no perennial or dry_season_wl_m column, so no river can be a pump water source. Add one, or plan sekat only (switch off Plan pumps on the stage 8 card).":
         "{name} tidak punya kolom perennial atau dry_season_wl_m, sehingga tidak ada sungai yang bisa menjadi sumber air pompa. Tambahkan kolomnya, atau rencanakan sekat saja (matikan Rencanakan pompa pada kartu tahap 8).", "Left out, low benefit": "Tidak dipakai, manfaat rendah",

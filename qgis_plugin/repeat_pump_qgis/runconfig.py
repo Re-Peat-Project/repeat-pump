@@ -90,7 +90,7 @@ def build_run_config(config_file: str | Path, output_gpkg: Optional[str] = None,
             entry.pop("layer", None)
     for key in drop or []:
         inp.pop(key, None)
-    for role in ("subkhg", "subkhg_priority", "canals", "sekat_existing", "rivers", "burn_area", "peat_depth"):
+    for role in ("subkhg", "subkhg_priority", "canals", "sekat_existing", "rivers", "burn_area", "peat_depth", "subkhg_indicators"):
         if role in inp:
             if (columns or {}).get(role):
                 inp[role]["columns"] = dict(columns[role])
@@ -105,16 +105,34 @@ PRESET_FILE = "proposed_defaults.yaml"
 
 
 def attach_preset(data: dict, run_dir: str | Path, bundled: str | Path) -> None:
-    """Opt the run into the proposed-defaults preset: copy the bundled file next to the run config (an existing copy is kept,
-    it may hold the team's edits) and point the config at it by a relative name, so the run folder stays portable."""
+    """Opt the run into the proposed-defaults preset: copy the bundled file next to the run config and point the config at it by a
+    relative name, so the run folder stays portable. An existing copy the team edited is kept; an unedited copy from an older plugin
+    (every value as bundled, only newer keys missing) is replaced, so new defaults reach old run folders."""
     run_dir, bundled = Path(run_dir), Path(bundled)
     if not bundled.is_file():
         raise FileNotFoundError(f"proposed defaults file not found: {bundled}")
     run_dir.mkdir(parents=True, exist_ok=True)
     dest = run_dir / PRESET_FILE
-    if not dest.exists():
+    if not dest.exists() or preset_outdated(dest, bundled):
         dest.write_bytes(bundled.read_bytes())
     data["preset"] = PRESET_FILE
+
+
+def _flat(d: Any, prefix: str = "") -> dict:
+    if not isinstance(d, dict):
+        return {prefix: d}
+    out: dict = {}
+    for k, v in d.items():
+        out.update(_flat(v, f"{prefix}.{k}" if prefix else str(k)))
+    return out
+
+
+def preset_outdated(copy: Path, bundled: Path) -> bool:
+    """True when ``copy`` holds no edit of its own (every value it has equals the bundled one) but lacks keys the bundled file has."""
+    old = _flat(yaml.safe_load(copy.read_text(encoding="utf8")) or {})
+    new = _flat(yaml.safe_load(bundled.read_text(encoding="utf8")) or {})
+    edited = any(k not in new or new[k] != v for k, v in old.items())
+    return not edited and set(new) - set(old) != set()
 
 
 def detach_preset(data: dict) -> None:
@@ -145,7 +163,7 @@ def write_run_config(data: dict, path: str | Path) -> Path:
 
 
 FORM_INPUTS = ("dtm", "moisture", "subkhg", "canals", "canal_edits", "sekat_existing", "rivers", "burn_area", "peat_depth",
-               "concession", "tma_obs")
+               "concession", "tma_obs", "subkhg_indicators")
 
 
 def read_setup(path) -> dict:
