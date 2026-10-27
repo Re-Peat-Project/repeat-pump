@@ -220,7 +220,49 @@ def balance(ctx, pr: gpd.GeoDataFrame, canals: gpd.GeoDataFrame, prof: pd.DataFr
     respace(rows, {c: [r["dist_down_m"] for r in ex_rows if r.get("snapped") and r["canal_id"] == c and "dist_down_m" in r]
                    for c in kept["canal_id"].unique()}, canals, dA)
     kept = gpd.GeoDataFrame(rows, geometry="geometry", crs=pr.crs)
+    ctx.write_layer("sekat_reach", reach_lines(ctx, net, base, [(nodes[i], float(net.z_land[nodes[i]] - dA), pid) for i, pid in
+                                                          sorted(((i, r["sekat_pro_id"]) for i, r in pr[keep].iterrows() if nodes[i] is not None),
+                                                                 key=lambda t: pr.loc[t[0], "benefit_rank"])], fixed, canals, pr.loc[keep]), "7")
     return kept.sort_values("benefit_rank").reset_index(drop=True), low.sort_values("benefit_rank").reset_index(drop=True)
+
+
+def reach_lines(ctx, net, base: np.ndarray, blocks: list, fixed: dict, canals: gpd.GeoDataFrame, kept: pd.DataFrame) -> gpd.GeoDataFrame:
+    """The canal stretch in which each kept sekat holds the water: the stations whose final level that block sets (existing sekat
+    built first, then the kept ones in order of benefit), as lines drawn from the block upstream, the way the water backs up.
+
+    Columns: sekat_pro_id, benefit_rank, canal_id, length_m, rise_m (mean rise over the dry-season level), depth_m (mean water level
+    below the land), burnt_frac (share of the length inside the burn-area layer; null without one)."""
+    from shapely.ops import substring
+    wt, owner = net.owners(base, [(n, c, "existing") for n, c in fixed.items()] + blocks)
+    rank = dict(zip(kept["sekat_pro_id"], kept["benefit_rank"]))
+    rows = []
+    for cid, line, direction in zip(canals["canal_id"], canals.geometry, canals["direction"]):
+        if cid not in net.lookup:
+            continue
+        s, idx = net.lookup[cid]
+        i = 0
+        while i < len(s) - 1:
+            lab = owner[idx[i]]
+            j = i
+            while j < len(s) - 1 and lab not in (None, "existing") and owner[idx[j + 1]] == lab:
+                j += 1
+            if j > i:
+                seg = substring(line, float(s[i]), float(s[j]))
+                if direction == "forward":                  # digitised downstream: the water backs up against the digitising
+                    seg = seg.reverse()
+                k = idx[i:j + 1]
+                rows.append(dict(sekat_pro_id=lab, benefit_rank=int(rank.get(lab, 0)), canal_id=cid, length_m=float(seg.length),
+                                 rise_m=float(np.nanmean(wt[k] - base[k])), depth_m=float(np.nanmean(net.z_land[k] - wt[k])), geometry=seg))
+            i = max(j, i + 1)
+    out = gpd.GeoDataFrame(rows, geometry="geometry", crs=ctx.crs) if rows else gpd.GeoDataFrame(
+        {"sekat_pro_id": [], "benefit_rank": [], "length_m": []}, geometry=[], crs=ctx.crs)
+    out["burnt_frac"] = np.nan
+    if len(out) and ctx.has_layer("inputs_clipped_burn_area"):
+        ba = ctx.read_layer("inputs_clipped_burn_area")
+        if len(ba):
+            burn = ba.geometry.make_valid().union_all()
+            out["burnt_frac"] = [g.intersection(burn).length / g.length if g.length else np.nan for g in out.geometry]
+    return out
 
 
 def run(ctx) -> None:
@@ -334,6 +376,8 @@ def run(ctx) -> None:
         ctx.write_layer("sekat_low_benefit", low, "7")
     elif ctx.has_layer("sekat_low_benefit"):                # balance switched off since the last run: no stale leftovers
         ctx.write_layer("sekat_low_benefit", pr_gdf.iloc[0:0], "7")
+    if low is None and ctx.has_layer("sekat_reach"):
+        ctx.write_layer("sekat_reach", ctx.read_layer("sekat_reach").iloc[0:0], "7")
     ctx.write_layer("canals_clean", canals, "7")
     ctx.set_counts("7", existing=len(ex_rows), unsnapped=len(unsnapped), proposed=len(pr_gdf),
                    **({"head_rule": len(prop_rows), "low_benefit": len(low)} if low is not None else {}),

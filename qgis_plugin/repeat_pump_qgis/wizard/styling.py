@@ -29,7 +29,6 @@ LOOK: dict[str, tuple[str, dict]] = {
     "qa_topology_dangles": ("point", {"name": "circle", "color": "#F2A93B", "outline_color": AMBER_DARK, "outline_width": "0.4", "size": "3.2"}),
     "qa_topology_gaps": ("point", {"name": "diamond", "color": "#D8574A", "outline_color": "#6B1F18", "outline_width": "0.3", "size": "3"}),
     "sekat_existing_assessed": ("point", {"name": "square", "color": INK, "outline_color": "#FFFFFF", "outline_width": "0.3", "size": "3.2"}),
-    "pump_routes": ("line", {"color": "#1F6FB5", "width": "0.9"}),
     "pump_sources": ("point", {"name": "circle", "color": WATER, "outline_color": "#0F2B26", "outline_width": "0.4", "size": "3.6"}),
     "pump_targets": ("point", {"name": "star", "color": "#2E9E7B", "outline_color": "#0F2B26", "outline_width": "0.3", "size": "4"}),
     "gates_required": ("point", {"name": "diamond", "color": "#7D4FB5", "outline_color": "#FFFFFF", "outline_width": "0.3", "size": "3.4"}),
@@ -40,6 +39,23 @@ LOOK: dict[str, tuple[str, dict]] = {
 def _symbol(kind: str, props: dict):
     from qgis.core import QgsFillSymbol
     return {"line": QgsLineSymbol, "polygon": QgsFillSymbol}.get(kind, QgsMarkerSymbol).createSimple(props)
+
+
+def _flow_line(color: str, width: float):
+    """A cased line with arrowheads every 8 mm in its drawing direction, which is the way the water moves (sekat_reach is drawn
+    from the block upstream, pump_routes from the intake to the target). On the map canvas the arrows travel along the line
+    (QGIS symbol animation, ``@symbol_frame``); in a layout export they stand still."""
+    from qgis.core import QgsMarkerLineSymbolLayer, QgsSimpleLineSymbolLayer, QgsSymbolLayer
+    sym = QgsLineSymbol.createSimple({"color": "#ffffff", "width": f"{width + 0.6:g}", "capstyle": "round"})
+    sym.appendSymbolLayer(QgsSimpleLineSymbolLayer.create({"color": color, "width": f"{width:g}", "capstyle": "round"}))
+    arrows = QgsMarkerLineSymbolLayer.create({"interval": "8", "placement": "interval", "rotate": "1", "offset_along_line": "4"})
+    arrows.setSubSymbol(QgsMarkerSymbol.createSimple({"name": "filled_arrowhead", "color": color, "outline_color": "#ffffff",
+                                                     "outline_width": "0.25", "size": f"{2.2 + width:g}"}))
+    arrows.setDataDefinedProperty(QgsSymbolLayer.Property.OffsetAlongLine, QgsProperty.fromExpression("(coalesce(@symbol_frame, 8) % 16) * 0.5"))
+    sym.appendSymbolLayer(arrows)
+    sym.animationSettings().setIsAnimated(True)
+    sym.animationSettings().setFrameRate(10)
+    return sym
 
 
 def _rules(layer: QgsVectorLayer, rules: list[tuple]) -> None:
@@ -125,6 +141,12 @@ def style_layer(layer: QgsVectorLayer) -> None:
             root.appendChild(QgsRuleBasedRenderer.Rule(_symbol("point", {"name": "circle", "color": col, "outline_color": "#ffffff", "outline_width": "0.3", "size": "3.0"}),
                                                        filterExp=expr, label=lab))
         layer.setRenderer(QgsRuleBasedRenderer(root))
+    elif name == "sekat_reach":                       # the canal water each kept sekat holds back, flowing from the block upstream
+        layer.setRenderer(QgsSingleSymbolRenderer(_flow_line("#2a78d6", 0.7)))
+    elif name == "pump_routes":                       # pumped water, from the river intake to the target
+        layer.setRenderer(QgsSingleSymbolRenderer(_flow_line("#6250d6", 0.9)))
+    elif name == "inputs_clipped_burn_area":          # context for the paths: where the peat has burnt
+        layer.setRenderer(QgsSingleSymbolRenderer(_symbol("polygon", {"color": "227,73,72,80", "outline_style": "no"})))
     elif name == "sekat_low_benefit":                 # left out by the balance: quiet, under the proposals
         layer.setRenderer(QgsSingleSymbolRenderer(_symbol("point", {"name": "circle", "color": "#C9C3B3", "outline_color": "#8A948F",
                                                                      "outline_width": "0.2", "size": "2.0"})))
@@ -193,7 +215,7 @@ def _group(run_name: str, create: bool = True):
 
 
 # Draw order, bottom to top. Later stages add their layers last, so loading order alone would bury a route under the canals.
-DRAW_ORDER = ["dtm_conditioned", "flow_acc", "interventions", "canals_clean", "network_edges", "canal_segments", "pump_routes", "canal_profiles", "network_nodes",
+DRAW_ORDER = ["dtm_conditioned", "flow_acc", "interventions", "inputs_clipped_burn_area", "canals_clean", "sekat_reach", "network_edges", "canal_segments", "pump_routes", "canal_profiles", "network_nodes",
               "qa_topology_gaps", "sekat_low_benefit", "sekat_existing_assessed", "sekat_proposed", "sekat_scope", "sekat_optimised", "pump_sources", "pump_targets", "gates_required",
               "pump_stations", "qa_topology_dangles", "qa_unreachable_targets"]
 

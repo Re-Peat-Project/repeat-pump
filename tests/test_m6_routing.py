@@ -105,5 +105,12 @@ def test_proposed_sekat_do_not_block_and_need_gates(world):
         f(ctx)
     routes = ctx.read_layer("pump_routes")
     assert len(routes) >= 1
+    # each route is drawn from the intake to the target, the way the water is pumped (the report animates it in that direction)
+    src = ctx.read_layer("pump_sources").set_index("node_id").geometry
+    tgt = ctx.read_layer("pump_targets").set_index("target_id").geometry
+    for _, r in routes.iterrows():
+        a, b = r.geometry.coords[0], r.geometry.coords[-1]
+        assert src.loc[r.source_node].distance(gpd.points_from_xy([a[0]], [a[1]])[0]) < 1e-6
+        assert tgt.loc[r.target_id].distance(gpd.points_from_xy([b[0]], [b[1]])[0]) < 1e-6
     gates = ctx.read_layer("gates_required")
     assert len(gates) >= 1 and gates.kind.str.contains("sekat_proposed").any()

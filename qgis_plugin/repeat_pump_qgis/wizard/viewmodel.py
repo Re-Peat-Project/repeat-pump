@@ -108,7 +108,7 @@ STAGE_TILES: dict[int, list[tuple[str, str, str, bool]]] = {
 STAGE_LAYERS: dict[int, list[str]] = {
     2: ["canals_clean", "qa_topology_dangles", "qa_topology_gaps"], 4: ["canal_segments"], 5: ["canal_profiles"],
     11: ["interventions"],
-    6: ["canal_segments", "qa_sensitivity"], 7: ["canals_clean", "sekat_existing_assessed", "sekat_low_benefit", "sekat_proposed"], 8: ["network_nodes", "network_edges"],
+    6: ["canal_segments", "qa_sensitivity"], 7: ["canals_clean", "sekat_reach", "sekat_existing_assessed", "sekat_low_benefit", "sekat_proposed"], 8: ["network_nodes", "network_edges"],
     9: ["pump_sources", "pump_targets", "pump_routes", "qa_unreachable_targets", "sekat_scope"], 10: ["pump_stations", "gates_required"],
     12: ["sekat_optimised", "qa_optimisation"],
 }

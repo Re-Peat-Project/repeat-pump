@@ -16,10 +16,13 @@ from .runconfig import read_setup
 from .wizard import styling
 
 # drawn top first
-RUN_LAYERS = ["neraca_stations", "sekat_proposed", "sekat_low_benefit", "sekat_existing_assessed", "canals_clean", "subkhg_selected", "interventions"]
+RUN_LAYERS = ["neraca_stations", "pump_routes", "sekat_proposed", "sekat_low_benefit", "sekat_existing_assessed", "sekat_reach", "canals_clean",
+              "subkhg_selected", "inputs_clipped_burn_area", "interventions"]
 LEGEND_NAMES = {"interventions": "Intervensi per sub-KHG", "subkhg_selected": "Sub-KHG terpilih (analisis sekat)", "canals_clean": "Kanal primer dan sekunder",
                 "sekat_existing_assessed": "Sekat kanal terbangun (existing)", "sekat_low_benefit": "Sekat kanal usulan, manfaat rendah",
                 "sekat_proposed": "Sekat kanal usulan (perencanaan)", "neraca_stations": "Pemantauan TMAT (SiTMAT, akhir musim kemarau)",
+                "sekat_reach": "Air kanal yang ditahan sekat (dari sekat ke hulu)", "pump_routes": "Jalur pompa (dari sungai ke target)",
+                "inputs_clipped_burn_area": "Area bekas terbakar",
                 "rivers": "Sungai", "khg": "Batas KHG"}
 INSTITUTION = "Proyek RE-PEAT (KLH - Bank Dunia)\nDepartemen Teknik Geodesi, Universitas Gadjah Mada"
 TITLE = "Peta\nIntervensi Pembasahan di Lahan Gambut"

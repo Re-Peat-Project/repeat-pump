@@ -24,7 +24,8 @@
   <section class="tiles" id="tiles"></section>
   <section class="card mapcard">
     <div class="maphead"><h2 data-i18n>Map</h2>
-      <div class="seg" role="group" id="unitmode"><button data-mode="intervention" data-i18n>Interventions</button><button data-mode="wb" data-i18n>Dry-season water balance</button></div>
+      <div class="toggles"><button class="ghost" id="animate" hidden></button>
+      <div class="seg" role="group" id="unitmode"><button data-mode="intervention" data-i18n>Interventions</button><button data-mode="wb" data-i18n>Dry-season water balance</button></div></div>
     </div>
     <div class="mapbody"><div id="map"></div><aside class="layers" id="layers"></aside></div>
     <div class="note" id="mapnote"></div>
@@ -37,6 +38,7 @@
   </section>
   <section class="card" id="budgetcard">
     <h2 data-i18n>Budget estimate</h2><div class="sub" id="budgetsub"></div><div id="budget" class="chart"></div>
+    <details id="budgetsrc" class="sources" hidden></details>
   </section>
   <section class="grid2">
     <div class="card"><h2 data-i18n>Monthly water balance</h2><div class="sub" id="nerasub"></div><div id="neraca" class="chart"></div></div>

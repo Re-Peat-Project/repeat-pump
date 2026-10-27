@@ -63,7 +63,7 @@ Click the water-drop button in the toolbar, or *Plugins > RE-PEAT Pompanisasi > 
    them until you re-run (the button says *Re-run to apply your change*).
 8. *Cancel run* stops the engine and anything it started, even if it is silent (for example a long download).
 
-The results card has *Export HTML report* (an interactive page next to the GeoPackage) and *Make map layout* (a KLH-style print layout, A0 to A4, opened in the layout designer; an edited layout saved as a template can be chosen as *Own template* next time).
+The results card has *Export HTML report* (an interactive page next to the GeoPackage) and *Make map layout* (a KLH-style print layout, A0 to A4, opened in the layout designer; an edited layout saved as a template can be chosen as *Own template* next time). After stage 7 the map shows `sekat_reach`, the canal water each kept sekat holds back, with arrows pointing from the block upstream; with pumping on, `pump_routes` has arrows from the river intake to the target. The arrows move along the lines on the map canvas (QGIS symbol animation); in a layout export they stand still. The layout includes both, and the burnt area, when the run has them.
 
 When the plugin is updated, the wizard updates its engine environment by itself (it compares the engine hash written into the zip).
 

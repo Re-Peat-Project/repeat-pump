@@ -39,3 +39,17 @@ def test_the_page_carries_the_run_numbers(tmp_path):
     assert data["tiles"]["head_rule"] == rep["counts"]["7"]["head_rule"] == len(data["curve"])
     assert abs(data["curve"][-1]["cum"] - 1.0) < 1e-6
     assert "/*DATA*/" not in html and "/*JS*/" not in html and "generated, do not edit" in html
+    # the rewetting paths: every kept block has its reach, ranks are numbers, and each pump route starts at an intake
+    reach = data["geo"]["reach"]["features"]
+    kept_ids = {f["properties"]["sekat_pro_id"] for f in data["geo"]["kept"]["features"]}
+    assert reach and {f["properties"]["sekat_pro_id"] for f in reach} <= kept_ids
+    assert all(isinstance(f["properties"]["benefit_rank"], int) for f in reach)
+    routes, srcs = data["geo"]["routes"]["features"], data["geo"]["sources"]["features"]
+    assert len(routes) == rep["counts"]["9"]["routes"]       # this world has no reachable target; direction is tested in test_m6_routing
+    for f in routes:
+        start = f["geometry"]["coordinates"][0]
+        assert min(abs(start[0] - s["geometry"]["coordinates"][0]) + abs(start[1] - s["geometry"]["coordinates"][1]) for s in srcs) < 1e-4
+    # the price register travels with the page; prices the run took from the preset are marked as described by it
+    keys = {r["key"] for r in data["budget_sources"]}
+    assert {"sekat_standard_idr", "revegetation_idr_per_ha", "well_idr", "fuel_idr_per_l", "standard"} <= keys
+    assert all(r["url"] and r["accessed"] and r["status"] for r in data["budget_sources"] if r["key"] != "fuel_l_per_kwh")

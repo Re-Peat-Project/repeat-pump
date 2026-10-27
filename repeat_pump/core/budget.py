@@ -11,12 +11,15 @@ Quantities, per sub-KHG and intervention class:
     pumps           the pump units of stage 10 and their fuel over the design period (when pumping is on)
 
 Every price is a range ``[low, central, high]`` in rupiah of its own year (not adjusted for inflation). A price left null is not
-guessed: its quantity is reported and its cost stays empty ("not priced"). The sources of the proposed prices are in
-docs/proposed_defaults.md. Cost per m3 of water held uses the same water-held figure as the interventions.
+guessed: its quantity is reported and its cost stays empty ("not priced"). The sources of the proposed prices are listed in the
+register ``repeat_pump/data/budget_sources.csv`` (one row per figure, with its verification status); every run copies it next to
+``budget.csv`` and marks which prices it took from the preset. Cost per m3 of water held uses the same water-held figure as the
+interventions.
 """
 from __future__ import annotations
 
 import math
+from importlib import resources
 
 import numpy as np
 import pandas as pd
@@ -32,6 +35,20 @@ ITEMS = {  # item -> (unit, budget price key)
     "pump_fuel_l": ("L", "fuel_idr_per_l"),
 }
 SEKAT_CLASSES = {"block", "block_water", "block_wells"}
+
+
+def budget_sources(cfg) -> list[dict]:
+    """The source register, one row per figure, with ``run_value`` (the price the run used) and ``applies``: true when the run
+    took that price from the proposed-defaults preset, so the row describes it; false when the run config set its own value."""
+    import csv
+    text = resources.files("repeat_pump.data").joinpath("budget_sources.csv").read_text(encoding="utf8")
+    rows = list(csv.DictReader(text.splitlines()))
+    keys = set(cfg.preset["keys"]) if cfg.preset else set()
+    for r in rows:
+        k = r["key"]
+        r["run_value"] = getattr(cfg.budget, k, None) if hasattr(cfg.budget, k) else None
+        r["applies"] = f"budget.{k}" in keys if hasattr(cfg.budget, k) else None
+    return rows
 
 
 def _price(bc, key: str):
@@ -112,6 +129,10 @@ def run(ctx, units: pd.DataFrame) -> dict | None:
     q = quantities(units, kept, ctx.report.get("pumps", []), cfg)
     b = price(q, cfg)
     b.to_csv(ctx.out_dir / "budget.csv", index=False)
+    src = budget_sources(cfg)
+    pd.DataFrame(src).to_csv(ctx.out_dir / "budget_sources.csv", index=False)
+    if any(r["applies"] for r in src):
+        ctx.warn("Stage 11: the budget uses proposed prices from published sources that still need checking; see budget_sources.csv")
     ctx.write_layer("budget", b, "11")
     low = ctx.read_layer("sekat_low_benefit") if ctx.has_layer("sekat_low_benefit") else None
     allb = pd.concat([x for x in (kept, low) if x is not None and len(x)], ignore_index=True) if (kept is not None or low is not None) else None

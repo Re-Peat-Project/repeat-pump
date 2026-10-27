@@ -45,6 +45,16 @@ const ID = {
   "Sekat, wooden (kept)": "Sekat kayu (dipertahankan)", "Sekat, concrete (kept)": "Sekat beton (dipertahankan)",
   "Sekat, KLH IPG estimate (sub-KHG not analysed)": "Sekat, perkiraan IPG KLH (sub-KHG tidak dianalisis)", "Canal closure or backfill": "Penutupan atau penimbunan kanal",
   "Revegetation": "Revegetasi", "Deep wells (sumur bor)": "Sumur bor", "Pump units": "Unit pompa", "Pump fuel": "Bahan bakar pompa",
+  "Water held back by the sekat": "Air yang ditahan sekat", "Canal water held back by a kept sekat, from the block upstream": "Air kanal yang ditahan sekat, dari sekat ke hulu",
+  "Lateral reach into the peat": "Jangkauan lateral ke gambut", "burnt at least once": "pernah terbakar", "Burnt area": "Area terbakar", "burnt": "terbakar", "years": "tahun",
+  "Pump routes": "Jalur pompa", "Pump route, river intake to target": "Jalur pompa, dari intake sungai ke target", "Pump intake (river)": "Intake pompa (sungai)",
+  "Pump target": "Target pompa", "Animate": "Animasikan", "Stop": "Berhenti", "length": "panjang", "below the land": "di bawah permukaan lahan",
+  "blocks built": "sekat dibangun", "of the water the plan holds": "dari air yang ditahan rencana", "lift": "angkat",
+  "Sources of the prices": "Sumber harga", "to verify": "perlu diperiksa", "unconfirmed": "belum terkonfirmasi", "assumption": "asumsi",
+  "obtain from KLH": "minta ke KLH", "not used by this run": "tidak dipakai run ini", "Status": "Status", "Figure": "Angka", "Source": "Sumber",
+  "Used as": "Dipakai sebagai", "Price key": "Kunci harga", "Accessed": "Diakses",
+  "Every figure still needs checking on its page; the full register is budget_sources.csv in the run folder.":
+    "Setiap angka masih perlu diperiksa di halamannya; register lengkap ada di budget_sources.csv dalam folder run.",
 };
 let lang = (localStorage.getItem("rp_lang") || (navigator.language || "en").slice(0, 2)) === "id" ? "id" : "en";
 const t = s => (lang === "id" && ID[s]) || s;
@@ -116,13 +126,17 @@ let map, unitMode = "intervention", mapReady = false;
 const LAYERS = [
   {id: "units", name: "Sub-KHG units", on: true},
   {id: "selected", name: "Selected sub-KHG", on: true},
+  {id: "burn", name: "Burnt area", on: true},
   {id: "canals", name: "Canals", on: true},
+  {id: "reach", name: "Water held back by the sekat", on: true},
+  {id: "routes", name: "Pump routes", on: true},
   {id: "existing", name: "Existing sekat", on: false},
   {id: "low", name: "Sekat, low benefit", on: true},
   {id: "kept", name: "Sekat, kept", on: true},
   {id: "stations", name: "SiTMAT stations", on: true},
 ];
 const SUBLAYERS = {units: ["units-fill", "units-line"], selected: ["selected-line"], canals: ["canals-line"], existing: ["existing-pt"],
+  burn: ["burn-fill"], reach: ["reach-halo", "reach-case", "reach-line", "reach-flow"], routes: ["routes-case", "routes-line", "routes-flow", "sources-pt", "targets-pt"],
   low: ["low-pt"], kept: ["kept-pt"], stations: ["stations-pt"]};
 function bbox(fc) { let b = [180, 90, -180, -90]; const walk = c => typeof c[0] === "number" ? (b = [Math.min(b[0], c[0]), Math.min(b[1], c[1]), Math.max(b[2], c[0]), Math.max(b[3], c[1])]) : c.forEach(walk);
   fc.features.forEach(f => walk(f.geometry.coordinates)); return b; }
@@ -134,6 +148,17 @@ function wbExpr() {
     ["interpolate", ["linear"], ["get", "wb_dry"], -m, css("--neg"), 0, css("--mid"), m, css("--pos")]];
 }
 function unitFill() { return unitMode === "wb" ? wbExpr() : ["match", ["get", "intervention"], ...IV.flatMap(c => [c, ivColor(c)]), css("--mid")]; }
+const EMPTY = {type: "FeatureCollection", features: []};
+// moving dashes (the MapLibre line-animation pattern): one dash pattern per step, the dash travels in the line's drawing direction.
+// sekat_reach is drawn from the block upstream and pump_routes from the intake to the target, so the dashes move the way the water does
+const DASH = [[0, 4, 3], [0.5, 4, 2.5], [1, 4, 2], [1.5, 4, 1.5], [2, 4, 1], [2.5, 4, 0.5], [3, 4, 0], [0, 0.5, 3, 3.5], [0, 1, 3, 3], [0, 1.5, 3, 2.5],
+  [0, 2, 3, 2], [0, 2.5, 3, 1.5], [0, 3, 3, 1], [0, 3.5, 3, 0.5]];
+const lateralReach = () => (D.interventions.thresholds || {}).lateral_reach_m || 0;
+function metresWidth(m) {                               // a line width that stays m metres wide on the ground at every zoom
+  const b = bbox(D.geo.units.features.length ? D.geo.units : D.geo.canals), lat = (b[1] + b[3]) / 2;
+  const w0 = m / (78271.517 * Math.cos(lat * Math.PI / 180));
+  return ["interpolate", ["exponential", 2], ["zoom"], 0, w0, 22, w0 * Math.pow(2, 22)];
+}
 function initMap() {
   map = new maplibregl.Map({container: "map", style: D.style, bounds: bbox(D.geo.units.features.length ? D.geo.units : D.geo.canals),
     fitBoundsOptions: {padding: 24}, attributionControl: {compact: true}});
@@ -142,14 +167,26 @@ function initMap() {
   window.__repeatMap = map;                            // for checks in a browser console
   let added = false;
   const addRunLayers = () => { if (added || !map.isStyleLoaded()) return; added = true;
-    for (const k of ["units", "canals", "kept", "low", "existing", "stations"]) map.addSource(k, {type: "geojson", data: D.geo[k]});
+    for (const k of ["units", "canals", "kept", "low", "existing", "stations", "reach", "burn", "routes", "sources", "targets"]) map.addSource(k, {type: "geojson", data: D.geo[k] || EMPTY});
     map.addLayer({id: "units-fill", type: "fill", source: "units", paint: {"fill-color": unitFill(), "fill-opacity": 0.55}});
     map.addLayer({id: "units-line", type: "line", source: "units", paint: {"line-color": css("--surface"), "line-width": 1}});
     map.addLayer({id: "selected-line", type: "line", source: "units", filter: ["==", ["get", "selected"], true], paint: {"line-color": css("--ink"), "line-width": 2.2}});
+    map.addLayer({id: "burn-fill", type: "fill", source: "burn", paint: {"fill-color": css("--s8"), "fill-opacity": 0.32}});
+    map.addLayer({id: "reach-halo", type: "line", source: "reach", layout: {"line-cap": "round", "line-join": "round"},
+      paint: {"line-color": css("--s1"), "line-opacity": 0.13, "line-width": metresWidth(2 * lateralReach())}});
     map.addLayer({id: "canals-line", type: "line", source: "canals", paint: {
       "line-color": ["case", ["==", ["get", "direction_method"], "unresolved"], css("--s4"), css("--ink2")],
       "line-width": ["match", ["downcase", ["to-string", ["get", "canal_class"]]], ["primer", "kanal primer"], 1.8, ["sekunder", "kanal sekunder"], 1.1, 0.6],
       "line-dasharray": ["case", ["==", ["get", "direction_method"], "unresolved"], ["literal", [2, 1.5]], ["literal", [1, 0]]]}});
+    map.addLayer({id: "reach-case", type: "line", source: "reach", layout: {"line-cap": "round"}, paint: {"line-color": css("--surface"), "line-width": 5}});
+    map.addLayer({id: "reach-line", type: "line", source: "reach", layout: {"line-cap": "round"}, paint: {"line-color": css("--s1"),
+      "line-width": ["interpolate", ["linear"], ["coalesce", ["get", "rise_m"], 0], 0, 1.5, 1, 4]}});
+    map.addLayer({id: "reach-flow", type: "line", source: "reach", layout: {visibility: "none"}, paint: {"line-color": css("--surface"), "line-width": 1.5, "line-dasharray": DASH[0]}});
+    map.addLayer({id: "routes-case", type: "line", source: "routes", layout: {"line-cap": "round"}, paint: {"line-color": css("--surface"), "line-width": 6}});
+    map.addLayer({id: "routes-line", type: "line", source: "routes", layout: {"line-cap": "round"}, paint: {"line-color": css("--s7"), "line-width": 3.5}});
+    map.addLayer({id: "routes-flow", type: "line", source: "routes", layout: {visibility: "none"}, paint: {"line-color": css("--surface"), "line-width": 1.5, "line-dasharray": DASH[0]}});
+    map.addLayer({id: "sources-pt", type: "circle", source: "sources", paint: {"circle-radius": 6, "circle-color": css("--s7"), "circle-stroke-color": css("--surface"), "circle-stroke-width": 2}});
+    map.addLayer({id: "targets-pt", type: "circle", source: "targets", paint: {"circle-radius": 4, "circle-color": css("--surface"), "circle-stroke-color": css("--s7"), "circle-stroke-width": 2}});
     map.addLayer({id: "existing-pt", type: "circle", source: "existing", paint: {"circle-radius": 2.5, "circle-color": ["case", ["get", "snapped"], css("--s3"), css("--muted")],
       "circle-stroke-color": css("--surface"), "circle-stroke-width": 0.5}});
     map.addLayer({id: "low-pt", type: "circle", source: "low", paint: {"circle-radius": 3, "circle-color": css("--muted"), "circle-stroke-color": css("--surface"), "circle-stroke-width": 1}});
@@ -165,7 +202,8 @@ function initMap() {
 }
 function applyVisibility() {
   if (!mapReady) return;
-  for (const L of LAYERS) for (const id of SUBLAYERS[L.id]) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", L.on ? "visible" : "none");
+  for (const L of LAYERS) for (const id of SUBLAYERS[L.id]) if (map.getLayer(id))
+    map.setLayoutProperty(id, "visibility", L.on && (anim || !id.endsWith("-flow")) ? "visible" : "none");   // the moving dashes only while animating
 }
 function restyleMap() {
   if (!mapReady) return;
@@ -173,6 +211,11 @@ function restyleMap() {
   map.setPaintProperty("units-line", "line-color", css("--surface"));
   map.setPaintProperty("selected-line", "line-color", css("--ink"));
   map.setPaintProperty("kept-pt", "circle-color", css("--ink"));
+  map.setPaintProperty("burn-fill", "fill-color", css("--s8"));
+  for (const id of ["reach-line", "reach-halo"]) map.setPaintProperty(id, "line-color", css("--s1"));
+  map.setPaintProperty("routes-line", "line-color", css("--s7"));
+  for (const id of ["reach-case", "routes-case", "reach-flow", "routes-flow"]) map.setPaintProperty(id, "line-color", css("--surface"));
+  map.setPaintProperty("sources-pt", "circle-color", css("--s7")); map.setPaintProperty("targets-pt", "circle-stroke-color", css("--s7"));
   map.setPaintProperty("stations-pt", "circle-color", ["match", ["get", "tmat_class"], ...TMAT.flatMap(c => [c, tmatColor(c)]), css("--muted")]);
 }
 function unitTip(p) {
@@ -189,6 +232,12 @@ function bindHover() {
     "low-pt": p => `<b>${p.sekat_pro_id}</b> · ${t("Sekat, low benefit")}` + row(t("rank"), nf(p.benefit_rank)) + row(t("rise"), nf(p.gain_m2) + " m²"),
     "stations-pt": p => `<b>${p.station_id}</b>` + row(t(TMAT_LABEL[p.tmat_class] || ""), "") + row(t("start"), nf(p.depth_start_cm) + " cm") +
       row(t("end"), nf(p.depth_end_cm) + " cm") + row(">40 cm", nf(100 * p.share_deeper_40cm) + " %"),
+    "reach-line": p => `<b>${p.sekat_pro_id}</b> · ${t("Water held back by the sekat")}` + row(t("rank"), nf(p.benefit_rank)) + row(t("rise"), nf(p.rise_m, 2) + " m") +
+      row(t("below the land"), nf(p.depth_m, 2) + " m") + row(t("length"), nf(p.length_m) + " m") + (p.burnt_frac != null ? row(t("burnt"), nf(100 * p.burnt_frac) + " %") : ""),
+    "routes-line": p => `<b>${p.route_id}</b> · ${t("Pump route, river intake to target")}` + row(t("length"), nf(p.length_m) + " m") + row(t("lift"), nf(p.lift_m, 2) + " m"),
+    "sources-pt": p => `<b>${t("Pump intake (river)")}</b>`,
+    "targets-pt": p => `<b>${p.target_id}</b> · ${t("Pump target")}`,
+    "burn-fill": p => `<b>${t("Burnt area")}</b>` + row(t("burnt"), nf(p.burn_freq_n) + " " + t("years")),
     "canals-line": p => `<b>${p.canal_id}</b> · ${p.canal_class}` + row("IPG", p.ipg == null ? "–" : nf(p.ipg, 2)) + (p.direction_method === "unresolved" ? row(t("flow direction unknown"), "") : ""),
   };
   map.on("mousemove", e => {
@@ -208,12 +257,72 @@ function layerPanel() {
     existing: [[css("--s3"), t("Existing sekat, on an analysed canal"), "dot"], [css("--muted"), t("Existing sekat, elsewhere"), "dot"]],
     stations: TMAT.map(c => [tmatColor(c), t(TMAT_LABEL[c]), "dot"]),
     kept: [[css("--ink"), t("Sekat, kept"), "dot"]], low: [[css("--muted"), t("Sekat, low benefit"), "dot"]],
+    burn: [[css("--s8"), t("burnt at least once")]],
+    reach: [[css("--s1"), t("Canal water held back by a kept sekat, from the block upstream"), "line"]].concat(lateralReach() ? [[css("--s1") + "33", `${t("Lateral reach into the peat")} (${nf(lateralReach())} m)`]] : []),
+    routes: [[css("--s7"), t("Pump route, river intake to target"), "line"], [css("--s7"), t("Pump intake (river)"), "dot"]],
   };
-  el.innerHTML = LAYERS.filter(L => L.id !== "stations" || D.geo.stations.features.length).map(L => `<label><input type="checkbox" data-l="${L.id}" ${L.on ? "checked" : ""}>${t(L.name)}</label>` +
+  const has = {stations: D.geo.stations, reach: D.geo.reach, burn: D.geo.burn, routes: D.geo.routes};
+  el.innerHTML = LAYERS.filter(L => !has[L.id] || has[L.id].features.length).map(L => `<label><input type="checkbox" data-l="${L.id}" ${L.on ? "checked" : ""}>${t(L.name)}</label>` +
     (legend[L.id] ? `<div class="legend">${legend[L.id].map(([c, s, k]) => `<div><span class="sw ${k || ""}" style="background:${c}"></span> ${s}</div>`).join("")}</div>` : "")).join("");
   el.querySelectorAll("input").forEach(i => i.onchange = () => { LAYERS.find(L => L.id === i.dataset.l).on = i.checked; applyVisibility(); });
-  document.getElementById("mapnote").textContent = t("Hover a sub-KHG, sekat or station for its details.");
+  if (!anim) document.getElementById("mapnote").textContent = NOTE();
+  animButton();
   document.querySelectorAll("#unitmode button").forEach(b => b.classList.toggle("on", b.dataset.mode === unitMode));
+}
+
+// ------------------------------------------------------------------ animation: the water held back block by block, and the pump routes
+let anim = null;
+const NOTE = () => t("Hover a sub-KHG, sekat or station for its details.");
+function animButton() {
+  const b = document.getElementById("animate");
+  b.hidden = !(D.geo.reach.features.length || D.geo.routes.features.length);
+  b.textContent = anim ? "■ " + t("Stop") : "▶ " + t("Animate");
+}
+function stopAnim() {
+  if (!anim) return;
+  cancelAnimationFrame(anim.raf);
+  const radius = anim.radius; anim = null;
+  if (mapReady) {
+    for (const id of SUBLAYERS.reach) map.setFilter(id, null);
+    map.setPaintProperty("units-fill", "fill-opacity", 0.55);
+    if (radius) { map.setPaintProperty("kept-pt", "circle-radius", radius); map.setPaintProperty("kept-pt", "circle-stroke-width", 2); }
+    if (map.getLayer("low-pt")) map.setLayoutProperty("low-pt", "visibility", LAYERS.find(L => L.id === "low").on ? "visible" : "none");
+    for (const id of ["reach-flow", "routes-flow"]) map.setLayoutProperty(id, "visibility", "none");
+  }
+  document.getElementById("mapnote").textContent = NOTE();
+  animButton();
+}
+function startAnim() {
+  if (!mapReady) return;
+  const R = D.geo.reach.features, nmax = d3.max(R, f => f.properties.benefit_rank) || 0;
+  const kept = (D.curve || []).filter(p => p.kept), plan = kept.length ? kept[kept.length - 1].cum : 0;
+  const fillMs = Math.min(9000, 1500 + nmax * 90), t0 = performance.now(), note = document.getElementById("mapnote");
+  anim = {raf: 0, step: -1, n: -1};
+  // the water is the subject: zoom to it, quieten the sub-KHG colours and drop the blocks left out
+  const ext = bbox({features: [...R, ...D.geo.routes.features]});
+  if (ext[0] <= ext[2]) map.fitBounds([[ext[0], ext[1]], [ext[2], ext[3]]], {padding: 40, duration: 800});
+  map.setPaintProperty("units-fill", "fill-opacity", 0.18);
+  anim.radius = map.getPaintProperty("kept-pt", "circle-radius");
+  map.setPaintProperty("kept-pt", "circle-radius", 3.5); map.setPaintProperty("kept-pt", "circle-stroke-width", 1);
+  map.setLayoutProperty("low-pt", "visibility", "none");
+  map.setLayoutProperty("reach-flow", "visibility", LAYERS.find(L => L.id === "reach").on ? "visible" : "none");
+  map.setLayoutProperty("routes-flow", "visibility", LAYERS.find(L => L.id === "routes").on ? "visible" : "none");
+  const tick = now => {
+    if (!anim) return;
+    const el = now - t0;
+    const n = nmax ? Math.min(nmax, Math.floor(el / fillMs * nmax) + 1) : 0;
+    if (nmax && n !== anim.n) {
+      anim.n = n;
+      for (const id of SUBLAYERS.reach) map.setFilter(id, ["<=", ["get", "benefit_rank"], n]);
+      const c = kept[n - 1];
+      note.textContent = `${nf(n)} / ${nf(nmax)} ${t("blocks built")}` + (c && plan ? ` · ${nf(100 * c.cum / plan)} % ${t("of the water the plan holds")}` : "");
+    }
+    const step = Math.floor(el / 60) % DASH.length;
+    if (step !== anim.step) { anim.step = step; for (const id of ["reach-flow", "routes-flow"]) map.setPaintProperty(id, "line-dasharray", DASH[step]); }
+    anim.raf = requestAnimationFrame(tick);
+  };
+  anim.raf = requestAnimationFrame(tick);
+  animButton();
 }
 
 // ------------------------------------------------------------------ charts
@@ -289,6 +398,17 @@ function budgetChart() {
     .text(([k, v]) => v.cost_idr == null ? t("not priced") : bn(v.cost_idr));
   g.on("mousemove", (ev, [k, v]) => showTip(`<b>${t(ITEM_LABEL[k] || k)}</b>` + row(t("low"), bn(v.cost_low_idr)) + row(t("central"), bn(v.cost_idr)) + row(t("high"), bn(v.cost_high_idr)) +
       row("", t("billion rupiah")), ev.clientX, ev.clientY)).on("mouseleave", hideTip);
+}
+const SRC_STATUS = {"to verify": "--warning", unconfirmed: "--critical", assumption: "--muted", "obtain from KLH": "--s1"};
+function budgetSources() {
+  const el = document.getElementById("budgetsrc"), S = D.budget_sources || [];
+  if (!D.budget || !S.length) { el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML = `<summary>${t("Sources of the prices")} · ${nf(S.length)}</summary><div class="note">${t("Every figure still needs checking on its page; the full register is budget_sources.csv in the run folder.")}</div>` +
+    `<div class="tablewrap"><table><thead><tr><th>${t("Price key")}</th><th>${t("Used as")}</th><th>${t("Figure")}</th><th>${t("Source")}</th><th>${t("Status")}</th><th>${t("Accessed")}</th></tr></thead><tbody>` +
+    S.map(r => `<tr${r.applies === false ? ' class="off"' : ""}><td>${r.key}</td><td>${r.applies === false ? t("not used by this run") : r.used}</td><td>${r.figure_quoted}${r.place_period ? ` <small>(${r.place_period})</small>` : ""}</td>` +
+      `<td>${/^https?:/.test(r.url) ? `<a href="${r.url}" target="_blank" rel="noopener">${r.source}</a>` : r.source}</td>` +
+      `<td><span class="sw dot" style="background:${css(SRC_STATUS[r.status] || "--muted")}"></span> ${t(r.status)}</td><td>${r.accessed}</td></tr>`).join("") + `</tbody></table></div>`;
 }
 function neracaChart() {
   const U = D.neraca.units || {}; const ids = Object.keys(U);
@@ -372,13 +492,14 @@ function table() {
 // ------------------------------------------------------------------ wiring
 function themeButton() { const dark = document.documentElement.dataset.theme === "dark" || (!document.documentElement.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches);
   document.getElementById("theme").textContent = dark ? "☀" : "☾"; }
-function renderAll() { header(); tiles(); layerPanel(); curveChart(); ivChart(); budgetChart(); neracaChart(); stationsChart(); table(); footer(); themeButton(); restyleMap(); }
+function renderAll() { header(); tiles(); layerPanel(); curveChart(); ivChart(); budgetChart(); budgetSources(); neracaChart(); stationsChart(); table(); footer(); themeButton(); restyleMap(); }
 document.querySelectorAll("#curvex button").forEach(b => b.onclick = () => { curveX = b.dataset.x; curveChart(); });
 document.querySelectorAll("[data-lang]").forEach(b => b.onclick = () => { lang = b.dataset.lang; try { localStorage.setItem("rp_lang", lang); } catch (e) {} renderAll(); });
 document.getElementById("theme").onclick = () => { const r = document.documentElement; const dark = r.dataset.theme === "dark" || (!r.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches);
   r.dataset.theme = dark ? "light" : "dark"; try { localStorage.setItem("rp_theme", r.dataset.theme); } catch (e) {} renderAll(); };
 document.querySelectorAll("#unitmode button").forEach(b => b.onclick = () => { unitMode = b.dataset.mode; layerPanel(); restyleMap(); });
 document.getElementById("q").oninput = table;
+document.getElementById("animate").onclick = () => anim ? stopAnim() : startAnim();
 try { const th = localStorage.getItem("rp_theme"); if (th) document.documentElement.dataset.theme = th; } catch (e) {}
 let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { curveChart(); ivChart(); budgetChart(); neracaChart(); stationsChart(); }, 150); });
 renderAll(); initMap();

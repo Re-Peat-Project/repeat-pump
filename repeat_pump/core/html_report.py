@@ -18,6 +18,7 @@ import pandas as pd
 import pyogrio
 import shapely
 
+from .budget import budget_sources
 from .config import load_config, resolve
 
 SIMPLIFY_M = 15.0
@@ -49,12 +50,12 @@ def _geojson(gdf, props: list[str], simplify: float = 0.0) -> dict:
             continue
         p = {}
         for c, v in zip(cols, row):
-            if isinstance(v, (np.floating, float)):
-                p[c] = None if not np.isfinite(v) else round(float(v), 4)
-            elif isinstance(v, (np.integer,)):
-                p[c] = int(v)
-            elif isinstance(v, (np.bool_, bool)):
+            if isinstance(v, (np.bool_, bool)):
                 p[c] = bool(v)
+            elif isinstance(v, (np.floating, float)):
+                p[c] = None if not np.isfinite(v) else round(float(v), 4)
+            elif isinstance(v, (np.integer, int)):
+                p[c] = int(v)
             else:
                 p[c] = None if v is None or (isinstance(v, float) and v != v) else str(v)
         feats.append({"type": "Feature", "properties": p, "geometry": shapely.geometry.mapping(geom)})
@@ -130,6 +131,12 @@ def collect(config_path: str | Path) -> dict:
         curve = [{"n": int(r), "cum": round(float(c), 4), "gain": round(float(g), 1), "kept": bool(k)}
                  for r, c, g, k in zip(allb["benefit_rank"], allb["cum_share"], allb["gain_m2"], allb["kept"])]
     ex = _read(gpkg, "sekat_existing_assessed", have)
+    reach = _read(gpkg, "sekat_reach", have)
+    burn = _read(gpkg, "inputs_clipped_burn_area", have)
+    pumping = cfg.pumping.enabled
+    routes = _read(gpkg, "pump_routes", have) if pumping else None
+    sources = _read(gpkg, "pump_sources", have) if pumping else None
+    targets = _read(gpkg, "pump_targets", have) if pumping else None
     canals = _read(gpkg, "canals_clean", have)
 
     iv = rep.get("interventions") or {}
@@ -146,13 +153,20 @@ def collect(config_path: str | Path) -> dict:
                   "selected": selected, "units": int(len(units)) if units is not None else 0},
         "interventions": {"counts": iv.get("counts", {}), "closed_otherwise": iv.get("closed_otherwise", {}), "thresholds": iv.get("thresholds", {})},
         "budget": rep.get("budget"),
+        "budget_sources": budget_sources(cfg),
         "curve": curve,
         "neraca": {k: v for k, v in neraca.items() if k != "stations"},
         "geo": {"units": _geojson(units, unit_props, SIMPLIFY_M),
                 "canals": _geojson(canals, ["canal_id", "canal_class", "direction", "direction_method", "length_m", "n_req", "n_existing", "ipg"]),
                 "kept": _geojson(kept, sekat_props), "low": _geojson(low, sekat_props),
                 "existing": _geojson(ex, ["sekat_id", "snapped", "snap_dist_m"]),
-                "stations": neraca["stations"] or {"type": "FeatureCollection", "features": []}},
+                "stations": neraca["stations"] or {"type": "FeatureCollection", "features": []},
+                "reach": _geojson(reach, ["sekat_pro_id", "benefit_rank", "canal_id", "length_m", "rise_m", "depth_m", "burnt_frac"]),
+                "burn": _geojson(burn, ["burn_freq_n"], SIMPLIFY_M),
+                "routes": _geojson(routes, ["route_id", "target_id", "length_m", "lift_m", "cost"]),
+                "sources": _geojson(sources[sources["status"].astype(str).isin(["ok", "manual"])] if sources is not None and "status" in sources else sources,
+                                    ["node_id", "status", "z_src_m"]),
+                "targets": _geojson(targets, ["target_id", "n_segments", "z_land_m"])},
         "files": {"gpkg": gpkg.name, "report": "run_report.md", "interventions": "interventions.csv" if (out_dir / "interventions.csv").exists() else None},
     }
     return data

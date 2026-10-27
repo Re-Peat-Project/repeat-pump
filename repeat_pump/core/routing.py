@@ -15,7 +15,7 @@ import geopandas as gpd
 import networkx as nx
 import numpy as np
 import pandas as pd
-from shapely.geometry import MultiLineString, Point
+from shapely.geometry import LineString, MultiLineString, Point
 from shapely.ops import linemerge
 
 from .config import require
@@ -92,11 +92,25 @@ def route_steiner(R: nx.DiGraph, sources: list, targets: list) -> tuple[dict, li
 
 
 def path_geometry(G: nx.DiGraph, nodes: list):
-    segs = [G[u][v]["geom"] for u, v in zip(nodes[:-1], nodes[1:]) if u != SUPER and G.has_edge(u, v)]
-    if not segs:
+    """The route as one line drawn from the source to the target (edge geometries keep their digitised direction, so each is
+    turned to start at its upstream node of the route); a MultiLineString only if the edges do not touch."""
+    parts = []
+    for u, v in zip(nodes[:-1], nodes[1:]):
+        if u == SUPER or not G.has_edge(u, v):
+            continue
+        c = list(G[u][v]["geom"].coords)
+        ux, uy = G.nodes[u]["x"], G.nodes[u]["y"]
+        if (c[-1][0] - ux) ** 2 + (c[-1][1] - uy) ** 2 < (c[0][0] - ux) ** 2 + (c[0][1] - uy) ** 2:
+            c.reverse()
+        parts.append(c)
+    if not parts:
         return None
-    m = linemerge(MultiLineString([s for s in segs]))
-    return m
+    coords = parts[0]
+    for c in parts[1:]:
+        if c[0] != coords[-1] and Point(c[0]).distance(Point(coords[-1])) > 1e-6:
+            return linemerge(MultiLineString(parts))
+        coords = coords + c[1:]
+    return LineString(coords)
 
 
 def run(ctx) -> None:

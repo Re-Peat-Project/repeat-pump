@@ -153,3 +153,23 @@ def test_held_water_is_capped_at_the_land_surface():
     assert lv[0] == 1.6 and lv[1] == 1.0 and lv[2] == 2.0      # node 1 stops at its surface, node 2 is not raised (1.6 < 2.0)
     order = bo.greedy_rank(net, base, [0], np.array([1.6]), {})
     assert np.isclose(order[0][1], (1.6 - 1.0) + (1.0 - 0.0))
+
+
+def test_owners_name_the_block_that_holds_each_station():
+    """Two blocks on one straight canal: each owns the stations between it and the next block upstream; the far upstream
+    stations, above both crests, are owned by nobody."""
+    import geopandas as gpd
+    import pandas as pd
+    from shapely.geometry import LineString
+    from repeat_pump.core.blockopt import CanalNet
+    z = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0]          # land rises upstream (towards the digitised start)
+    canals = gpd.GeoDataFrame({"canal_id": ["C"], "direction": ["forward"]}, geometry=[LineString([(0, 0), (1000, 0)])])
+    prof = pd.DataFrame({"canal_id": "C", "station_m": [100.0 * i for i in range(11)], "z_land_m": z[::-1]})
+    net = CanalNet.from_profiles(canals, prof)
+    base = net.z_land - 1.0
+    down, up = net.node_at("C", 1000.0), net.node_at("C", 600.0)        # z 0.0 and 0.8
+    wt, owner = net.owners(base, [(down, 0.0 - 0.4 + 0.8, "A"), (up, 0.8 - 0.4 + 0.6, "B")])
+    assert owner[down] is None or owner[down] == "A"
+    assert owner[net.node_at("C", 800.0)] == "A" and owner[net.node_at("C", 500.0)] == "B"
+    assert owner[net.node_at("C", 0.0)] is None
+    assert (wt >= base).all()

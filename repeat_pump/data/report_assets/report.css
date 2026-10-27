@@ -66,3 +66,9 @@ svg .gridl path{display:none}
 .maplibregl-ctrl-attrib{font-size:11px}
 @media (max-width:900px){.grid2{grid-template-columns:1fr}.mapbody{grid-template-columns:1fr}#map{height:420px}.top,main,footer{padding-left:16px;padding-right:16px}}
 #budget{min-height:0}
+.sources{margin-top:12px}
+.sources summary{cursor:pointer;color:var(--ink2);font-size:12.5px}
+.sources .tablewrap{max-height:320px;margin-top:6px}
+.sources td{white-space:normal;vertical-align:top}
+.sources tr.off td{color:var(--muted)}
+.sources a{color:var(--s1)}

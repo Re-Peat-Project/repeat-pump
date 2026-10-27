@@ -117,6 +117,27 @@ class CanalNet:
         z = self.z_land[k]
         return min(crest, z) if np.isfinite(z) else crest
 
+    def owners(self, base: np.ndarray, blocks: list) -> tuple[np.ndarray, np.ndarray]:
+        """Water level per node and the block that holds it, building ``blocks`` (``[(node, crest, label), ...]``) in that order
+        with the rule of ``levels``. ``owner[k]`` is the label of the last block that raised node ``k`` (the one whose crest sets
+        its final level), or None where no block raises the water."""
+        wt, owner = base.copy(), np.full(self.n, None, dtype=object)
+        for node, crest, label in blocks:
+            if not (crest > wt[node]):
+                continue
+            seen, q = {node}, deque([node])
+            while q:
+                k = q.popleft()
+                if wt[k] < crest:
+                    h = self.held(k, crest)
+                    if h > wt[k]:
+                        wt[k], owner[k] = h, label
+                    for u in self.up[k]:
+                        if u not in seen:
+                            seen.add(u)
+                            q.append(u)
+        return wt, owner
+
 
 # ----------------------------------------------------------------------------- objectives (larger benefit is better)
 def greedy_rank(net: CanalNet, base: np.ndarray, nodes: list, crest: np.ndarray, fixed: dict) -> list:
