@@ -33,7 +33,7 @@ def khg_title(config_path: str | Path) -> str:
     """'KHG Sugihan - Lumpur' from a run in a RE-PEAT KHG work folder (``_khg/<code>_<name>/05_pump``), else from the run name when it
     has the same ``<code>_<name>`` form (a run copied elsewhere), else the run folder name."""
     p = Path(config_path).resolve()
-    k = p.parent.parent if p.parent.name == "05_pump" else p.parent
+    k = p.parent.parent if p.parent.name == "05_pump" else (p.parents[2] if p.parent.parent.name == "05_pump" else p.parent)   # 05_pump/<dem>/
     name = k.name
     if not (name[:1].isdigit() and "_" in name):
         try:

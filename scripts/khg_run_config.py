@@ -29,8 +29,8 @@ def fields(path: str, layer=None) -> list[str]:
     return list(pyogrio.read_info(path, layer=layer)["fields"])
 
 
-def run_config(folder: Path, tertiary: bool = False) -> tuple[dict, list[str]]:
-    setup, missing = khgsetup.setup_from_khg(folder)
+def run_config(folder: Path, tertiary: bool = False, dem: str | None = None, dtm: str | None = None) -> tuple[dict, list[str]]:
+    setup, missing = khgsetup.setup_from_khg(folder, dem=dem, dtm=dtm)
     inp = setup["inputs"]
     if {"dtm", "moisture", "subkhg", "canals"} - set(inp):
         raise SystemExit(f"{folder.name}: required inputs not found: {', '.join(sorted({'dtm', 'moisture', 'subkhg', 'canals'} - set(inp)))}")
@@ -80,15 +80,17 @@ def main():
     ap.add_argument("--all", metavar="KHG_ROOT")
     ap.add_argument("--overwrite", action="store_true")
     ap.add_argument("--tertiary", action="store_true", help="include tertiary canals (off by default, as in the KLH guide)")
+    ap.add_argument("--dem", help="DEM variant of the full chain (lidar, deltadtm, demnas): inputs from <step>/<dem>/, run in 05_pump/<dem>/")
+    ap.add_argument("--dtm", help="with --dem: the DTM to use (default: the variant's clip or corrected surface)")
     a = ap.parse_args()
     folders = [Path(f) for f in a.folders] + (khgsetup.khg_folders(a.all) if a.all else [])
     for f in folders:
-        out = f.resolve() / "05_pump" / "run_config.yaml"
+        out = f.resolve() / "05_pump" / (a.dem or "") / "run_config.yaml"
         if out.exists() and not a.overwrite:
             print(f"{f.name}: kept the existing {out}")
             continue
         try:
-            data, missing = run_config(f.resolve(), a.tertiary)
+            data, missing = run_config(f.resolve(), a.tertiary, a.dem, a.dtm)
         except SystemExit as e:
             print(e)
             continue
