@@ -65,6 +65,7 @@ def run(ctx) -> None:
     }
     from . import interventions
     summary["interventions"] = interventions.run(ctx)
+    summary["budget"] = ctx.report.get("budget")            # written by the interventions step
     canals = ctx.read_layer("canals_clean")
     ipg = []
     if "n_req" in canals:
@@ -96,6 +97,18 @@ def run(ctx) -> None:
         if iv["held_share_selected"]:
             L += ["Share of the deficit the kept sekat hold, selected sub-KHG: "
                   + ", ".join(f"{u} {100 * s:.1f} %" for u, s in iv["held_share_selected"].items()), ""]
+    bd = summary.get("budget")
+    if bd:
+        fmt = lambda v: "-" if v is None else f"{v / 1e9:,.2f}"     # noqa: E731
+        L += [f"## Budget estimate (billion rupiah, prices of {bd.get('price_year') or 'unknown year'}, proposed, not team decisions)", "",
+              "| item | quantity | low | central | high |", "|---|---|---|---|---|"]
+        L += [f"| {k} | {v['quantity']:,.1f} | {fmt(v['cost_low_idr'])} | {fmt(v['cost_idr'])} | {fmt(v['cost_high_idr'])} |" for k, v in bd["by_item"].items()]
+        L += [f"| **total** | | {fmt(bd['total_low_idr'])} | {fmt(bd['total_idr'])} | {fmt(bd['total_high_idr'])} |", ""]
+        if bd.get("idr_per_m3_held"):
+            L += [f"Sekat in the selected sub-KHG: {bd['idr_per_m3_held']:,.0f} rupiah per m3 of water held.", ""]
+        if bd.get("unpriced"):
+            L += ["Not priced (quantity only): " + ", ".join(bd["unpriced"]), ""]
+        L += ["Table per sub-KHG and item: budget.csv. Sources of the prices: docs/proposed_defaults.md.", ""]
     L += ["## Observed vs modelled levels (validation only)", "", json.dumps(summary["tma_validation"], indent=2, default=str), ""]
     if cfg.preset["keys"]:
         L += ["## Values from the proposed-defaults preset (not team decisions)", "", f"Preset: {cfg.preset['path']}", ""]

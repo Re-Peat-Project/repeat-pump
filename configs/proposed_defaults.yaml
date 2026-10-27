@@ -72,6 +72,19 @@ interventions:                    # treatment per sub-KHG in stage 11 (needs inp
   specific_yield: 0.15            # MED. The neraca air value (band 0.10-0.20)
   lateral_reach_m: 600            # MED. Block effects reach about 600 m [Urzainki2023]
 
+budget:                           # unit prices [low, central, high], rupiah of their own year, NOT adjusted for inflation; docs/proposed_defaults.md
+  price_year: 2026                # the year of the newest price below; older ones are as published
+  sekat_standard_idr: [12000000, 18000000, 18000000]    # LOW-MED. Wooden block: Rp 12 juta (Kompas 2019), Rp 18 juta (BRG via kelompok masyarakat, Riau 2022)
+  sekat_reinforced_idr: [70000000, 70000000, 70000000]  # LOW. Concrete block "at least Rp 70 juta" (Kompas 2019)
+  canal_closure_idr_per_km: null  # no published price per km of backfilled canal was found: quantity only
+  revegetation_idr_per_ha: [8000000, 12100000, 15000000] # LOW-MED. BRG 2016 Rp 8-10 juta/ha; ULM village study Rp 12,1 juta/ha; Sumsel 2017 Rp 15 juta/ha (first year, without labour)
+  well_idr: [3000000, 8500000, 9000000]                  # LOW. BRG 2017-2018 Rp 3 juta; Kubu Raya Rp 8-9 juta (16-20 m)
+  well_radius_m: 200              # LOW. re-peat docs/05-parameters.md (BRG module): one well serves about 12.6 ha
+  pump_idr: [15500000, 15500000, 15500000]               # LOW. 6-inch diesel irrigation pump, marketplace listing 2026
+  fuel_idr_per_l: [23554, 23554, 24886]                  # MED. Industrial diesel, MyPertamina reference 1-14 and 15-31 October 2026 (solardistro.com)
+  fuel_l_per_kwh: 0.3             # LOW. Engineering assumption for small diesel pump sets; no source retrieved
+  pump_hours_per_day: 12          # POLICY. Operating hours per day in the dry season
+
 suggested_facts:                  # used only where the run config leaves the value empty; check against the data delivery
   dtm_rmse_by_source:             # inputs.dtm.vertical_rmse_m by inputs.dtm.source
     lidar: 0.3                    # MED. Airborne LiDAR is well within 0.3 m [Meadows2024]. Use the delivery report's value when there is one

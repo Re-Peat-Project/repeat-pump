@@ -30,8 +30,13 @@
     <div class="note" id="mapnote"></div>
   </section>
   <section class="grid2">
-    <div class="card"><h2 data-i18n>Water held by the sekat, in order of benefit</h2><div class="sub" data-i18n>Cumulative share of the canal water-level rise of all head-rule sekat</div><div id="curve" class="chart"></div></div>
+    <div class="card"><div class="maphead"><h2 data-i18n>Water held by the sekat, in order of benefit</h2>
+      <div class="seg" role="group" id="curvex"><button data-x="n" data-i18n>Blocks</button><button data-x="cost" data-i18n>Rupiah</button></div></div>
+      <div class="sub" data-i18n>Cumulative share of the canal water-level rise of all head-rule sekat</div><div id="curve" class="chart"></div></div>
     <div class="card"><h2 data-i18n>Interventions per sub-KHG</h2><div class="sub" data-i18n>Number of sub-KHG per treatment class</div><div id="ivbars" class="chart"></div></div>
+  </section>
+  <section class="card" id="budgetcard">
+    <h2 data-i18n>Budget estimate</h2><div class="sub" id="budgetsub"></div><div id="budget" class="chart"></div>
   </section>
   <section class="grid2">
     <div class="card"><h2 data-i18n>Monthly water balance</h2><div class="sub" id="nerasub"></div><div id="neraca" class="chart"></div></div>

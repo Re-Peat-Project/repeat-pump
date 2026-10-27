@@ -158,6 +158,11 @@ def run(ctx) -> dict | None:
         layer[c] = layer[c].astype(bool)
     ctx.write_layer("interventions", layer, "11")
     layer.drop(columns="geometry").to_csv(ctx.out_dir / "interventions.csv", index=False)
+    from . import budget
+    try:
+        ctx.report["budget"] = budget.run(ctx, out)
+    except Exception as e:                                # a pricing problem must not stop the report
+        ctx.warn(f"Stage 11: budget estimate skipped ({e})")
     counts = {k: int((layer["intervention"] == k).sum()) for k in CLASSES}
     otherwise = {k: int((layer["intervention_otherwise"] == k).sum()) for k in CLASSES if (layer["intervention_otherwise"] == k).any()}
     no_ind = int(layer["u_ndmi"].isna().sum()) if "u_ndmi" in layer else len(layer)

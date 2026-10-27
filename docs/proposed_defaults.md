@@ -39,6 +39,25 @@ retrieved source (replace before real use); **POLICY** a choice, not a measureme
 | `pumping.water_table_rise_m` | 0.40 m | LOW | Restores a 0.8 m dry-season water table to the 0.4 m limit of PP 57/2016. Set per site. |
 | `pumping.design_period_days` | 120 | MED | Dry season July to October (Ritzema 2014). Used only where the priority table has none. |
 
+## Budget unit prices (`budget.*`)
+
+Stage 11 prices the quantities of the run (core/budget.py). Each price is `[low, central, high]` in rupiah of its own year, **not adjusted for inflation**, found by web search on 2026-10-27. The figures come from the search summaries of the linked pages; the pages were not all re-read, so check a figure on its page before citing it. They are proposals for trial runs: replace them with KLH's own standard (Perdirjen PPKL P.4/PPKL/PKG/PKL.0/6/2019, *Standar Biaya Pembangunan Infrastruktur Pembasahan untuk Pemulihan Ekosistem Gambut*, which BPK audits against but whose figures were not found online) or contract values.
+
+| Key | Proposed | Confidence | Source |
+|---|---|---|---|
+| `sekat_standard_idr` | 12, 18, 18 million per block | LOW-MED | Wooden block about Rp 12 juta ([Kompas, Timbunan Kanal Efektif Basahi Gambut](https://www.kompas.id/artikel/timbunan-kanal-efektif-basahi-gambut)); Rp 18 juta per block through community groups, Riau 2022 ([CyberNKRI](https://cybernkri.com/pemerintah-pusat-bangun-120-sekat-kanal-di-riau/)); 176 blocks for Rp 3 miliar at TN Sebangau, about Rp 17 juta each ([KSDAE](https://ksdae.menlhk.go.id/berita/9235/Pembuatan-176-Unit-Sekat-Kanal-Di-Taman-Nasional-Sebangau.html)) |
+| `sekat_reinforced_idr` | 70 million per block | LOW | Concrete block "at least Rp 70 juta" (Kompas, same article) |
+| `canal_closure_idr_per_km` | not priced | none | No published price per km of backfilled canal was found; BRG staff call backfilling more expensive than blocking ([detik](https://news.detik.com/berita/d-4002033/brg-berjibaku-timbun-kanal-di-lahan-gambut-warisan-orba)). The quantity (km) is reported |
+| `revegetation_idr_per_ha` | 8, 12.1, 15 million per ha | LOW-MED | BRG: Rp 8-10 juta/ha ([ANTARA](https://www.antaranews.com/berita/552739/brg-biaya-restorasi-gambut-rp12-juta-per-hektar)); village cost study Rp 12,1 juta/ha ([Jurnal Hutan Tropis, ULM](https://ppjp.ulm.ac.id/journal/index.php/jht/article/download/11297/7270)); Sumsel first year Rp 15 juta/ha without labour ([Tempo](https://www.tempo.co/arsip/sumatera-selatan-revegetasi-gambut-di-lahan-1-000-hektare-nbsp--1272253)) |
+| `well_idr` | 3, 8.5, 9 million per well | LOW | BRG 2017-2018 Rp 3 juta per well (news reports: [Kompas, Evaluasi Sumur Bor di Kalteng](https://www.kompas.id/artikel/evaluasi-sumur-bor-di-kalteng), [ANTARA Kalteng](https://kalteng.antaranews.com/berita/260788/brg-kalteng-bangun-2000-sumur-bor-di-lahan-gambut)); Kubu Raya Rp 8-9 juta at 16-20 m ([VOA](https://www.voaindonesia.com/a/kado-kecil-mahasiswa-ugm-untuk-pemukim-gambut/5026134.html)). A Rp 10 juta swamp-well figure could not be confirmed (the page was not readable) and is not used |
+| `well_radius_m` | 200 m | LOW | re-peat docs/05-parameters.md (BRG module) |
+| `pump_idr` | 15.5 million per unit | LOW | 6-inch diesel irrigation pump, marketplace listing 2026 ([Tokopedia](https://www.tokopedia.com/find/diesel-pompa-air-sawah)) |
+| `fuel_idr_per_l` | 23,554 to 24,886 per L | MED | Industrial diesel, MyPertamina reference, 1-14 and 15-31 October 2026 ([solardistro.com](https://solardistro.com/artikel/arsip-harga/)) |
+| `fuel_l_per_kwh` | 0.3 | LOW | Engineering assumption for small diesel pump sets; no source retrieved |
+| `pump_hours_per_day` | 12 | POLICY | Operating hours in the dry season |
+
+For scale: BRG put hydrological restoration at about Rp 12 juta per ha over five years (World Bank and CIFOR range Rp 6-36 juta) ([ANTARA](https://www.antaranews.com/berita/552739/brg-biaya-restorasi-gambut-rp12-juta-per-hektar)).
+
 ## KLH guide and legacy-script parameters, and where they went
 
 From the technical guide (Panduan Teknis GIS Rewetting KLH, Appendix A) and the two legacy scripts. "Opt-in" means the key is empty by default, so existing runs do not change.

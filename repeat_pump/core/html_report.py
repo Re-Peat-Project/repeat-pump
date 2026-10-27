@@ -145,6 +145,7 @@ def collect(config_path: str | Path) -> dict:
                   "share_kept": bal.get("share_kept"), "held_m3": held, "deficit_m3_selected": deficit_sel,
                   "selected": selected, "units": int(len(units)) if units is not None else 0},
         "interventions": {"counts": iv.get("counts", {}), "closed_otherwise": iv.get("closed_otherwise", {}), "thresholds": iv.get("thresholds", {})},
+        "budget": rep.get("budget"),
         "curve": curve,
         "neraca": {k: v for k, v in neraca.items() if k != "stations"},
         "geo": {"units": _geojson(units, unit_props, SIMPLIFY_M),

@@ -37,6 +37,14 @@ const ID = {
   "Pumps": "Pompa", "off (sekat only)": "mati (sekat saja)", "on": "aktif", "Canal classes": "Kelas kanal", "warnings in the run report": "peringatan di laporan run",
   "Hover a sub-KHG, sekat or station for its details.": "Arahkan kursor ke sub-KHG, sekat atau stasiun untuk rinciannya.", "kept for": "dipertahankan untuk", "of the water they hold": "dari air yang ditahan", "rise": "kenaikan", "spacing": "jarak", "rank": "urutan", "share": "bagian",
   "selected": "terpilih", "not analysed": "tidak dianalisis", "mm/month": "mm/bulan",
+  "Budget estimate": "Perkiraan anggaran", "Blocks": "Sekat", "Rupiah": "Rupiah", "Spent on sekat, in order of benefit": "Belanja sekat, menurut urutan manfaat",
+  "billion rupiah": "miliar rupiah", "not priced": "belum ada harga", "low": "rendah", "central": "tengah", "high": "tinggi",
+  "Prices are proposed estimates from published sources, not team decisions; they are not adjusted for inflation.":
+    "Harga adalah perkiraan usulan dari sumber terbitan, bukan keputusan tim; belum disesuaikan dengan inflasi.",
+  "rupiah per m³ of water held by the sekat": "rupiah per m³ air yang ditahan sekat", "prices of": "harga tahun",
+  "Sekat, wooden (kept)": "Sekat kayu (dipertahankan)", "Sekat, concrete (kept)": "Sekat beton (dipertahankan)",
+  "Sekat, KLH IPG estimate (sub-KHG not analysed)": "Sekat, perkiraan IPG KLH (sub-KHG tidak dianalisis)", "Canal closure or backfill": "Penutupan atau penimbunan kanal",
+  "Revegetation": "Revegetasi", "Deep wells (sumur bor)": "Sumur bor", "Pump units": "Unit pompa", "Pump fuel": "Bahan bakar pompa",
 };
 let lang = (localStorage.getItem("rp_lang") || (navigator.language || "en").slice(0, 2)) === "id" ? "id" : "en";
 const t = s => (lang === "id" && ID[s]) || s;
@@ -52,6 +60,11 @@ const ivColor = c => css("--s" + (IV.indexOf(c) + 1)) || css("--muted");
 const TMAT = ["flooded", "normal", "at_risk", "high_risk"];
 const TMAT_LABEL = {flooded: "Flooded (above 0 m)", normal: "Normal (0 to -0.4 m)", at_risk: "At risk (-0.4 to -0.8 m)", high_risk: "Very much at risk (below -0.8 m)"};
 const tmatColor = c => ({flooded: css("--s1"), normal: css("--good"), at_risk: css("--warning"), high_risk: css("--critical")})[c] || css("--muted");
+
+const ITEM_LABEL = {sekat_standard: "Sekat, wooden (kept)", sekat_reinforced: "Sekat, concrete (kept)", sekat_ipg_estimate: "Sekat, KLH IPG estimate (sub-KHG not analysed)",
+  canal_closure_km: "Canal closure or backfill", revegetation_ha: "Revegetation", deep_wells: "Deep wells (sumur bor)", pump_units: "Pump units", pump_fuel_l: "Pump fuel"};
+const ITEM_UNIT = {sekat_standard: "", sekat_reinforced: "", sekat_ipg_estimate: "", canal_closure_km: "km", revegetation_ha: "ha", deep_wells: "", pump_units: "", pump_fuel_l: "L"};
+const bn = v => v == null ? "–" : nf(v / 1e9, 1);
 
 // ------------------------------------------------------------------ tooltip
 const tip = document.getElementById("tip");
@@ -80,6 +93,9 @@ function tiles() {
      h: "Canal water-level rise of the kept sekat x specific yield x lateral reach, against the neraca KHG deficit x area of the selected sub-KHG (stage 11)."},
     {l: "Neraca KHG deficit", v: D.neraca.khg_deficit_mm == null ? "–" : nf(D.neraca.khg_deficit_mm), s: D.neraca.khg_deficit_mm == null ? "" : "mm",
      f: D.neraca.window || "", h: "repeat-neraca: max(0, -sum(P - E) - Sy x observed water-table change) over the dry-season window, from SiTMAT and ERA5."},
+    {l: "Budget estimate", v: D.budget && D.budget.total_idr != null ? bn(D.budget.total_idr) : "–", s: D.budget && D.budget.total_idr != null ? t("billion rupiah") : "",
+     f: D.budget && D.budget.total_idr != null ? `${bn(D.budget.total_low_idr)} – ${bn(D.budget.total_high_idr)}${(D.budget.unpriced || []).length ? " · " + t("not priced") + ": " + D.budget.unpriced.map(i => t(ITEM_LABEL[i] || i)).join(", ") : ""}` : "",
+     h: "Quantities of the run (kept sekat, km of canal to close, ha to revegetate, wells, pumps) x proposed unit prices from published sources (budget.* in the config; docs/proposed_defaults.md). Low and high from the range of the sources."},
     {l: "Existing sekat", v: nf(T.existing != null && T.unsnapped != null ? T.existing - T.unsnapped : T.existing), s: T.existing != null ? `${t("of")} ${nf(T.existing)}` : "",
      f: t("on an analysed canal"), h: "Existing sekat within the snap tolerance of an analysed canal class (stage 7)."},
     {l: "Sub-KHG analysed for sekat", v: nf((T.selected || []).length), s: `${t("of")} ${nf(T.units)}`, f: (T.selected || []).join(", "),
@@ -207,24 +223,31 @@ function frame(id, h = 260, m = {t: 12, r: 16, b: 34, l: 48}) {
   return {svg, w, h, m, iw: w - m.l - m.r, ih: h - m.t - m.b, g: svg.append("g").attr("transform", `translate(${m.l},${m.t})`)};
 }
 function empty(id, msg) { document.getElementById(id).innerHTML = `<div class="note" style="padding:24px 0">${msg}</div>`; }
+let curveX = "n";
 function curveChart() {
-  const c = D.curve; if (!c.length) return empty("curve", "–");
-  const F = frame("curve"); const x = d3.scaleLinear().domain([0, c.length]).range([0, F.iw]); const y = d3.scaleLinear().domain([0, 1]).range([F.ih, 0]);
+  const sc = (D.budget && D.budget.spend_curve) || [];
+  const byCost = curveX === "cost" && sc.length === D.curve.length;
+  const c = byCost ? D.curve.map((p, i) => ({...p, n: sc[i].cost_idr})) : D.curve; if (!c.length) return empty("curve", "–");
+  document.querySelectorAll("#curvex button").forEach(b => { b.classList.toggle("on", b.dataset.x === (byCost ? "cost" : "n")); b.hidden = !sc.length; });
+  const F = frame("curve"); const x = d3.scaleLinear().domain([0, byCost ? c[c.length - 1].n : c.length]).range([0, F.iw]); const y = d3.scaleLinear().domain([0, 1]).range([F.ih, 0]);
   F.g.append("g").attr("class", "gridl").call(d3.axisLeft(y).ticks(5).tickSize(-F.iw).tickFormat(""));
-  F.g.append("g").attr("class", "axis").attr("transform", `translate(0,${F.ih})`).call(d3.axisBottom(x).ticks(6));
+  F.g.append("g").attr("class", "axis").attr("transform", `translate(0,${F.ih})`).call(d3.axisBottom(x).ticks(6).tickFormat(v => byCost ? bn(v) : nf(v)));
   F.g.append("g").attr("class", "axis").call(d3.axisLeft(y).ticks(5).tickFormat(d => nf(100 * d) + " %"));
   const pts = [{n: 0, cum: 0}, ...c];
   const kept = c.filter(p => p.kept).length;
-  F.g.append("rect").attr("x", 0).attr("y", 0).attr("width", x(kept)).attr("height", F.ih).attr("fill", css("--ink")).attr("opacity", 0.05);
+  const keptX = byCost ? (c[kept - 1] || {n: 0}).n : kept;
+  F.g.append("rect").attr("x", 0).attr("y", 0).attr("width", x(keptX)).attr("height", F.ih).attr("fill", css("--ink")).attr("opacity", 0.05);
   F.g.append("path").datum(pts).attr("fill", "none").attr("stroke", css("--ink")).attr("stroke-width", 2).attr("d", d3.line().x(d => x(d.n)).y(d => y(d.cum)));
   if (T.target_share) F.g.append("line").attr("x1", 0).attr("x2", F.iw).attr("y1", y(T.target_share)).attr("y2", y(T.target_share)).attr("stroke", css("--muted")).attr("stroke-dasharray", "3 3");
-  F.g.append("text").attr("x", x(kept) + 6).attr("y", 14).text(`${nf(kept)} ${t("kept")}`);
-  F.g.append("text").attr("x", F.iw).attr("y", F.ih + 30).attr("text-anchor", "end").text(t("Blocks, in order of benefit"));
+  F.g.append("text").attr("x", x(keptX) + 6).attr("y", 14).text(`${nf(kept)} ${t("kept")}` + (byCost ? ` · ${bn(keptX)} ${t("billion rupiah")}` : ""));
+  F.g.append("text").attr("x", F.iw).attr("y", F.ih + 30).attr("text-anchor", "end").text(byCost ? `${t("Spent on sekat, in order of benefit")} (${t("billion rupiah")})` : t("Blocks, in order of benefit"));
   const dot = F.g.append("circle").attr("r", 4).attr("fill", css("--ink")).attr("stroke", css("--surface")).attr("stroke-width", 2).style("display", "none");
   F.svg.append("rect").attr("x", F.m.l).attr("y", F.m.t).attr("width", F.iw).attr("height", F.ih).attr("fill", "transparent")
-    .on("mousemove", ev => { const n = Math.max(1, Math.min(c.length, Math.round(x.invert(d3.pointer(ev)[0] - F.m.l)))); const p = c[n - 1];
+    .on("mousemove", ev => { const xv = x.invert(d3.pointer(ev)[0] - F.m.l); const i = byCost ? Math.max(0, d3.bisectLeft(c.map(p => p.n), xv)) : Math.round(xv) - 1;
+      const p = c[Math.max(0, Math.min(c.length - 1, i))]; const n = c.indexOf(p) + 1;
       dot.style("display", null).attr("cx", x(p.n)).attr("cy", y(p.cum));
-      showTip(`<b>${nf(p.n)} ${t("blocks")}</b>` + row(t("Share of the water held"), nf(100 * p.cum, 1) + " %") + row(t("rise"), "+" + nf(p.gain) + " m²"), ev.clientX, ev.clientY); })
+      showTip(`<b>${nf(n)} ${t("blocks")}</b>` + (byCost ? row(t("Rupiah"), bn(p.n) + " " + t("billion rupiah")) : "") + row(t("Share of the water held"), nf(100 * p.cum, 1) + " %") +
+        row(t("rise"), "+" + nf(p.gain) + " m²"), ev.clientX, ev.clientY); })
     .on("mouseleave", () => { dot.style("display", "none"); hideTip(); });
 }
 function ivChart() {
@@ -241,6 +264,31 @@ function ivChart() {
   F.g.selectAll("text.lab").data(cls).join("text").attr("class", "lab").attr("x", -8).attr("y", c => y(c) + y.bandwidth() / 2).attr("dy", "0.35em").attr("text-anchor", "end")
     .text(c => `${t(IV_LABEL[c])} (${IV_SHORT[c]})`);
   F.g.selectAll("text.v").data(cls).join("text").attr("class", "v").attr("x", c => x(cnt[c]) + 6).attr("y", c => y(c) + y.bandwidth() / 2).attr("dy", "0.35em").text(c => nf(cnt[c]));
+}
+function budgetChart() {
+  const B = D.budget, sub = document.getElementById("budgetsub");
+  if (!B) { document.getElementById("budgetcard").hidden = true; return; }
+  sub.textContent = `${t("billion rupiah")}, ${t("prices of")} ${B.price_year || "–"}. ` + t("Prices are proposed estimates from published sources, not team decisions; they are not adjusted for inflation.") +
+    (B.idr_per_m3_held ? ` ${nf(B.idr_per_m3_held)} ${t("rupiah per m³ of water held by the sekat")}.` : "");
+  const items = Object.entries(B.by_item || {}).filter(([k, v]) => v.quantity > 0).sort((a, b) => (b[1].cost_idr || 0) - (a[1].cost_idr || 0));
+  if (!items.length) return empty("budget", "–");
+  const probe = d3.select("body").append("svg");
+  const lw = d3.max(items, ([k, v]) => probe.append("text").style("font-size", "11.5px").text(`${t(ITEM_LABEL[k] || k)} · ${nf(v.quantity)} ${ITEM_UNIT[k] || ""}`).node().getComputedTextLength());
+  probe.remove();
+  const F = frame("budget", Math.max(160, items.length * 34 + 30), {t: 8, r: 70, b: 22, l: Math.ceil(lw) + 14});
+  const y = d3.scaleBand().domain(items.map(d => d[0])).range([0, F.ih]).padding(0.3);
+  const x = d3.scaleLinear().domain([0, d3.max(items, ([k, v]) => v.cost_high_idr || v.cost_idr || 0) || 1]).nice().range([0, F.iw]);
+  F.g.append("g").attr("class", "gridl").attr("transform", `translate(0,${F.ih})`).call(d3.axisBottom(x).ticks(5).tickSize(-F.ih).tickFormat(""));
+  F.g.append("g").attr("class", "axis").attr("transform", `translate(0,${F.ih})`).call(d3.axisBottom(x).ticks(5).tickFormat(v => bn(v)));
+  const g = F.g.selectAll("g.it").data(items).join("g").attr("class", "it").attr("transform", d => `translate(0,${y(d[0])})`);
+  g.append("rect").attr("height", y.bandwidth()).attr("width", d => d[1].cost_idr == null ? 0 : x(d[1].cost_idr)).attr("rx", 4).attr("fill", css("--s1"));
+  g.append("line").attr("x1", d => d[1].cost_low_idr == null ? 0 : x(d[1].cost_low_idr)).attr("x2", d => d[1].cost_high_idr == null ? 0 : x(d[1].cost_high_idr))
+    .attr("y1", y.bandwidth() / 2).attr("y2", y.bandwidth() / 2).attr("stroke", css("--ink")).attr("stroke-width", 1.5);
+  g.append("text").attr("x", -8).attr("y", y.bandwidth() / 2).attr("dy", "0.35em").attr("text-anchor", "end").text(([k, v]) => `${t(ITEM_LABEL[k] || k)} · ${nf(v.quantity)} ${ITEM_UNIT[k] || ""}`);
+  g.append("text").attr("x", d => (d[1].cost_high_idr ? x(d[1].cost_high_idr) : x(d[1].cost_idr || 0)) + 6).attr("y", y.bandwidth() / 2).attr("dy", "0.35em")
+    .text(([k, v]) => v.cost_idr == null ? t("not priced") : bn(v.cost_idr));
+  g.on("mousemove", (ev, [k, v]) => showTip(`<b>${t(ITEM_LABEL[k] || k)}</b>` + row(t("low"), bn(v.cost_low_idr)) + row(t("central"), bn(v.cost_idr)) + row(t("high"), bn(v.cost_high_idr)) +
+      row("", t("billion rupiah")), ev.clientX, ev.clientY)).on("mouseleave", hideTip);
 }
 function neracaChart() {
   const U = D.neraca.units || {}; const ids = Object.keys(U);
@@ -324,14 +372,15 @@ function table() {
 // ------------------------------------------------------------------ wiring
 function themeButton() { const dark = document.documentElement.dataset.theme === "dark" || (!document.documentElement.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches);
   document.getElementById("theme").textContent = dark ? "☀" : "☾"; }
-function renderAll() { header(); tiles(); layerPanel(); curveChart(); ivChart(); neracaChart(); stationsChart(); table(); footer(); themeButton(); restyleMap(); }
+function renderAll() { header(); tiles(); layerPanel(); curveChart(); ivChart(); budgetChart(); neracaChart(); stationsChart(); table(); footer(); themeButton(); restyleMap(); }
+document.querySelectorAll("#curvex button").forEach(b => b.onclick = () => { curveX = b.dataset.x; curveChart(); });
 document.querySelectorAll("[data-lang]").forEach(b => b.onclick = () => { lang = b.dataset.lang; try { localStorage.setItem("rp_lang", lang); } catch (e) {} renderAll(); });
 document.getElementById("theme").onclick = () => { const r = document.documentElement; const dark = r.dataset.theme === "dark" || (!r.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches);
   r.dataset.theme = dark ? "light" : "dark"; try { localStorage.setItem("rp_theme", r.dataset.theme); } catch (e) {} renderAll(); };
 document.querySelectorAll("#unitmode button").forEach(b => b.onclick = () => { unitMode = b.dataset.mode; layerPanel(); restyleMap(); });
 document.getElementById("q").oninput = table;
 try { const th = localStorage.getItem("rp_theme"); if (th) document.documentElement.dataset.theme = th; } catch (e) {}
-let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { curveChart(); ivChart(); neracaChart(); stationsChart(); }, 150); });
+let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { curveChart(); ivChart(); budgetChart(); neracaChart(); stationsChart(); }, 150); });
 renderAll(); initMap();
 document.body.dataset.parity = `kept:${D.geo.kept.features.length}=${T.kept}`;
 })();

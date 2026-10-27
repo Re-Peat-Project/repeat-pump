@@ -280,6 +280,22 @@ class InterventionsCfg(_M):
     lateral_reach_m: Optional[float] = None
 
 
+class BudgetCfg(_M):
+    """Unit prices for the budget estimate in stage 11 (core/budget.py): ``[low, central, high]`` rupiah of ``price_year``; null = not priced."""
+    enabled: bool = True
+    price_year: Optional[int] = None
+    sekat_standard_idr: Optional[list[float]] = None       # per wooden canal block
+    sekat_reinforced_idr: Optional[list[float]] = None     # per concrete block (leaky/reinforced type, steep canals)
+    canal_closure_idr_per_km: Optional[list[float]] = None # per km of canal closed or backfilled
+    revegetation_idr_per_ha: Optional[list[float]] = None
+    well_idr: Optional[list[float]] = None                 # per deep well (sumur bor)
+    well_radius_m: Optional[float] = None                  # area one well covers, for the number of wells
+    pump_idr: Optional[list[float]] = None                 # per pump unit
+    fuel_idr_per_l: Optional[list[float]] = None
+    fuel_l_per_kwh: Optional[float] = None
+    pump_hours_per_day: Optional[float] = None
+
+
 class Config(_M):
     run: RunCfg
     inputs: InputsCfg
@@ -292,6 +308,7 @@ class Config(_M):
     pumping: PumpingCfg = Field(default_factory=PumpingCfg)
     optimise: OptimiseCfg = Field(default_factory=OptimiseCfg)
     interventions: InterventionsCfg = Field(default_factory=InterventionsCfg)
+    budget: BudgetCfg = Field(default_factory=BudgetCfg)
     review: ReviewCfg = Field(default_factory=ReviewCfg)
 
     @property
@@ -306,7 +323,7 @@ class Config(_M):
 
 # What a proposed-defaults preset may fill: policy and engineering values. Input paths and datums stay with the user. Two facts
 # about the data may be suggested through ``suggested_facts`` (DTM error by DTM type, moisture direction), flagged like the rest.
-PRESET_SECTIONS = {"topology", "hydro", "sekat", "prioritise", "pumping", "optimise", "interventions"}
+PRESET_SECTIONS = {"topology", "hydro", "sekat", "prioritise", "pumping", "optimise", "interventions", "budget"}
 PRESET_RUN_KEYS = {"clip_margin_m"}
 
 

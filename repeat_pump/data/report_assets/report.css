@@ -65,3 +65,4 @@ svg .gridl line{stroke:var(--grid)}
 svg .gridl path{display:none}
 .maplibregl-ctrl-attrib{font-size:11px}
 @media (max-width:900px){.grid2{grid-template-columns:1fr}.mapbody{grid-template-columns:1fr}#map{height:420px}.top,main,footer{padding-left:16px;padding-right:16px}}
+#budget{min-height:0}
