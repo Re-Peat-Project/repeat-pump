@@ -25,7 +25,8 @@ from qgis.PyQt.QtXml import QDomDocument
 
 MM = Qgis.LayoutUnit.Millimeters
 PAPERS = {"A0": (1189, 841), "A1": (841, 594), "A2": (594, 420), "A3": (420, 297), "A4": (297, 210)}   # landscape width x height, mm
-ITEM_IDS = ["map_main", "map_inset", "title", "north", "scale_text", "scalebar", "legend", "sources", "institution", "logo", "note", "frame_strip"]
+ITEM_IDS = ["map_main", "map_inset", "title", "north", "scale_text", "scalebar", "legend", "sources", "institution", "logo", "note", "frame_strip",
+            "budget_table"]
 FONT = "Arial"
 INK = QColor("#1a1a1a")
 
@@ -50,6 +51,13 @@ class LayoutSpec:
     legend_names: dict = field(default_factory=dict)  # layer id -> legend heading (the layer keeps its own name)
     name: str = ""
     placeholder: bool = False                      # a template: every item, including an empty inset map, and no layers
+    budget_rows: list = field(default_factory=list)   # rows of text, the first the header; a box in the map's top-right corner when given
+
+
+def symbol_scale(paper: str) -> float:
+    """How much larger point and line symbols are drawn on this paper than on A3 (never smaller): a sheet that is read from further
+    away needs larger marks. A2 1.3, A1 1.6, A0 2.1."""
+    return max(1.0, _f(paper) / _f("A3"))
 
 
 # ----------------------------------------------------------------------------- numbers
@@ -260,6 +268,11 @@ def build_layout(project: QgsProject, spec: LayoutSpec) -> QgsPrintLayout:
     _label(layout, "institution", spec.institution, 12 * f, sx + 2 * pad + lsz, syy + shh - lsz - pad, sw - 3 * pad - lsz, lsz, bold=True,
            valign=Qt.AlignmentFlag.AlignVCenter)
 
+    # ---- budget table, in the map's top-right corner (move it in the layout designer if it covers the area)
+    if spec.budget_rows or spec.placeholder:
+        rows = spec.budget_rows or [["Item", "Jumlah", "Biaya (miliar Rp)"]]
+        _budget_table(layout, rows, map_box, f)
+
     # ---- inset
     ix, iy, iw, ih = boxes["inset"]
     if spec.inset_layers or spec.placeholder:
@@ -282,6 +295,53 @@ def build_layout(project: QgsProject, spec: LayoutSpec) -> QgsPrintLayout:
         ov.setFrameSymbol(QgsFillSymbol.createSimple({"color": "208,59,59,60", "outline_color": "208,59,59", "outline_width": "0.4"}))
         ins.overviews().addOverview(ov)
     return layout
+
+
+def _set_budget_rows(table, rows: list, f: float) -> None:
+    from qgis.core import QgsTableCell
+    head, body = _fmt(11 * f, True), _fmt(10 * f)
+    cells, width = [], max(len(r) for r in rows)
+    for i, r in enumerate(rows):
+        if len(r) == 1:                                    # a note under the table, across every column
+            c = QgsTableCell(r[0])
+            c.setTextFormat(_fmt(8.5 * f))
+            c.setSpan(1, width)
+            cells.append([c] + [QgsTableCell("") for _ in range(width - 1)])
+            continue
+        line = []
+        for j, v in enumerate(r):
+            c = QgsTableCell(v)
+            c.setTextFormat(head if i == 0 or str(r[0]).lower() == "total" else body)
+            c.setHorizontalAlignment(Qt.AlignmentFlag.AlignLeft if j == 0 else Qt.AlignmentFlag.AlignRight)
+            line.append(c)
+        cells.append(line)
+    table.setTableContents(cells)
+
+
+def _budget_table(layout, rows: list, map_box: tuple, f: float):
+    """A manual table (rows of text) in a frame with the id ``budget_table`` at the top-right corner of the main map."""
+    from qgis.core import QgsLayoutFrame, QgsLayoutItemManualTable
+    table = QgsLayoutItemManualTable.create(layout)
+    layout.addMultiFrame(table)
+    table.setIncludeTableHeader(False)
+    table.setCellMargin(0.8 * f + 0.4)
+    table.setGridStrokeWidth(0.15)
+    table.setGridColor(QColor("#c3c2b7"))
+    table.setVerticalGrid(False)
+    table.setBackgroundColor(QColor(255, 255, 255, 235))
+    table.setContentTextFormat(_fmt(10 * f))
+    _set_budget_rows(table, rows, f)
+    frame = QgsLayoutFrame(layout, table)
+    frame.setId("budget_table")
+    frame.setFrameEnabled(True)
+    frame.setFrameStrokeWidth(QgsLayoutMeasurement(0.3, MM))
+    table.addFrame(frame)
+    mx, my, mw, mh = map_box
+    w = min(0.42 * mw, table.totalWidth() + 1.0)
+    h = len(rows) * (10 * f * PT_MM * 1.2 + 2 * table.cellMargin()) + 0.5
+    pad = 0.015 * mw
+    _place(frame, mx + mw - w - pad, my + pad, w, h)
+    return frame
 
 
 def _legend_sizes(lg: QgsLayoutItemLegend, k: float) -> None:
@@ -438,6 +498,12 @@ def fill_layout(layout: QgsLayout, spec: LayoutSpec, project: QgsProject) -> lis
         f = (page.width() * page.height() / (1189 * 841)) ** 0.35
         box = lg.sizeWithUnits()
         fit_legend(lg, box.width(), box.height(), f)              # the legend keeps the box the template gives it
+    bt = item("budget_table")
+    if bt is not None and spec.budget_rows:
+        page = layout.pageCollection().page(0).pageSize()
+        _set_budget_rows(bt.multiFrame(), spec.budget_rows, (page.width() * page.height() / (1189 * 841)) ** 0.35)
+    elif bt is None and spec.budget_rows:
+        missing.append("budget_table")
     ins = item("map_inset")
     if ins is not None and spec.inset_layers:
         ins.setLayers(([spec.inset_highlight] if spec.inset_highlight is not None else []) + list(spec.inset_layers))

@@ -44,8 +44,8 @@ def main():
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     tdir = ROOT / "qgis_plugin" / "repeat_pump_qgis" / "resources" / "layouts"
-    spec = spec_for_run(a.config, project, data_dir=a.data)
     for paper in a.papers:
+        spec = spec_for_run(a.config, project, paper=paper, data_dir=a.data)      # symbol sizes follow the paper
         for orient in a.orient:
             spec.paper, spec.orientation = paper, orient
             if a.from_template:

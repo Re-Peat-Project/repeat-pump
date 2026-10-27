@@ -80,7 +80,7 @@ def run(ctx):
         return "skipped"
     need = ["n_blocks", "max_evaluations", "canal_drawdown_m"]
     if oc.objective != "canal_rise":
-        need += ["grid_m", "dry_days", "et_mm_day", "transmissivity_multiplier"]
+        need += ["grid_m", "dry_days", "et_mm_day"] + (["transmissivity_multiplier"] if "urzainki2020" in [oc.peat_table, *oc.bracket_tables] else [])
     require(oc, need, "Stage 12", "optimise")
     dA = cfg.sekat.dA_m
     canals = ctx.read_layer("canals_clean")
@@ -130,10 +130,13 @@ def run(ctx):
         if grid.shared_cells:
             ctx.warn(f"Stage 12: {grid.shared_cells} grid cell(s) hold nodes of more than one canal; the cell takes their mean level "
                      f"(use a smaller optimise.grid_m if canals run closer than {oc.grid_m:g} m)")
-        pde = bo.PdeObjective(net, base, nodes, crest, fixed, grid, PeatTable.urzainki2020(), oc.dry_days, oc.et_mm_day,
-                              oc.transmissivity_multiplier)
+        pde = bo.PdeObjective(net, base, nodes, crest, fixed, grid, PeatTable.named(oc.peat_table), oc.dry_days, oc.et_mm_day,
+                              _multiplier(oc, oc.peat_table))
+        if oc.peat_table == "urzainki2020":
+            ctx.warn("Stage 12: optimise.peat_table is urzainki2020, built from boreal retention curves; its transmissivity is 100 to 1000 "
+                     "times below tropical values. Consider tropical-small or tropical-large (optimise.peat_table, optimise.bracket_tables)")
     search_fn = pde.benefit if oc.objective == "pde" else proxy.benefit
-    unit = "ha m of dry peat avoided" if oc.objective == "pde" else "m of canal level rise"
+    unit = "m of canal level rise" if pde is None else "ha m of dry peat avoided"     # screen_then_pde reports the re-scored values
     if oc.max_evaluations < 2 * oc.ga.population:
         ctx.warn(f"Stage 12: optimise.max_evaluations ({oc.max_evaluations}) is below twice the GA population ({oc.ga.population}); "
                  "the genetic algorithm will barely leave its random start")
@@ -143,7 +146,8 @@ def run(ctx):
 
     # comparators scored with the same objective: random draws, and the highest need_score segments (rule-based)
     rng = np.random.default_rng(oc.seed + 1)
-    rnd = bo.random_baseline(search_fn, n_cand, k, int(oc.random_baseline_draws), rng) if oc.random_baseline_draws > 0 else np.array([])
+    score_fn = pde.benefit if pde is not None else search_fn               # comparators in the unit of the reported benefit
+    rnd = bo.random_baseline(score_fn, n_cand, k, int(oc.random_baseline_draws), rng) if oc.random_baseline_draws > 0 else np.array([])
     rule = None
     segs = ctx.read_layer("canal_segments")
     if "need_score" in segs and "seg_id" in cand:
@@ -190,7 +194,19 @@ def run(ctx):
     if len(trace):
         ctx.write_layer("qa_optimisation_trace", trace, "12")
 
-    summary = dict(objective=oc.objective, unit=unit, candidates=n_cand, blocks=k, best_method=best_algo, best_benefit=float(best_val),
+    bracket = None
+    if pde is not None and oc.bracket_tables:
+        # the same layouts under other peat tables: how much the benefit depends on a parameter nobody has measured here
+        bracket = {}
+        for name in dict.fromkeys([oc.peat_table, *oc.bracket_tables]):
+            other = pde if name == oc.peat_table else bo.PdeObjective(net, base, nodes, crest, fixed, pde.g, PeatTable.named(name), oc.dry_days,
+                                                                       oc.et_mm_day, _multiplier(oc, name))
+            bracket[name] = dict(transmissivity_multiplier=_multiplier(oc, name), baseline_dry_volume_ha_m=float(other.dry_fixed),
+                                 **{m: float(other.benefit(sel)) for m, (sel, _) in final.items()})
+        vals = [b[best_algo] for b in bracket.values()]
+        ctx.log.info("Stage 12: benefit of the chosen layout over the peat tables %s: %.4g to %.4g %s", list(bracket), min(vals), max(vals), unit)
+
+    summary = dict(objective=oc.objective, unit=unit, peat_table=(oc.peat_table if pde is not None else None), bracket=bracket, candidates=n_cand, blocks=k, best_method=best_algo, best_benefit=float(best_val),
                    random_mean_benefit=rnd_mean, gain_vs_random=(float(best_val) / rnd_mean if rnd_mean and rnd_mean == rnd_mean and rnd_mean != 0 else None),
                    best_sites=[ids[i] for i in best_sel],
                    baseline_dry_volume_ha_m=(float(pde.dry_fixed) if pde is not None else None),
@@ -201,6 +217,11 @@ def run(ctx):
                    best_method=best_algo, gain_vs_random=round(summary["gain_vs_random"], 2) if summary["gain_vs_random"] else 0)
     append_to_report(ctx, summary, qa)
     return None
+
+
+def _multiplier(oc, table: str) -> float:
+    """The multiplier scales the boreal table only; a tropical set already carries its scale (t1) and is used as published."""
+    return float(oc.transmissivity_multiplier) if table == "urzainki2020" else 1.0
 
 
 def append_to_report(ctx, summary: dict, table: pd.DataFrame) -> None:
@@ -221,4 +242,12 @@ def append_to_report(ctx, summary: dict, table: pd.DataFrame) -> None:
         for r in table.itertuples():
             vr = "" if r.benefit_vs_random != r.benefit_vs_random else f"{r.benefit_vs_random:.2f}"
             L.append(f"| {r.method} | {r.blocks} | {r.evaluations} | {r.benefit:.4g} {r.unit} | {vr} |")
+        if summary.get("peat_table"):
+            L += ["", f"Peat table `{summary['peat_table']}`."]
+        if summary.get("bracket"):
+            meths = [m for m in next(iter(summary["bracket"].values())) if m not in ("transmissivity_multiplier", "baseline_dry_volume_ha_m")]
+            L += ["", "The same layouts scored with other peat tables (site-calibrated or boreal sets, not measured here; read the result as a range):", "",
+                  "| peat table | transmissivity x | dry peat without new sekat (ha m) | " + " | ".join(meths) + " |", "|---|---|---|" + "---|" * len(meths)]
+            for name, b in summary["bracket"].items():
+                L.append(f"| {name} | {b['transmissivity_multiplier']:g} | {b['baseline_dry_volume_ha_m']:.4g} | " + " | ".join(f"{b[m]:.4g}" for m in meths) + " |")
         md.write_text(text.rstrip("\n") + "\n" + "\n".join(L) + "\n", encoding="utf8")

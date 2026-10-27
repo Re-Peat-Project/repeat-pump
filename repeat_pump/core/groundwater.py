@@ -27,6 +27,16 @@ SyFn = Callable[[np.ndarray], np.ndarray]
 TransFn = Callable[[np.ndarray, np.ndarray], np.ndarray]
 
 
+# Tropical peat after Cobb and Harvey (2019) as parameterised by Urzainki et al. (2023, Biogeosciences 20, 2099-2116, Table 2),
+# calibrated at the Merang-Kepayang dome (South Sumatra): (s1, s2, t1, t2). The same sets as repeat-neraca (testbed/groundwater.py);
+# why they are site-calibrated and not measured: repeat-neraca/docs/tropical-peat-hydraulic-parameters.md.
+TROPICAL_SETS = {
+    "tropical-small": {"params": (0.6, 0.5, 50.0, 2.5), "source": "Urzainki et al. 2023, parameter scenario 1 (small conductivity)"},
+    "tropical-large": {"params": (0.6, 0.5, 500.0, 2.5), "source": "Urzainki et al. 2023, parameter scenario 2 (large conductivity)"},
+}
+PEAT_TABLES = ("urzainki2020", *TROPICAL_SETS)
+
+
 @dataclass
 class PeatTable:
     """Storage and transmissivity of a layered peat profile as functions of water table depth.
@@ -53,6 +63,22 @@ class PeatTable:
         with resources.files("repeat_pump.data").joinpath("urzainki2020_peat_tables.csv").open("r", encoding="utf8") as fh:
             a = np.loadtxt(fh, delimiter=",", skiprows=1)
         return cls(a[:, 0], a[:, 1], a[:, 2])
+
+    @classmethod
+    def exponential(cls, s1: float, s2: float, t1: float, t2: float, zmin: float = -20.0, dz: float = 0.01) -> "PeatTable":
+        """Sy(zeta) = s1 exp(s2 zeta) and T(zeta, d) = t1 (exp(t2 zeta) - exp(-t2 d)), zeta in m, negative below the surface, T in m2/day
+        (Urzainki et al. 2023, Eqs. 6 and 8). ``trans`` takes the exp(-t2 d) term from the table at -d, so the table holds t1 exp(t2 zeta)."""
+        z = np.arange(zmin, dz / 2, dz)
+        return cls(z, s1 / s2 * (np.exp(s2 * z) - np.exp(s2 * zmin)), t1 * np.exp(t2 * z))
+
+    @classmethod
+    def named(cls, name: str) -> "PeatTable":
+        """``urzainki2020`` (boreal retention curves, the 2020 paper's table) or a tropical set of ``TROPICAL_SETS``."""
+        if name == "urzainki2020":
+            return cls.urzainki2020()
+        if name in TROPICAL_SETS:
+            return cls.exponential(*TROPICAL_SETS[name]["params"])
+        raise ValueError(f"unknown peat table {name!r}; choose one of {', '.join(PEAT_TABLES)}")
 
     def sy(self, zeta: np.ndarray) -> np.ndarray:
         return np.interp(np.minimum(zeta, 0.0), self.zeta, self._sy)

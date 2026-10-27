@@ -255,7 +255,10 @@ class OptimiseCfg(_M):
     grid_m: Optional[float] = None                    # TODO(human): grid cell size of the groundwater model (pde objectives)
     dry_days: Optional[int] = None                    # TODO(human): length of the drying spell (pde objectives)
     et_mm_day: Optional[float] = None                 # TODO(human): net evapotranspiration loss without rain, mm/day (pde objectives)
-    transmissivity_multiplier: Optional[float] = None  # TODO(human): scales the peat transmissivity table (pde objectives)
+    peat_table: Literal["urzainki2020", "tropical-small", "tropical-large"] = "urzainki2020"   # peat Sy(z), T(z) of the pde objectives
+    transmissivity_multiplier: Optional[float] = None  # TODO(human): scales the boreal urzainki2020 transmissivity only; the tropical
+                                                       # sets carry their own scale (t1) and ignore it
+    bracket_tables: list[Literal["urzainki2020", "tropical-small", "tropical-large"]] = []   # re-score the chosen layouts with these too
     seed: int = 0
     random_baseline_draws: int = 10
     ga: GaCfg = Field(default_factory=GaCfg)

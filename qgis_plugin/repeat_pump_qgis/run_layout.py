@@ -4,6 +4,7 @@ Used by the wizard ("Make map layout") and by ``scripts/make_layouts.py``. The l
 """
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Optional
@@ -43,7 +44,48 @@ def _workspace(config_path: Path) -> Optional[Path]:
     return None
 
 
-def run_layers(data: dict, project: QgsProject) -> list:
+BUDGET_ITEMS = {"sekat_standard": ("Sekat kayu", "unit"), "sekat_reinforced": ("Sekat beton", "unit"),
+                "sekat_ipg_estimate": ("Sekat, perkiraan IPG KLH", "unit"), "canal_closure_km": ("Penutupan/penimbunan kanal", "km"),
+                "revegetation_ha": ("Revegetasi", "ha"), "deep_wells": ("Sumur bor", "unit"), "pump_units": ("Unit pompa", "unit"),
+                "pump_fuel_l": ("Solar pompa", "L")}
+
+
+def _id_num(v: float, d: int = 0) -> str:
+    """Indonesian number format: 1.234,5"""
+    s = f"{v:,.{d}f}"
+    return s.replace(",", "_").replace(".", ",").replace("_", ".")
+
+
+def budget_rows(budget: Optional[dict]) -> list:
+    """The budget estimate of run_report.json as table rows (Indonesian): item, quantity, central cost with the low-high range."""
+    if not budget or not budget.get("by_item"):
+        return []
+    bn = lambda v: "belum ada harga" if v is None else _id_num(v / 1e9, 1)   # noqa: E731
+    rows = [["Perkiraan anggaran" + (f" (harga {budget['price_year']})" if budget.get("price_year") else ""), "Jumlah", "Miliar Rp (rendah-tinggi)"]]
+    items = sorted(((k, v) for k, v in budget["by_item"].items() if (v.get("quantity") or 0) > 0), key=lambda kv: -(kv[1].get("cost_idr") or 0))
+    for k, v in items:
+        name, unit = BUDGET_ITEMS.get(k, (k, ""))
+        rng = f" ({bn(v['cost_low_idr'])}-{bn(v['cost_high_idr'])})" if v.get("cost_idr") is not None and v.get("cost_low_idr") != v.get("cost_high_idr") else ""
+        rows.append([name, f"{_id_num(v['quantity'], 0 if unit != 'km' else 1)} {unit}", bn(v.get("cost_idr")) + rng])
+    if budget.get("total_idr") is not None:
+        rows.append(["Total", "", f"{bn(budget['total_idr'])} ({bn(budget['total_low_idr'])}-{bn(budget['total_high_idr'])})"])
+    rows.append(["Harga usulan dari sumber terbitan, belum diverifikasi (budget_sources.csv)"])
+    return rows
+
+
+def _scale_symbols(lyr, k: float) -> None:
+    """Point sizes and line widths times ``k`` (fills keep their outlines): larger marks on large paper."""
+    if k == 1.0:
+        return
+    from qgis.core import QgsLineSymbol as _L, QgsMarkerSymbol as _M, QgsRenderContext
+    for sym in lyr.renderer().symbols(QgsRenderContext()):
+        if isinstance(sym, _M):
+            sym.setSize(sym.size() * k)
+        elif isinstance(sym, _L):
+            sym.setWidth(sym.width() * k)
+
+
+def run_layers(data: dict, project: QgsProject, symbol_k: float = 1.0) -> list:
     """The run's layers from its GeoPackage (and the neraca stations), styled, added to ``project`` without a tree entry; top first.
     The rivers and the KHG boundary of the KHG work folder come last, as quiet context."""
     gpkg = Path(data["run"]["output_gpkg"])
@@ -61,6 +103,7 @@ def run_layers(data: dict, project: QgsProject) -> list:
         styling.style_layer(lyr)
         if name == "subkhg_selected":                    # an outline over the intervention colours
             lyr.setRenderer(QgsSingleSymbolRenderer(QgsFillSymbol.createSimple({"color": "0,0,0,0", "outline_color": "11,11,11", "outline_width": "0.8"})))
+        _scale_symbols(lyr, symbol_k)
         project.addMapLayer(lyr, False)
         layers.append(lyr)
     kf = gpkg.parent.parent / "00_inputs"
@@ -102,7 +145,9 @@ def spec_for_run(config_path: str | Path, project: QgsProject, paper: str = "A3"
     ws = _workspace(cfg_path)
     data_dir = Path(data_dir) if data_dir else (Path(os.environ["REPEAT_DATA"]) if os.environ.get("REPEAT_DATA") else (ws / "_data" if ws else None))
     catalog = (ws / "re-peat" / "sites" / "data_catalog.csv") if ws else Path("nonexistent")
-    layers = run_layers(data, project)
+    layers = run_layers(data, project, ML.symbol_scale(paper))
+    rep = Path(data["run"]["output_gpkg"]).parent / "run_report.json"
+    budget = json.loads(rep.read_text(encoding="utf8")).get("budget") if rep.is_file() else None
     gpkg = Path(data["run"]["output_gpkg"])
     ins, hl = inset_layers(data_dir, gpkg.parent.parent / "00_inputs" / "khg.gpkg", project)
     whole = next((l for l in layers if l.name() == "interventions"), None) or next((l for l in layers if l.name() == "subkhg_selected"), None)
@@ -110,4 +155,5 @@ def spec_for_run(config_path: str | Path, project: QgsProject, paper: str = "A3"
                          legend_names={l.id(): LEGEND_NAMES[l.name()] for l in layers if l.name() in LEGEND_NAMES},
                          extent=whole.extent() if whole is not None else None, crs=QgsCoordinateReferenceSystem(data["run"]["crs"]),
                          paper=paper, orientation=orientation, sources=source_lines(data["inputs"], data_dir or Path("."), catalog),
-                         institution=institution, inset_layers=ins, inset_highlight=hl, name=f"RE-PEAT {data['run'].get('name', '')} {paper} {orientation}")
+                         institution=institution, inset_layers=ins, inset_highlight=hl, name=f"RE-PEAT {data['run'].get('name', '')} {paper} {orientation}",
+                         budget_rows=budget_rows(budget))

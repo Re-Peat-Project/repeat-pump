@@ -94,7 +94,9 @@ optimise:
   grid_m: null                    # TODO(human), pde objectives
   dry_days: null                  # TODO(human), pde objectives
   et_mm_day: null                 # TODO(human), pde objectives
-  transmissivity_multiplier: null # TODO(human), pde objectives; results depend strongly on it
+  peat_table: urzainki2020         # pde objectives: urzainki2020 (boreal curves), tropical-small or tropical-large (Urzainki et al. 2023)
+  transmissivity_multiplier: null # TODO(human), urzainki2020 only (100 to 1000 for tropical peat); the tropical sets ignore it
+  bracket_tables: []              # e.g. [tropical-small, tropical-large]: re-score the chosen layouts with these tables, report the range
   seed: 0
   random_baseline_draws: 10
 

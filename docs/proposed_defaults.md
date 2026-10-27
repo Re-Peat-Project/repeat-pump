@@ -97,7 +97,7 @@ Fill these from the dataset's metadata. The preset never sets the datums. It sug
 
 ## Not proposed
 
-- **Stage 12 (`optimise.*`).** `transmissivity_multiplier` changes the result about 100-fold (the re-peat benchmark found almost no block effect with the boreal tables and a realistic one at about 100 times). The other `optimise.*` values are meaningless without it.
+- **Stage 12 (`optimise.*`).** `transmissivity_multiplier` changes the result about 100-fold (the re-peat benchmark found almost no block effect with the boreal tables and a realistic one at about 100 times). The other `optimise.*` values are meaningless without it. There is no measured transmissivity for any of our KHG. Instead of guessing a multiplier, set `optimise.peat_table: tropical-small` with `bracket_tables: [tropical-large]` and report the benefit as a range: the two tropical sets of Urzainki et al. (2023) carry their own scale, are calibrated at Merang-Kepayang (South Sumatra), and bracket the measured conductivity (Cobb and Harvey 2019; Kurnianto et al. 2019). The comparison of the boreal table with these sources is in repeat-neraca/docs/tropical-peat-hydraulic-parameters.md. A measured conductivity profile from the field (slug or pumping tests) would replace both.
 - **Neraca air format, sign-off on weights, licence, `pip install` on KLH machines, hydro backend.** These are decisions, not values.
 
 ## Sources read
