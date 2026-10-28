@@ -136,7 +136,7 @@ class InputsCfg(_M):
     concession: Optional[PathCfg] = None
     tma_obs: Optional[PathCfg] = None
     neraca_map: Optional[PathCfg] = None          # optional, for the HTML report only: repeat-neraca's neraca_map.gpkg (balance per sub-KHG, stations)
-    subkhg_indicators: Optional[PathCfg] = None   # optional: the sub-KHG prioritisation's unit_prioritas (csv or gpkg); turns on the interventions in stage 11
+    subkhg_indicators: Optional[PathCfg] = None   # optional: the sub-KHG prioritisation's unit_prioritas (csv or gpkg); turns on the interventions in stage 12
 
 
 class TopologyCfg(_M):
@@ -271,7 +271,7 @@ class ReviewCfg(_M):
 
 
 class InterventionsCfg(_M):
-    """Treatment class per sub-KHG in stage 11 (core/interventions.py). Thresholds are policy values; the preset proposes them."""
+    """Treatment class per sub-KHG in stage 12 (core/interventions.py). Thresholds are policy values; the preset proposes them."""
     enabled: bool = True
     protected_share: Optional[float] = None    # FEG protected function share from which canals are closed or backfilled
     reach_min: Optional[float] = None          # share of the unit within reach of a canal (f_reach) below which blocks cannot help it
@@ -285,7 +285,7 @@ class InterventionsCfg(_M):
 
 
 class BudgetCfg(_M):
-    """Unit prices for the budget estimate in stage 11 (core/budget.py): ``[low, central, high]`` rupiah of ``price_year``; null = not priced."""
+    """Unit prices for the budget estimate in stage 12 (core/budget.py): ``[low, central, high]`` rupiah of ``price_year``; null = not priced."""
     enabled: bool = True
     price_year: Optional[int] = None
     sekat_standard_idr: Optional[list[float]] = None       # per wooden canal block

@@ -191,7 +191,7 @@ pumping:
   influence_distance_m: null      # TODO(human); canal-to-peat rewetting reach, calibrate with tma_obs
   routing: steiner                # steiner | per_target (legacy-equivalent baseline)
 
-optimise:                         # OPTIONAL Stage 12 (off by default). Every physical value is a human decision.
+optimise:                         # OPTIONAL Stage 11 (off by default). Every physical value is a human decision.
   enabled: false
   objective: canal_rise           # canal_rise | pde | screen_then_pde
   algorithms: [ga, sa]            # ga | sa | greedy
@@ -325,27 +325,27 @@ Head-based design following the team's 2021 KHG Kahayan–Sebangau report, Ritze
 
 - **Output:** `pump_stations` (Q, H, P, units needed), `pump_routes` updated with demand, `gates_required`.
 
-### Stage 11: Report
+### Stage 12: Report (interventions, budget, run report; always last)
 - `run_report.md` / `.json`: config echo, input validation results, warnings (accuracy, defaults used, unparsed attributes), per-stage counts, IPG table per canal, sensitivity summary, routing summary, pump table, and the list of TODO/null parameters.
 - If `tma_obs` is provided, report observed vs. modelled canal/pool levels where comparable (validation only, no calibration in v1).
 
-### Stage 12: Canal blocking optimisation (optional)
+### Stage 11: Canal blocking optimisation (optional)
 Off by default (`optimise.enabled: false`): the stage records `skipped` and asks for no parameters, so existing runs are unchanged. It follows Urzainki et al. (2020) [Urzainki2020]: score layouts of canal blocks with a groundwater model and search for the best layout with a genetic algorithm [Holland1975] and simulated annealing [Kirkpatrick1983].
 
-- **This is an alternative plan.** Stages 8 to 10 still assume every proposed sekat is built, and nothing in Stage 12 feeds back into them. Say so in the report and in every guide. The benefit is relative to the existing structures only and is not a field-validated water table change (the paper itself notes there is no field validation).
+- **This is an alternative plan.** Stages 8 to 10 still assume every proposed sekat is built, and nothing in Stage 11 feeds back into them. Say so in the report and in every guide. The benefit is relative to the existing structures only and is not a field-validated water table change (the paper itself notes there is no field validation).
 - **Candidates:** the Stage 7 proposed sekat (`sekat_proposed`). Existing sekat are always in place and do not count towards `optimise.n_blocks`. Choose `n_blocks` of them.
 - **Canal water level (deliberately not Urzainki's rule):** the original raises "upstream" cells by comparing neighbouring DEM values, which the authors note is non-monotonic and resolution-bound. Here the base level is land minus `optimise.canal_drawdown_m`; a block holds water at its own land level minus `sekat.dA_m` and raises every station upstream of it along the Stage 5 direction and the connected canal network, up to that level.
 - **Objectives** (`optimise.objective`): `canal_rise` (cheap: total canal level rise; the paper found it tracks the full model), `pde` (dry peat volume after `dry_days` of net loss `et_mm_day` from a saturated start, from a 2D nonlinear Boussinesq model on a `grid_m` grid, `repeat_neraca.groundwater`, a dependency, peat tables of Urzainki et al.), or `screen_then_pde` (search with canal rise, re-score the winners with the groundwater model). The sub-KHG boundary is held at the surface, as in the paper. Peat depth is the mid-point of the parsed class.
 - **Search:** genetic algorithm and simulated annealing (`optimise.algorithms`, optionally `greedy`), each with its own cache and the same budget `optimise.max_evaluations` of distinct layouts, deterministic for `optimise.seed`. Comparators scored with the same objective: the mean of `random_baseline_draws` random layouts and a rule-based layout (the highest `need_score` segments). Report gains **relative to these comparators**, not as absolute water table numbers.
 - **Null parameters (§0 rule 2).** Always required when enabled: `n_blocks`, `max_evaluations`, `canal_drawdown_m`. Additionally for `pde` objectives: `grid_m`, `dry_days`, `et_mm_day`, `transmissivity_multiplier`. The result depends strongly on transmissivity (the re-peat benchmark found almost no block effect with the boreal tables and a realistic effect at about 100 times), so never default it. GA/SA settings (`optimise.ga`, `optimise.sa`) have documented implementation defaults that are not taken from the paper.
-- **Output:** `sekat_optimised` (all candidates, `selected_best`, `selected_<method>`, crest level), `qa_optimisation` (table: method, evaluations, benefit, benefit versus random), `qa_optimisation_trace` (table). The stage appends its own section to `run_report.md` and `run_report.json`, because Stage 11 has already run.
+- **Output:** `sekat_optimised` (all candidates, `selected_best`, `selected_<method>`, crest level), `qa_optimisation` (table: method, evaluations, benefit, benefit versus random), `qa_optimisation_trace` (table). The stage appends its own section to `run_report.md` and `run_report.json`, (`optimise.append_to_report`).
 - **Provenance:** the solver and peat tables come from the `watershare` testbed of the re-peat repository, which reimplemented the scheme of blopti (MIT, Copyright (c) 2019 Iñaki Urzainki) in SI units. Since repeat-neraca 0.2.0 both live only in `repeat_neraca.groundwater` (with the notice in its `data/`), which this package installs from a GitHub archive pinned in `pyproject.toml`; the canal level rule and the search stay here.
 
 ---
 
 ## 6. Output contract (GeoPackage layers)
 
-`canals_clean`, `qa_topology_dangles`, `qa_topology_gaps`, `canal_segments`, `canal_profiles`, `sekat_existing_assessed`, `sekat_proposed`, `network_nodes`, `network_edges`, `pump_sources`, `pump_targets`, `pump_routes`, `sekat_scope`, `pump_stations`, `gates_required`, `qa_unreachable_targets`, `qa_sensitivity` (table), and, only when Stage 12 is enabled, `sekat_optimised`, `qa_optimisation` (table), `qa_optimisation_trace` (table).
+`canals_clean`, `qa_topology_dangles`, `qa_topology_gaps`, `canal_segments`, `canal_profiles`, `sekat_existing_assessed`, `sekat_proposed`, `network_nodes`, `network_edges`, `pump_sources`, `pump_targets`, `pump_routes`, `sekat_scope`, `pump_stations`, `gates_required`, `qa_unreachable_targets`, `qa_sensitivity` (table), and, only when Stage 11 is enabled, `sekat_optimised`, `qa_optimisation` (table), `qa_optimisation_trace` (table).
 
 Every layer includes `run_name` and `stage` fields. Field names are lower_snake_case and ≤ 30 characters. Units go in names where ambiguous (`_m`, `_m3s`, `_kw`).
 
@@ -373,7 +373,7 @@ Purpose: train KLH staff. The plugin registers the §7 provider and adds a dock-
 - `repeat-pump reset --config X` deletes the GeoPackage, work folder, `run_state.json` and the report, and refuses to touch anything outside the run folder. Config, preset and inputs stay.
 
 **Structure**
-- **Stepper rail** (left): the 12 stages (stage 12 is optional), each with status `locked | ready | running | done | needs_review | failed | stale | skipped`, taken from `run_state.json`. [REVIEW] stages have a distinct "your turn" accent.
+- **Stepper rail** (left): the 12 stages (stage 11 is optional), each with status `locked | ready | running | done | needs_review | failed | stale | skipped`, taken from `run_state.json`. [REVIEW] stages have a distinct "your turn" accent.
 - **Stage card** (main): one-line purpose; "What this does" and "Why it matters" text (plain language; English and Bahasa Indonesia, switched with the EN/ID buttons, default from the QGIS locale; every string goes through `tr()` in `wizard/i18n.py` and `tests/test_wizard_i18n.py` fails when a string has no Indonesian text; messages written by the engine stay English); a typed, named input form; Run button with Cancel (kills the engine process tree, works even when the engine is silent). A small diagram for key ideas (sekat head rule, ring buffer, head-aware cost) sits in the Learn card of stages 7, 6 and 9 (inline SVG, `wizard/diagrams.py`, translated).
 - **Result tiles** after each run: key counts and totals from the stage log (e.g. segments, dangles, sekat needed, unreachable targets, total lift). Warnings (DTM accuracy, defaults used, unparsed attributes) appear as friendly callouts, never buried in a log.
 - **Review panel** for [REVIEW] stages: auto-load the QA layers with bundled QML styles, then offer *Accept*, *Re-run with changes*, *Back*. Accept writes to `review.auto_accept`/`--accept` equivalent in the state file.
@@ -463,7 +463,7 @@ At the end of each milestone: a short summary, a list of assumptions, and open T
 8. Concession handling: exclude, flag, or ignore?
 9. Breach max distance and min/max sekat spacing.
 10. ~~Target QGIS version~~ Decided: QGIS 4.x for training (LTR 3.x optional later). Still open: licence for the repository; whether KLH machines may `pip install` into QGIS's Python.
-13. Stage 12: who sets `optimise.transmissivity_multiplier`, `et_mm_day`, `dry_days` and `canal_drawdown_m` for a real KHG, and is the Urzainki peat table (boreal Päivänen retention) acceptable as the starting table for tropical peat?
+13. Stage 11 (optimisation): who sets `optimise.transmissivity_multiplier`, `et_mm_day`, `dry_days` and `canal_drawdown_m` for a real KHG, and is the Urzainki peat table (boreal Päivänen retention) acceptable as the starting table for tropical peat?
 12. Hydro backend (deferred): is Whitebox Workflows' free tier sufficient (tools and licence), or do we keep WhiteboxTools?
 11. Format and units of the neraca air output (confirm `deficit_mm` per sub-KHG and design period), when it is available. Where it is not, who sets `specific_yield`, `water_table_rise_m` and `pumping.design_period_days`?
 

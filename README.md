@@ -22,7 +22,7 @@ py -3.13 -m venv .venv
 
 The first run of Stage 3 downloads the WhiteboxTools binary, so it needs internet once.
 
-The groundwater solver of the block optimisation comes from repeat-neraca, which pip downloads from the GitHub archive pinned in `pyproject.toml` (no git needed). To work on both packages, install repeat-neraca editable *after* this package. Installing this package again replaces the editable copy with the pinned archive, so repeat the second line after it:
+The groundwater solver of the block optimisation (`repeat_neraca.groundwater`) comes from repeat-neraca, which pip downloads from the GitHub archive pinned in `pyproject.toml` (tag v0.2.0, no git needed). To work on both packages, install repeat-neraca editable *after* this package. Installing this package again replaces the editable copy with the pinned archive, so repeat the second line after it:
 
 ```powershell
 .venv\Scripts\python -m pip install -e ".[dev]"
@@ -31,7 +31,9 @@ The groundwater solver of the block optimisation comes from repeat-neraca, which
 
 ## 2. Prepare a config
 
-Copy [configs/example_khg.yaml](configs/example_khg.yaml) and fill in your paths. **Every `null` is a policy decision a human must make** (vertical RMSE, weights, pump specs, snap tolerances, and so on; see section 11 of the spec). The module never guesses these: each stage stops with one message listing the keys it still needs.
+Copy [configs/example_khg.yaml](configs/example_khg.yaml) and fill in your paths. **Every `null` is a policy decision a human must make** (vertical RMSE, weights, pump specs, snap tolerances, and so on; see section 11 of [AGENTS.md](AGENTS.md)). The module never guesses these: each stage stops with one message listing the keys it still needs. `repeat-pump check --config X` lists them per stage as JSON.
+
+**Proposed defaults:** a top-level `preset: proposed_defaults.yaml` line fills the nulls from [configs/proposed_defaults.yaml](configs/proposed_defaults.yaml) (proposals, not team decisions; sources in [docs/proposed_defaults.md](docs/proposed_defaults.md)). Values set in the run config win, and every value taken from the preset is listed as a warning and in run_report.md. Among them: `sekat.min_new_spacing_m: 500` (KLH guide, JARAK_MIN) and `sekat.dedup_tol_m: 100` (a proposal within 100 m of an existing sekat is dropped).
 
 Paths are relative to the config file and may use environment variables (`${REPEAT_KHG}/...`).
 
@@ -50,7 +52,7 @@ Inputs (all in the same projected CRS in metres, or set `run.auto_reproject: tru
 
 **Balance:** `sekat.target_rise_share` (for example 0.9) keeps the fewest head-rule sekat that give that share of the canal rewetting; the rest go to the `sekat_low_benefit` layer with their rank and gain. The `sekat_reach` layer shows the canal stretch in which each kept sekat holds the water: lines drawn from the block upstream, with the rise, the water level below the land and the share inside the burn area. `scripts/sekat_spacing_check.py --config RUN.yaml` compares minimum spacings and writes the rewetting curve of a finished run.
 
-**From a RE-PEAT KHG folder:** `python scripts/khg_run_config.py ../_khg/<code>_<name> [...]` (or `--all ../_khg`) writes `05_pump/run_config.yaml` for each KHG from its work folder, as the wizard's KHG picker does: LiDAR DTM first, the latest NDMI, the BRGM peat raster named in `re-peat/sites/<folder>/subkhg.yaml`, guessed columns and canal classes, and the proposed defaults.
+**From a RE-PEAT KHG folder:** `python scripts/khg_run_config.py ../_khg/<code>_<name> [...]` (or `--all ../_khg`) writes `05_pump/run_config.yaml` for each KHG from its work folder (with `--dem lidar|deltadtm|demnas`, `05_pump/<dem>/run_config.yaml` from that DEM variant's folders), as the wizard's KHG picker does: LiDAR DTM first, the latest NDMI, the BRGM peat raster named in `re-peat/sites/<folder>/subkhg.yaml`, guessed columns and canal classes, and the proposed defaults.
 
 **Interventions per sub-KHG (stage 12):** with `inputs.subkhg_indicators` (the sub-KHG prioritisation's `unit_prioritas.gpkg`) every sub-KHG gets a treatment class and the reasons for it: close or backfill canals (protected peat), revegetation and fire readiness (canals reach little of a dry or burnt unit), sekat and water supply, sekat and deep wells, sekat, or maintain. For the selected sub-KHGs it also reports the water the kept sekat hold against the neraca deficit. Thresholds are in `interventions:` (policy values; proposed in the preset). Layer `interventions`, table `interventions.csv`. Method: `repeat_pump/core/interventions.py`; evidence: `docs/reports/sekat_neraca_investigation.md`.
 
@@ -61,6 +63,8 @@ Inputs (all in the same projected CRS in metres, or set `run.auto_reproject: tru
 **Budget estimate (stage 12):** with the interventions, every sub-KHG gets quantities (kept sekat by type, or the KLH IPG estimate where no sekat were placed; km of canal to close; ha to revegetate; deep wells; pumps and fuel) priced from `budget.*` as low, central and high. Prices are proposals with sources; a price left null is reported as quantity only. Every source figure is in the register `repeat_pump/data/budget_sources.csv` (figure quoted, URL, date accessed, how it was retrieved, status, and empty `verified_by`, `verified_on`, `verified_figure` columns to fill when someone checks it); each run copies it to `budget_sources.csv` with the price it used and whether that price came from the preset. Outputs: `budget.csv`, `budget_sources.csv`, layer `budget`, a section in run_report.md, and in the HTML report a budget chart, the list of price sources with their status, and the rewetting curve against rupiah spent. The KLH map layout shows a budget table, and the wizard lists the prices under stage 12.
 
 **Map layouts (QGIS):** the wizard's *Make map layout* builds a print layout in the style of the KLH peat maps (A0 to A4, landscape or portrait): map with a lat/long border, title with north arrow, scale and scale bar, the legend in columns, data sources from `re-peat/sites/data_catalog.csv`, institution, logo placeholder and a locator inset from `_data/batas_khg_indonesia.gpkg`. It opens in the layout designer for manual changes. Empty templates are in `qgis_plugin/repeat_pump_qgis/resources/layouts/klh_<paper>_<orientation>.qpt`; edit one in the designer, save it, and choose it as *Own template*: the wizard fills it by item id. Batch, with QGIS's Python: `python-qgis.bat scripts/make_layouts.py --config run.yaml --out folder --papers A0 A3 --pdf`.
+
+**Block optimisation (stage 11, optional):** off by default (`optimise.enabled: false`, the stage records `skipped`). When on, it searches for the best layout of `optimise.n_blocks` proposed sekat after Urzainki et al. (2020), with the groundwater model of repeat-neraca for the `pde` objectives.
 
 **Sekat only:** `pumping.enabled: false` skips stages 8-10 (network, routing, pumps) and asks none of their parameters. Use it when no river in the analysis extent can serve as a water source (stage 9 needs a river with `perennial` or `dry_season_wl_m`). A worked example: `re-peat/sites/16.02.01_sugihan_lumpur/pump.yaml`.
 
@@ -81,6 +85,8 @@ Stages 2 (topology), 6 (prioritisation) and 9 (routing) are **review stops**. Th
 
 Exit codes: 0 finished, 1 error (including missing parameters), 2 waiting for review.
 
+Other commands (each takes `--config`, except the fetchers): `check` (stages, review flags and the parameters still null, as JSON), `reset` (delete the run's GeoPackage, work folder, state and report; not the config or inputs), `report-html` (see above), `fetch-moisture --source stac|ee` (moisture raster from open Sentinel-2, or CPWI v2 via Earth Engine with the `ee` extra), `fetch-burn` (burn_area polygons from MODIS MCD64A1, a coarse fallback). `repeat-pump` is the installed console command for `python -m repeat_pump.cli`.
+
 Outputs go to the GeoPackage named in `run.output_gpkg`, with `run_report.md` and `run_report.json` beside it. Rasters (`dtm_conditioned.tif`, `flow_acc.tif`) and stage logs are in the `<name>_work` folder. Re-running resumes from `run_state.json`.
 
 ## 4. Use it from QGIS
@@ -90,7 +96,7 @@ The plugin never imports the engine: it writes a run config and starts the comma
 1. Install the plugin: `python scripts/install_plugin.py` (QGIS 4 default profile), or `--profile-dir <profile>`, or `--zip` and use *Plugins > Install from ZIP* with `dist/repeat_pump_qgis.zip`.
 2. Enable **RE-PEAT Interventions** in the Plugin Manager.
 3. Run any of its Processing algorithms. The first run builds a private Python environment in the QGIS profile and installs the engine bundled in the plugin (needs internet once, a few minutes, and a system Python 3.11+ with pip). *Set up engine environment* in the Processing Toolbox does the same on demand. You do not need to do step 1 of "Install the engine" for QGIS use.
-4. **Guided wizard** (best for training): toolbar water-drop button, or *Plugins > RE-PEAT Interventions > Guided wizard*. It walks through the stages one at a time (11, plus an optional 12th: canal blocking optimisation after Urzainki et al. 2020), shows what each does, blocks a stage until its required decisions are filled, and stops at the review stages for you to accept. See [docs/qgis_plugin.md](docs/qgis_plugin.md).
+4. **Guided wizard** (best for training): toolbar water-drop button, or *Plugins > RE-PEAT Interventions > Guided wizard*. It walks through the 12 stages one at a time (stage 11, canal blocking optimisation after Urzainki et al. 2020, is optional; stage 12 writes the interventions, budget and report), shows what each does, blocks a stage until its required decisions are filled, and stops at the review stages for you to accept. On a ready stage the main button is *Run stage n*, and *Run on to the next review, with the values as set* runs on until the next review stop. On a review stage *Accept and continue* accepts it and opens the next stage's card without running it, so its values can be set first. See [docs/qgis_plugin.md](docs/qgis_plugin.md).
 5. Or use Processing Toolbox > **RE-PEAT Interventions** > *Run full pipeline* (or a stage group). Choose the YAML config, then the layers; layers must be saved files, not temporary layers. At a review stop the algorithm ends with a warning: inspect the QA layers, tick the stage under *Review stages to accept*, run again.
 
 Advanced: to use your own interpreter instead, set `REPEAT_PUMP_PYTHON` or use *Plugins > RE-PEAT Interventions > Set Python environment (advanced)*.
