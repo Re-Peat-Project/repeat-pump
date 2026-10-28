@@ -1,1 +1,1 @@
-"""Packaged data files (peat tables of Urzainki et al. 2020)."""
+"""Packaged data files (budget sources, report assets)."""

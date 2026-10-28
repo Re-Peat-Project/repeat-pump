@@ -10,6 +10,8 @@ requires-python = ">=3.11"
 dependencies = [
   "numpy", "scipy", "rasterio", "geopandas", "shapely>=2", "pyogrio",
   "networkx", "whitebox", "pydantic>=2", "pyyaml",
+  # groundwater solver and peat tables of the block optimisation; a GitHub archive (no git needed). Developers: README section 1
+  "repeat-neraca @ https://github.com/Re-Peat-Project/repeat-neraca/archive/refs/tags/v0.2.0.zip",
 ]
 
 [project.optional-dependencies]

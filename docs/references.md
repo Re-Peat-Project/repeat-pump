@@ -26,7 +26,7 @@ Keys cited in module docstrings (from AGENTS.md section 12). Verify volume and p
 - **Giglio2018**: Giglio, Boschetti, Roy, Humber & Justice (2018). The Collection 6 MODIS burned area mapping algorithm and product. Remote Sensing of Environment 217, 72-85 (MCD64A1).
 - **Holland1975**: Holland (1975). Adaptation in Natural and Artificial Systems. University of Michigan Press.
 - **Kirkpatrick1983**: Kirkpatrick, Gelatt & Vecchi (1983). Science 220(4598), 671-680.
-- **Urzainki2020**: Urzainki et al. (2020). Biogeosciences 17, 4769-4784, doi:10.5194/bg-17-4769-2020. Peat tables and scheme from LukeEcomod/blopti (MIT); see `repeat_pump/data/NOTICE-urzainki2020.md`.
+- **Urzainki2020**: Urzainki et al. (2020). Biogeosciences 17, 4769-4784, doi:10.5194/bg-17-4769-2020. Peat tables and scheme from LukeEcomod/blopti (MIT); see `NOTICE-urzainki2020.md` in `repeat_neraca/groundwater/data/` (repeat-neraca).
 - **PP57-2016**, **KHG-SKSS-2021**: see the spec.
 
 - **Urzainki2023**: Urzainki et al. (2023). A process-based model for quantifying the effects of canal blocking on water table and CO2 emissions in tropical peatlands. Biogeosciences 20, 2099-2116, doi:10.5194/bg-20-2099-2023. Used for the ~600 m reach of block effects.

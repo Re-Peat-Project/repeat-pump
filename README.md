@@ -22,6 +22,13 @@ py -3.13 -m venv .venv
 
 The first run of Stage 3 downloads the WhiteboxTools binary, so it needs internet once.
 
+The groundwater solver of the block optimisation comes from repeat-neraca, which pip downloads from the GitHub archive pinned in `pyproject.toml` (no git needed). To work on both packages, install repeat-neraca editable *after* this package. Installing this package again replaces the editable copy with the pinned archive, so repeat the second line after it:
+
+```powershell
+.venv\Scripts\python -m pip install -e ".[dev]"
+.venv\Scripts\python -m pip install -e ..\repeat-neraca
+```
+
 ## 2. Prepare a config
 
 Copy [configs/example_khg.yaml](configs/example_khg.yaml) and fill in your paths. **Every `null` is a policy decision a human must make** (vertical RMSE, weights, pump specs, snap tolerances, and so on; see section 11 of the spec). The module never guesses these: each stage stops with one message listing the keys it still needs.

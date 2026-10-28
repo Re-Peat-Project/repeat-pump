@@ -25,7 +25,7 @@ from scipy.ndimage import binary_erosion
 
 from . import blockopt as bo
 from .config import require
-from .groundwater import PeatTable
+from repeat_neraca.groundwater import PeatTable
 
 
 def build_grid(ctx, net: bo.CanalNet, grid_m: float) -> bo.Grid:

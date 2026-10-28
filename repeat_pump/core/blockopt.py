@@ -221,7 +221,7 @@ class PdeObjective(CanalRiseObjective):
 
     def __init__(self, net, base, cand_nodes, cand_crest, fixed, grid: Grid, table, days: int, et_mm_day: float, multiplier: float):
         super().__init__(net, base, cand_nodes, cand_crest, fixed)
-        from .groundwater import solve
+        from repeat_neraca.groundwater import solve
         self._solve = solve
         self.g, self.table, self.days, self.et, self.mult = grid, table, int(days), et_mm_day, multiplier
         ny, nx = grid.surface.shape

@@ -130,19 +130,6 @@ def test_stage_7_budget_cap_keeps_at_most_max_blocks_best_first(world11):
     assert c.report["sekat_balance"]["max_blocks"] == 1
 
 
-def test_tropical_peat_tables_follow_urzainki_2023():
-    """Sy = s1 exp(s2 z) and T = t1 (exp(t2 z) - exp(-t2 d)); the large set has ten times the conductivity of the small one."""
-    import numpy as np
-    from repeat_pump.core.groundwater import TROPICAL_SETS, PeatTable
-    s1, s2, t1, t2 = TROPICAL_SETS["tropical-small"]["params"]
-    t = PeatTable.named("tropical-small")
-    z, d = np.array([-0.05, -0.3, -1.0, -1.5]), np.full(4, 3.0)
-    assert np.allclose(t.sy(z), s1 * np.exp(s2 * z), atol=2e-3)
-    assert np.allclose(t.trans(z, d), t1 * (np.exp(t2 * z) - np.exp(-t2 * d)), rtol=1e-3)
-    assert np.allclose(PeatTable.named("tropical-large").trans(z, d), 10 * t.trans(z, d), rtol=1e-6)
-    assert np.allclose(PeatTable.named("urzainki2020").sy(z), PeatTable.urzainki2020().sy(z))
-
-
 def test_a_tropical_table_needs_no_multiplier_and_the_bracket_scores_every_table(world11):
     pde = {k: v for k, v in PDE.items() if k != "transmissivity_multiplier"}
     with pytest.raises(MissingParameters, match="transmissivity_multiplier"):       # the boreal table in the bracket still needs it
