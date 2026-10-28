@@ -1398,8 +1398,8 @@ class WizardPanel(QWidget):
             add("Run stage", "primary", None, False)
         elif view.status == "ready":
             note.setText(view.blocking)
-            add(tr("Run stage {n} only").format(n=view.id), "secondary", lambda: self._act("run", view.id), view.can_run)
-            add("Run to the next review", "primary", lambda: self._act("run_on", view.id), view.can_run)
+            add("Run on to the next review, with the values as set", "secondary", lambda: self._act("run_on", view.id), view.can_run)
+            add(tr("Run stage {n}").format(n=view.id), "primary", lambda: self._act("run", view.id), view.can_run)
         elif view.status == "needs_review":
             nxt = model.stage(view.id + 1).title if view.id < len(model.stages) else ""
             add("Re-run this stage", "secondary", lambda: self._act("rerun", view.id), view.can_rerun)

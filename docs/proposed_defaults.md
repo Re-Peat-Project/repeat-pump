@@ -20,6 +20,8 @@ retrieved source (replace before real use); **POLICY** a choice, not a measureme
 | `hydro.breach_max_dist_cells` | 100 | LOW | About 100 m at 1 m LiDAR cells. Use about 12 for 8 m DEMNAS cells. No source retrieved (the Whitebox manual page was unavailable). |
 | `sekat.max_spacing_m` | 500 m | HIGH | KLH workflow: sekat spacing about 500 m. |
 | `sekat.min_spacing_m` | 100 m | LOW | The legacy script used 500 m as the *minimum*. That overrides the head rule (`js = dA/i`) wherever the slope exceeds 0.08 %, so 100 m is proposed instead. The team should decide which rule governs. |
+| `sekat.min_new_spacing_m` | 500 m | POLICY | KLH guide (JARAK_MIN): no two new sekat closer than 500 m along a canal. Adopted 2026-10-28 at users' request. On land steeper than dA/500 it overrides the head rule and gives fewer sekat. |
+| `sekat.dedup_tol_m` | 100 m | POLICY | A proposal within 100 m of an existing sekat, or of one on another canal, is dropped. Adopted 2026-10-28 at users' request; the legacy script used 50 m. |
 | `sekat.snap_tolerance_m` | 30 m | MED | The 30 m the KLH workflow uses to match river points to canals. |
 | `sekat.target_rise_share` | 0.9 | POLICY | Balance between the number of sekat and the rewetting they give: keep the fewest head-rule sekat that give 90 % of the canal water-level rise of all of them [Urzainki2020 canal-rise objective]; the rest go to `sekat_low_benefit`. Sugihan-Lumpur 2026-10-27: 54 of 123 sekat. |
 | `sekat.balance_drawdown_m` | 1.0 m | LOW | Dry-season canal level below the land, used only to rank the sekat. The ranking barely moved between 0.8 and 1.2 m at Sugihan-Lumpur (`scripts/sekat_spacing_check.py`). |
@@ -75,7 +77,7 @@ From the technical guide (Panduan Teknis GIS Rewetting KLH, Appendix A) and the 
 | `SNAP_MUARA` | 50 m | `topology.source_snap_m`, opt-in, in the preset |
 | `NODE_TOL` | 1 m | `topology.snap_tolerance_m`, in the preset |
 | `JARAK_MIN` | 500 m | `sekat.max_spacing_m` (the head rule `js = dA/i` capped at 500 m, in the preset) and, if you want the guide's behaviour of never placing two new sekat closer than that, `sekat.min_new_spacing_m` (opt-in, not in the preset: it overrides the head rule on steep land) |
-| `DEDUP_TOL` | 50 m | `sekat.dedup_tol_m`, opt-in |
+| `DEDUP_TOL` | 50 m | `sekat.dedup_tol_m`; the preset uses 100 m (users' request, 2026-10-28) |
 | `SLOPE_MIN_PCT`, mode "tandai" | 5 %, mark only | `sekat.slope_reinforced_pct`, default 5: the type is marked, never used as a filter |
 | `SLOPE_OFFSETS` | 6 and 10 m | `profiles.bank_offsets_m`, default `[6, 10]` |
 | `SLOPE_ALONG` | -40 to +40 m | Roughly `profiles.smoothing_window_m` (median over 50 m along the canal), not a separate key |

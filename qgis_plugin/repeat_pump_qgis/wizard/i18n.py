@@ -497,6 +497,7 @@ ID: dict[str, str] = {
     "Rivers with a dry-season level or a perennial flag can supply pumps.": "Sungai dengan muka air musim kemarau atau penanda sungai permanen dapat memasok pompa.",
     "Run stage {n} only": "Jalankan tahap {n} saja",
     "Run to the next review": "Jalankan sampai tinjauan berikutnya",
+    "Run on to the next review, with the values as set": "Jalankan terus sampai tinjauan berikutnya, dengan nilai yang ada",
     "Sekat chosen": "Sekat terpilih",
     "Share of the canal rewetting kept": "Bagian pembasahan kanal yang dipertahankan",
     "Stage 11, alternative plan": "Tahap 11, rencana alternatif",
@@ -720,11 +721,11 @@ ID: dict[str, str] = {
     "Used with the class filter: river points found on a left-out canal are moved onto the nearest kept canal within this distance, or dropped. The KLH guide uses 50 m.":
         "Dipakai bersama filter kelas: titik sungai pada kanal yang dikeluarkan dipindahkan ke kanal terpilih terdekat dalam jarak ini, atau dibuang. Panduan KLH memakai 50 m.",
     "Minimum distance between new sekat": "Jarak minimum antar sekat baru",
-    "Empty: the head rule alone decides. The KLH guide uses 500 m, which overrides the head rule on steep land and gives fewer sekat there.":
-        "Kosong: aturan beda tinggi saja yang menentukan. Panduan KLH memakai 500 m, yang mengalahkan aturan beda tinggi di lahan curam sehingga sekat lebih sedikit.",
+    "No two new sekat closer than this along a canal. The KLH guide and the proposed defaults use 500 m, which overrides the head rule on steep land and gives fewer sekat there. Empty: the head rule alone decides.":
+        "Tidak ada dua sekat baru yang lebih dekat dari nilai ini di sepanjang kanal. Panduan KLH dan nilai usulan memakai 500 m, yang mengalahkan aturan beda tinggi di lahan curam sehingga sekat lebih sedikit. Kosong: aturan beda tinggi saja yang menentukan.",
     "Merge proposed sekat closer than": "Gabungkan sekat usulan yang lebih dekat dari",
-    "A proposal this close to an existing sekat, or to one on another canal, is dropped. The KLH guide uses 50 m. Empty: keep all.":
-        "Usulan sedekat ini dengan sekat yang ada, atau dengan usulan di kanal lain, dibuang. Panduan KLH memakai 50 m. Kosong: pertahankan semua.",
+    "A proposal this close to an existing sekat, or to one on another canal, is dropped. The proposed defaults use 100 m (the legacy script used 50 m). Empty: keep all.":
+        "Usulan sedekat ini dengan sekat yang ada, atau dengan usulan di kanal lain, dibuang. Nilai usulan memakai 100 m (skrip lama memakai 50 m). Kosong: pertahankan semua.",
     "KLH guide scoring (1 to 3 per criterion)": "Skoring panduan KLH (1 sampai 3 per kriteria)",
     "Direct: type a weight per criterion. AHP: compare the criteria in pairs and the weights follow from the comparisons. KLH guide: the 1 to 3 class scores of the KLH technical guide, added up (to reproduce the guide, not the module's default).":
         "Langsung: ketik bobot per kriteria. AHP: bandingkan kriteria berpasangan dan bobot mengikuti. Panduan KLH: skor kelas 1 sampai 3 dari panduan teknis KLH dijumlahkan (untuk mereproduksi panduan, bukan metode bawaan modul).",

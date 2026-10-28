@@ -163,7 +163,7 @@ python-qgis.bat scripts/make_layouts.py --config <run_config.yaml> --out <folder
 python scripts/khg_run_config.py --all $REPEAT_KHG
 ```
 
-Set `REPEAT_DATA`, `REPEAT_KHG` and `REPEAT_HUB` first. In QGIS the wizard does the same: choose the KHG, Run to the next review, then Export HTML report and Make map layout.
+Set `REPEAT_DATA`, `REPEAT_KHG` and `REPEAT_HUB` first. In QGIS the wizard does the same: choose the KHG, run each stage (or run on to the next review with the values as set), then Export HTML report and Make map layout.
 
 ## 11. Sources
 

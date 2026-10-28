@@ -97,7 +97,7 @@ def test_klh_scoring_needs_the_peat_layer(world):
 
 def test_run_plans_run_on_to_the_next_review():
     assert vm.WizardModel.plan("run_on", 3) == vm.RunPlan(None, vm.LAST_STAGE)
-    assert vm.WizardModel.plan("accept_on", 6) == vm.RunPlan(None, vm.LAST_STAGE, (6,))
+    assert vm.WizardModel.plan("accept_on", 6) == vm.RunPlan(None, 6, (6,))         # accept, then stop at the next stage's card
     assert vm.WizardModel.plan("run", 3) == vm.RunPlan(None, 3)
 
 

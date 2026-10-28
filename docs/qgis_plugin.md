@@ -41,7 +41,7 @@ Click the water-drop button in the toolbar, or *Plugins > RE-PEAT Interventions 
    coordinate system comes from the DTM; a layer in another system blocks *Create run* unless *Reproject layers...* is ticked.
    Required columns, coverage and the DTM's vertical datum (when it names one) are checked before the run is created.
    *Start over* clears a run's results (after you confirm) and keeps its settings and data.
-   *Run to the next review* runs on until the next review stop (2, 6, 9) or the end; *Accept and continue* also runs on.
+   *Run stage n* runs that stage only, so each stage's values can be set first; *Run on to the next review, with the values as set* runs on until the next review stop (2, 6, 9) or the end. *Accept and continue* accepts the review stage and opens the next stage's card without running it.
 2. Each stage card shows what the stage does (turn on *Learn mode* for the why and the references), the **decisions** that stage
    needs, and a **Run** button. A stage whose required values are empty cannot run; the empty fields are highlighted. The wizard
    never fills these in on its own. Values are saved into `run_config.yaml`.

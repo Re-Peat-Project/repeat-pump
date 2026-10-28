@@ -25,6 +25,10 @@ sekat:
   max_spacing_m: 500              # HIGH. KLH workflow: sekat spacing about 500 m (Panduan Teknis GIS, step 3)
   min_spacing_m: 100              # LOW. The legacy script used 500 m as the MINIMUM, which would override the head rule on
                                   #   any slope steeper than dA/500 = 0.08 %. 100 m keeps proposals from clustering. Team decision.
+  min_new_spacing_m: 500          # POLICY. KLH guide (JARAK_MIN 500 m): no two new sekat closer than this along a canal. Adopted
+                                  #   2026-10-28 at users' request; on land steeper than dA/500 it overrides the head rule (fewer sekat)
+  dedup_tol_m: 100                # POLICY. A proposal within 100 m of an existing sekat, or of one on another canal, is merged
+                                  #   (dropped). Adopted 2026-10-28 at users' request; the legacy script used 50 m (DEDUP_TOL)
   snap_tolerance_m: 30            # MED. Same 30 m the KLH workflow uses to match river points to canals (Panduan Teknis GIS, 7.2)
   target_rise_share: 0.9          # POLICY, chosen from data (docs/reports/sekat_neraca_investigation.md). Past 90 % the water each extra sekat
                                   #   holds drops 2.4-5 times (Sugihan-Lumpur P+S 35,766 -> 14,902 m3, Kampar-Gaung 100,007 -> 22,980 m3);

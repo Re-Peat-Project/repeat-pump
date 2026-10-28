@@ -239,8 +239,8 @@ FIELDS: dict[str, Field_] = {f.key: f for f in [
     Field_("prioritise.upstream_method", "Upstream contribution from", "enum", "", "Flow accumulation reads the conditioned DTM; the network method adds up canal length upstream.", ("flow_acc", "graph"),
            ("Flow accumulation raster", "Canal network (upstream length)")),
     Field_("sekat.dA_m", "Head step between sekat (dA)", "float", "m", "Maximum water-table depth below the surface. PP 57/2016 uses 0.4 m."),
-    Field_("sekat.min_new_spacing_m", "Minimum distance between new sekat", "float", "m", "Empty: the head rule alone decides. The KLH guide uses 500 m, which overrides the head rule on steep land and gives fewer sekat there."),
-    Field_("sekat.dedup_tol_m", "Merge proposed sekat closer than", "float", "m", "A proposal this close to an existing sekat, or to one on another canal, is dropped. The KLH guide uses 50 m. Empty: keep all."),
+    Field_("sekat.min_new_spacing_m", "Minimum distance between new sekat", "float", "m", "No two new sekat closer than this along a canal. The KLH guide and the proposed defaults use 500 m, which overrides the head rule on steep land and gives fewer sekat there. Empty: the head rule alone decides."),
+    Field_("sekat.dedup_tol_m", "Merge proposed sekat closer than", "float", "m", "A proposal this close to an existing sekat, or to one on another canal, is dropped. The proposed defaults use 100 m (the legacy script used 50 m). Empty: keep all."),
     Field_("sekat.target_rise_share", "Balance: share of the rewetting to keep", "float", "0-1",
            "Keeps the fewest proposed sekat that give this share of the canal rewetting of all of them; the others go to the low-benefit layer. Empty: keep all."),
     Field_("sekat.max_blocks", "Budget: most new sekat", "int", "", "At most this many new sekat, those that rewet the most canal first. Empty: no cap."),
@@ -655,6 +655,6 @@ class WizardModel:
             return RunPlan(sid, sid, (), True)
         if action == "run_on":                       # on until the engine stops at the next review stage (or the end)
             return RunPlan(None, LAST_STAGE)
-        if action == "accept_on":
-            return RunPlan(None, LAST_STAGE, (sid,))
+        if action == "accept_on":                    # accept, then stop: the next stage's card opens so its values can be set first
+            return RunPlan(None, sid, (sid,))
         raise ValueError(action)
