@@ -45,3 +45,20 @@ def test_saving_an_open_run_keeps_its_name(tmp_path):
 def test_without_a_name_the_config_keeps_its_own():
     assert rc.new_run_name("", "x/run/out.gpkg", run_exists=True) is None
     assert rc.default_run_name("out.gpkg") == "out"
+
+
+def test_the_field_is_filled_from_the_folder(tmp_path):
+    """The Run name field shows the folder's name for a new folder, and the run's own name for a folder that holds a run, so
+    Save setup on it (for example after a restart) does not rename the run."""
+    tpl, out = _template(tmp_path), tmp_path / "New_run2" / "pump_run.gpkg"
+    assert rc.folder_run_name(out) == "New_run2"
+    _create(tpl, out, typed="nguji2")
+    assert rc.folder_run_name(out) == "nguji2"
+    assert rc.folder_run_name(tmp_path / "New_run4" / "pump_run.gpkg") == "New_run4"
+
+
+def test_the_name_follows_the_folder_until_one_is_typed():
+    assert rc.name_follows_folder("", None)
+    assert rc.name_follows_folder("New_run2", "New_run2")        # still what the wizard filled in
+    assert not rc.name_follows_folder("mendahara", "New_run2")   # typed over it
+    assert not rc.name_follows_folder("mendahara", None)

@@ -120,6 +120,24 @@ def new_run_name(typed: str, output_gpkg: str | Path, run_exists: bool) -> Optio
     return None if run_exists else default_run_name(output_gpkg)
 
 
+def folder_run_name(output_gpkg: str | Path) -> str:
+    """The name the Run name field is filled with: the run's own when its folder already holds a run config (so saving it does not
+    rename the run), else the folder's name."""
+    cfg = Path(output_gpkg).parent / "run_config.yaml"
+    try:
+        name = ((yaml.safe_load(cfg.read_text(encoding="utf8")) or {}).get("run") or {}).get("name") if cfg.is_file() else None
+    except (OSError, yaml.YAMLError, AttributeError):
+        name = None
+    return str(name) if name else default_run_name(output_gpkg)
+
+
+def name_follows_folder(typed: str, filled: Optional[str]) -> bool:
+    """True when the Run name field holds nothing or what the wizard filled in itself (``filled``), so a new output folder may
+    replace it; a name the user typed is kept."""
+    typed = (typed or "").strip()
+    return not typed or typed == (filled or "")
+
+
 PRESET_FILE = "proposed_defaults.yaml"
 
 

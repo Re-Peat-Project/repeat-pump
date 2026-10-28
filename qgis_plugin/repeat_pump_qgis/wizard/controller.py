@@ -76,6 +76,7 @@ class WizardController(QObject):
     changed = pyqtSignal()           # model or busy state changed: re-render
     log_line = pyqtSignal(str)       # thread-safe: may be emitted from a worker
     notice = pyqtSignal(str, str)    # level (info|success|warning|error), text
+    config_edited = pyqtSignal()     # run_config.yaml was edited outside the wizard and read again
     stage_finished = pyqtSignal(int, int)   # stage id, exit code
     progress_changed = pyqtSignal(int, float, str)   # stage id, 0..1, what it is doing (thread-safe: emitted from the worker)
 
@@ -194,6 +195,7 @@ class WizardController(QObject):
         if text == self._seen_config or self.running is not None:
             return
         self.notice.emit("info", tr("The run config was changed outside the wizard; it was read again."))
+        self.config_edited.emit()
         self.refresh_check()
 
     def refresh_check(self) -> None:
