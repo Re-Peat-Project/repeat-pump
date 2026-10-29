@@ -61,11 +61,13 @@ def get_dotted(data: dict, key: str) -> Any:
 def build_run_config(config_file: str | Path, output_gpkg: Optional[str] = None, dtm: Optional[str] = None,
                      moisture: Optional[str | list[str]] = None, priority: Optional[str] = None,
                      vectors: Optional[dict[str, LayerRef]] = None, params: Optional[dict[str, Any]] = None,
-                     drop: Optional[list[str]] = None, columns: Optional[dict[str, dict[str, str]]] = None) -> dict:
+                     drop: Optional[list[str]] = None, columns: Optional[dict[str, dict[str, str]]] = None,
+                     run_name: Optional[str] = None) -> dict:
     """Template YAML -> run config dict. ``vectors`` maps a config key (``canals``) to ``(path, layer_or_None)``;
     ``params`` maps dotted keys to values (e.g. the human-decided policy parameters). ``drop`` lists optional input keys the
     user left empty: they are removed so a placeholder path from the template cannot reach the engine. ``columns`` is the column
-    mapping ``{input: {expected column: your column}}``; an input without one loses any mapping an older config had."""
+    mapping ``{input: {expected column: your column}}``; an input without one loses any mapping an older config had. ``run_name``
+    replaces ``run.name``; without it the config file's name is kept (see :func:`new_run_name`)."""
     config_file = Path(config_file)
     base = config_file.parent
     data = yaml.safe_load(config_file.read_text(encoding="utf8"))
@@ -75,6 +77,8 @@ def build_run_config(config_file: str | Path, output_gpkg: Optional[str] = None,
     inp = data["inputs"]
     run = data.setdefault("run", {})
     run["output_gpkg"] = output_gpkg or _absolute(run.get("output_gpkg", "out/run.gpkg"), base)
+    if run_name:
+        run["name"] = run_name
     if dtm:
         inp.setdefault("dtm", {})["path"] = dtm
     if moisture:
@@ -99,6 +103,39 @@ def build_run_config(config_file: str | Path, output_gpkg: Optional[str] = None,
     for k, v in (params or {}).items():
         set_dotted(data, k, v)
     return data
+
+
+def default_run_name(output_gpkg: str | Path) -> str:
+    """The name of a run nobody named: its folder (``New_run2`` for ``.../New_run2/pump_run.gpkg``)."""
+    p = Path(output_gpkg)
+    return p.parent.name or p.stem
+
+
+def new_run_name(typed: str, output_gpkg: str | Path, run_exists: bool) -> Optional[str]:
+    """The ``run_name`` for :func:`build_run_config`: what was typed; for a new run without one the folder's name, so it does not
+    inherit the template's (``khg_kahayan_sebangau_pilot``); for an existing run without one None, which keeps its name."""
+    typed = (typed or "").strip()
+    if typed:
+        return typed
+    return None if run_exists else default_run_name(output_gpkg)
+
+
+def folder_run_name(output_gpkg: str | Path) -> str:
+    """The name the Run name field is filled with: the run's own when its folder already holds a run config (so saving it does not
+    rename the run), else the folder's name."""
+    cfg = Path(output_gpkg).parent / "run_config.yaml"
+    try:
+        name = ((yaml.safe_load(cfg.read_text(encoding="utf8")) or {}).get("run") or {}).get("name") if cfg.is_file() else None
+    except (OSError, yaml.YAMLError, AttributeError):
+        name = None
+    return str(name) if name else default_run_name(output_gpkg)
+
+
+def name_follows_folder(typed: str, filled: Optional[str]) -> bool:
+    """True when the Run name field holds nothing or what the wizard filled in itself (``filled``), so a new output folder may
+    replace it; a name the user typed is kept."""
+    typed = (typed or "").strip()
+    return not typed or typed == (filled or "")
 
 
 PRESET_FILE = "proposed_defaults.yaml"
