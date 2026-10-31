@@ -13,7 +13,9 @@ import os
 import sys
 from pathlib import Path
 
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")       # set QT_QPA_PLATFORM=windows for real fonts in the PNGs
+# Qt's offscreen platform has no fonts on Windows: every label is exported as a black box. The windows platform renders
+# text and needs no visible window.
+os.environ.setdefault("QT_QPA_PLATFORM", "windows" if sys.platform == "win32" else "offscreen")
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "qgis_plugin"))
 
