@@ -42,7 +42,7 @@ def _n(x: Any, digits: int = 0) -> str:
         return "-"
 
 
-BUDGET_ITEMS = {"canal_closure_km": "Canal closure or backfill", "sekat_standard": "Sekat, wooden", "sekat_reinforced": "Sekat, concrete",
+BUDGET_ITEMS = {"canal_closure_km": "Canal closure or backfill", "sekat_standard": "Sekat, wooden", "sekat_tertiary": "Sekat, wooden, tertiary canal", "sekat_reinforced": "Sekat, concrete",
                 "sekat_ipg_estimate": "Sekat, KLH IPG estimate", "revegetation_ha": "Revegetation", "deep_wells": "Deep wells (sumur bor)",
                 "pump_units": "Pump units", "pump_fuel_l": "Pump fuel"}
 

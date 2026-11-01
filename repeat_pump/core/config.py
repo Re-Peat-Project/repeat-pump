@@ -288,7 +288,8 @@ class BudgetCfg(_M):
     """Unit prices for the budget estimate in stage 12 (core/budget.py): ``[low, central, high]`` rupiah of ``price_year``; null = not priced."""
     enabled: bool = True
     price_year: Optional[int] = None
-    sekat_standard_idr: Optional[list[float]] = None       # per wooden canal block
+    sekat_standard_idr: Optional[list[float]] = None       # per wooden canal block (secondary canal class; also the price of blocks whose class is unknown)
+    sekat_tertiary_idr: Optional[list[float]] = None       # per wooden block on a tertiary canal (null: the standard price)
     sekat_reinforced_idr: Optional[list[float]] = None     # per concrete block (leaky/reinforced type, steep canals)
     canal_closure_idr_per_km: Optional[list[float]] = None # per km of canal closed or backfilled
     revegetation_idr_per_ha: Optional[list[float]] = None

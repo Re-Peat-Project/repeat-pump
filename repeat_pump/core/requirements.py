@@ -122,7 +122,7 @@ OPTIONS_BY_STAGE: dict[int, list[str]] = {
     10: ["pumping.demand_mode", "pumping.max_units_per_station"],
     11: ["optimise.peat_table", "optimise.bracket_tables", "optimise.algorithms", "optimise.seed", "optimise.random_baseline_draws", "optimise.ga.population", "optimise.ga.mutation",
          "optimise.ga.elite", "optimise.ga.tournament", "optimise.sa.t0_fraction", "optimise.sa.cooling"],
-    12: ["budget.enabled", "budget.price_year", "budget.sekat_standard_idr", "budget.sekat_reinforced_idr", "budget.canal_closure_idr_per_km", "budget.revegetation_idr_per_ha", "budget.well_idr", "budget.well_radius_m", "budget.pump_idr", "budget.fuel_idr_per_l", "budget.fuel_l_per_kwh", "budget.pump_hours_per_day"],
+    12: ["budget.enabled", "budget.price_year", "budget.sekat_standard_idr", "budget.sekat_tertiary_idr", "budget.sekat_reinforced_idr", "budget.canal_closure_idr_per_km", "budget.revegetation_idr_per_ha", "budget.well_idr", "budget.well_radius_m", "budget.pump_idr", "budget.fuel_idr_per_l", "budget.fuel_l_per_kwh", "budget.pump_hours_per_day"],
 }
 
 

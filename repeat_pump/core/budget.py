@@ -10,7 +10,8 @@ Quantities, per sub-KHG and intervention class:
     deep wells      the same burnt area, in revegetate_fire and block_wells, divided by the area one well covers (pi r2)
     pumps           the pump units of stage 10 and their fuel over the design period (when pumping is on)
 
-Every price is a range ``[low, central, high]`` in rupiah of its own year (not adjusted for inflation). A price left null is not
+The sekat, canal closure and well prices follow the cost standard Perdirjen PPKL P.16/2022; revegetation, pumps and fuel are outside it
+(``STANDARD_ITEMS``) and are totalled apart (``by_basis``). Every price is a range ``[low, central, high]`` in rupiah of its own year (not adjusted for inflation). A price left null is not
 guessed: its quantity is reported and its cost stays empty ("not priced"). The sources of the proposed prices are listed in the
 register ``repeat_pump/data/budget_sources.csv`` (one row per figure, with its verification status); every run copies it next to
 ``budget.csv`` and marks which prices it took from the preset. Cost per m3 of water held uses the same water-held figure as the
@@ -27,6 +28,7 @@ import pandas as pd
 ITEMS = {  # item -> (unit, budget price key)
     "sekat_standard": ("unit", "sekat_standard_idr"),
     "sekat_reinforced": ("unit", "sekat_reinforced_idr"),
+    "sekat_tertiary": ("unit", "sekat_tertiary_idr"),
     "sekat_ipg_estimate": ("unit", "sekat_standard_idr"),
     "canal_closure_km": ("km", "canal_closure_idr_per_km"),
     "revegetation_ha": ("ha", "revegetation_idr_per_ha"),
@@ -35,6 +37,9 @@ ITEMS = {  # item -> (unit, budget price key)
     "pump_fuel_l": ("L", "fuel_idr_per_l"),
 }
 SEKAT_CLASSES = {"block", "block_water", "block_wells"}
+# Where each price comes from: the national cost standard (Perdirjen PPKL P.16/2022 covers sekat, penimbunan and sumur bor) or outside it
+# (revegetation, pumps, fuel: news and listings). The totals are reported for the two groups separately and together.
+STANDARD_ITEMS = {"sekat_standard", "sekat_tertiary", "sekat_reinforced", "sekat_ipg_estimate", "canal_closure_km", "deep_wells"}
 
 
 def budget_sources(cfg) -> list[dict]:
@@ -52,7 +57,7 @@ def budget_sources(cfg) -> list[dict]:
 
 
 def _price(bc, key: str):
-    v = getattr(bc, key)
+    v = getattr(bc, key, None)
     if v is None:
         return None
     v = list(v) if isinstance(v, (list, tuple)) else [v, v, v]
@@ -65,6 +70,10 @@ def quantities(units: pd.DataFrame, kept: pd.DataFrame | None, pumps: list, cfg)
     rows = []
     tertiary = "tersier" in [str(c).lower() for c in (cfg.topology.canal_classes or ["primer", "sekunder", "tersier"])]
     cover_ha = math.pi * (bc.well_radius_m or 0) ** 2 / 1e4 if bc.well_radius_m else None
+    if kept is not None and len(kept) and "subkhg_id" in kept:
+        # wooden blocks on a tertiary canal have their own price (the narrow-canal type); every other class takes the standard price
+        tert = kept["canal_class"].astype(str).str.lower().str.contains("tersier|tertiary") if "canal_class" in kept else pd.Series(False, index=kept.index)
+        kept = kept.assign(sekat_type=np.where(tert & (kept["sekat_type"] == "standard"), "tertiary", kept["sekat_type"]))
     by_unit = kept.groupby(["subkhg_id", "sekat_type"]).size() if kept is not None and len(kept) and "subkhg_id" in kept else pd.Series(dtype=int)
     for _, u in units.iterrows():
         uid, cls = str(u["subkhg_id"]), u.get("intervention")
@@ -72,18 +81,24 @@ def quantities(units: pd.DataFrame, kept: pd.DataFrame | None, pumps: list, cfg)
         peat = float(u.get("peat_frac")) if pd.notna(u.get("peat_frac")) else 1.0
         if bool(u.get("sekat_analysed")):
             std = int(by_unit.get((uid, "standard"), 0))
-            rein = int(sum(v for (k, t), v in by_unit.items() if k == uid and t != "standard"))
-            rows += [(uid, cls, "sekat_standard", std, "stage 7 kept sekat"), (uid, cls, "sekat_reinforced", rein, "stage 7 kept sekat")]
+            ter = int(by_unit.get((uid, "tertiary"), 0))
+            rein = int(sum(v for (k, t), v in by_unit.items() if k == uid and t not in ("standard", "tertiary")))
+            rows += [(uid, cls, "sekat_standard", std, "stage 7 kept sekat"), (uid, cls, "sekat_tertiary", ter, "stage 7 kept sekat on a tertiary canal"),
+                     (uid, cls, "sekat_reinforced", rein, "stage 7 kept sekat")]
         elif cls in SEKAT_CLASSES and pd.notna(u.get("sekat_tambahan")):
             rows.append((uid, cls, "sekat_ipg_estimate", float(u["sekat_tambahan"]), "KLH IPG estimate (sub-KHG prioritisation)"))
         if cls == "close_canals":
             dens = sum(float(u.get(c) or 0) for c in ("u_canal_primary", "u_canal_secondary") + (("u_canal_tertiary",) if tertiary else ()))
             rows.append((uid, cls, "canal_closure_km", round(dens * area * peat, 2), "canal density per km2 of peat x peat area"))
-        burnt_ha = float(u.get("burned_ever_frac") or 0) * area * 100
+        # a blank burnt fraction with a fire frequency of 0 is a unit without burn polygons: 0 ha. Otherwise it stays unknown (NaN, not priced)
+        frac = pd.to_numeric(u.get("burned_ever_frac"), errors="coerce")
+        if pd.isna(frac) and pd.to_numeric(u.get("u_fire_freq"), errors="coerce") == 0:
+            frac = 0.0
+        burnt_ha = float(frac) * area * 100
         if cls == "revegetate_fire":
             rows.append((uid, cls, "revegetation_ha", round(burnt_ha, 1), "area ever burnt"))
         if cls in ("revegetate_fire", "block_wells") and cover_ha:
-            rows.append((uid, cls, "deep_wells", math.ceil(burnt_ha / cover_ha) if burnt_ha > 0 else 0, f"area ever burnt / {cover_ha:.1f} ha per well"))
+            rows.append((uid, cls, "deep_wells", float("nan") if pd.isna(burnt_ha) else (math.ceil(burnt_ha / cover_ha) if burnt_ha > 0 else 0), f"area ever burnt / {cover_ha:.1f} ha per well"))
     if pumps and cfg.pumping.enabled:
         n = sum(int(p.get("units_needed") or 0) for p in pumps)
         rows.append(("all", "pumps", "pump_units", n, "stage 10"))
@@ -97,9 +112,21 @@ def price(q: pd.DataFrame, cfg) -> pd.DataFrame:
     bc = cfg.budget
     out = q.copy()
     out["unit"] = [ITEMS[i][0] for i in out["item"]]
+    pr = {i: _price(bc, key) for i, (_, key) in ITEMS.items()}
+    if pr.get("sekat_tertiary") is None:
+        pr["sekat_tertiary"] = pr.get("sekat_standard")      # no tertiary price: the standard wooden price
     for col, k in (("cost_low_idr", 0), ("cost_idr", 1), ("cost_high_idr", 2)):
-        out[col] = [None if _price(bc, ITEMS[i][1]) is None else float(qty) * _price(bc, ITEMS[i][1])[k] for i, qty in zip(out["item"], out["quantity"])]
+        out[col] = [None if pr[i] is None else float(qty) * pr[i][k] for i, qty in zip(out["item"], out["quantity"])]
     out["priced"] = out["cost_idr"].notna()
+    return out
+
+
+def by_basis(b: pd.DataFrame) -> dict:
+    """Low, central and high totals of the priced items under the cost standard and outside it, in rupiah."""
+    out = {}
+    for name, mask in (("standard", b["item"].isin(STANDARD_ITEMS)), ("outside_standard", ~b["item"].isin(STANDARD_ITEMS))):
+        x = b[mask]
+        out[name] = {k: (float(x[c].sum(min_count=1)) if x[c].notna().any() else None) for k, c in (("low_idr", "cost_low_idr"), ("idr", "cost_idr"), ("high_idr", "cost_high_idr"))}
     return out
 
 
@@ -120,6 +147,10 @@ def run(ctx, units: pd.DataFrame) -> dict | None:
     if not cfg.budget.enabled:
         return None
     kept = ctx.read_layer("sekat_proposed") if ctx.has_layer("sekat_proposed") else None
+    if kept is not None and len(kept) and "canal_class" not in kept and "canal_id" in kept and ctx.has_layer("canals_clean"):
+        cc = ctx.read_layer("canals_clean")
+        if "canal_class" in cc:
+            kept = kept.assign(canal_class=kept["canal_id"].map(dict(zip(cc["canal_id"], cc["canal_class"]))))
     if kept is not None and len(kept) and "subkhg_id" not in kept and ctx.has_layer("subkhg_selected"):
         import geopandas as gpd
         sel = ctx.read_layer("subkhg_selected")
@@ -131,22 +162,25 @@ def run(ctx, units: pd.DataFrame) -> dict | None:
     b.to_csv(ctx.out_dir / "budget.csv", index=False)
     src = budget_sources(cfg)
     pd.DataFrame(src).to_csv(ctx.out_dir / "budget_sources.csv", index=False)
-    if any(r["applies"] for r in src):
-        ctx.warn("Stage 12: the budget uses proposed prices from published sources that still need checking; see budget_sources.csv")
+    if any(r["applies"] and r["status"] not in ("standard", "obtained") for r in src):
+        ctx.warn("Stage 12: some budget prices come from news and listings outside the cost standard (revegetation, pumps, fuel) and still need checking; see budget_sources.csv")
     ctx.write_layer("budget", b, "12")
     low = ctx.read_layer("sekat_low_benefit") if ctx.has_layer("sekat_low_benefit") else None
     allb = pd.concat([x for x in (kept, low) if x is not None and len(x)], ignore_index=True) if (kept is not None or low is not None) else None
     held = float(np.nansum(units.loc[units.get("sekat_analysed", False) == True, "held_m3"])) if "held_m3" in units else None   # noqa: E712
-    sekat_cost = float(b.loc[b["item"].isin(["sekat_standard", "sekat_reinforced"]), "cost_idr"].sum(min_count=1) or 0)
+    sekat_cost = float(b.loc[b["item"].isin(["sekat_standard", "sekat_tertiary", "sekat_reinforced"]), "cost_idr"].sum(min_count=1) or 0)
     unpriced = sorted(set(b.loc[~b["priced"] & (b["quantity"] > 0), "item"]))
     if unpriced:
         ctx.warn("Stage 12: budget items with a quantity but no price (set budget.* to price them): " + ", ".join(unpriced))
+    # sub-KHG whose quantity could not be computed (no canal mapped, burnt area unknown): no cost is added for them, so the total is a floor
+    blank = b[b["quantity"].isna()].merge(units[["subkhg_id", "area_km2"]].astype({"subkhg_id": str}), on="subkhg_id", how="left")
+    not_estimable = {k: {"n_units": int(len(g)), "area_km2": float(g["area_km2"].sum())} for k, g in blank.groupby("item")}
     by_item = b.groupby("item").agg(quantity=("quantity", "sum"), cost_low_idr=("cost_low_idr", lambda s: s.sum(min_count=1)),
                                     cost_idr=("cost_idr", lambda s: s.sum(min_count=1)), cost_high_idr=("cost_high_idr", lambda s: s.sum(min_count=1)))
     by_class = b.groupby("intervention")["cost_idr"].sum(min_count=1)
     tot = lambda c: float(b[c].sum(min_count=1)) if b[c].notna().any() else None   # noqa: E731
     return dict(price_year=cfg.budget.price_year, total_low_idr=tot("cost_low_idr"), total_idr=tot("cost_idr"), total_high_idr=tot("cost_high_idr"),
                 by_item={k: {kk: (None if pd.isna(vv) else float(vv)) for kk, vv in r.items()} for k, r in by_item.iterrows()},
-                by_class={k: (None if pd.isna(v) else float(v)) for k, v in by_class.items()}, unpriced=unpriced,
+                by_class={k: (None if pd.isna(v) else float(v)) for k, v in by_class.items()}, by_basis=by_basis(b), unpriced=unpriced, not_estimable=not_estimable,
                 sekat_cost_idr=sekat_cost or None, idr_per_m3_held=(sekat_cost / held) if sekat_cost and held else None,
                 spend_curve=spend_curve(allb, cfg))

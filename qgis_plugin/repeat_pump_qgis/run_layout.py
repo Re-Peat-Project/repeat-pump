@@ -52,7 +52,7 @@ def _workspace(config_path: Path) -> Optional[Path]:
     return None
 
 
-BUDGET_ITEMS = {"sekat_standard": ("Sekat kayu", "unit"), "sekat_reinforced": ("Sekat beton", "unit"),
+BUDGET_ITEMS = {"sekat_standard": ("Sekat kayu", "unit"), "sekat_tertiary": ("Sekat kayu, kanal tersier", "unit"), "sekat_reinforced": ("Sekat beton", "unit"),
                 "sekat_ipg_estimate": ("Sekat, perkiraan IPG KLH", "unit"), "canal_closure_km": ("Penutupan/penimbunan kanal", "km"),
                 "revegetation_ha": ("Revegetasi", "ha"), "deep_wells": ("Sumur bor", "unit"), "pump_units": ("Unit pompa", "unit"),
                 "pump_fuel_l": ("Solar pompa", "L")}

@@ -86,14 +86,18 @@ interventions:                    # treatment per sub-KHG in stage 12 (needs inp
 
 budget:                           # unit prices [low, central, high], rupiah of their own year, NOT adjusted for inflation; docs/proposed_defaults.md
   price_year: 2026                # the year of the newest price below; older ones are as published
-  sekat_standard_idr: [12000000, 18000000, 18000000]    # LOW-MED. Wooden block: Rp 12 juta (Kompas 2019), Rp 18 juta (BRG via kelompok masyarakat, Riau 2022)
-  sekat_reinforced_idr: [70000000, 70000000, 70000000]  # LOW. Concrete block "at least Rp 70 juta" (Kompas 2019)
-  canal_closure_idr_per_km: null  # no published price per km of backfilled canal was found: quantity only
-  revegetation_idr_per_ha: [8000000, 12100000, 15000000] # LOW-MED. BRG 2016 Rp 8-10 juta/ha; ULM village study Rp 12,1 juta/ha; Sumsel 2017 Rp 15 juta/ha (first year, without labour)
-  well_idr: [3000000, 8500000, 9000000]                  # LOW. BRG 2017-2018 Rp 3 juta; Kubu Raya Rp 8-9 juta (16-20 m)
+  # Sekat and wells follow Perdirjen PPKL P.16/PPKL/PKEG/PKL.0/10/2022 (Lampiran I, table of codes in
+  # re-peat/docs/reference/perdirjen_p16_2022_unit_costs.csv): low = swakelola, high = contractual, central = their midpoint. The canals carry no
+  # width or depth, so each item takes one reference code and says which. Prices exclude the standard's equipment sets, SMKK and mobilisation.
+  sekat_standard_idr: [76495000, 81604500, 86714000]     # STANDARD. Wooden three-layer block with spillway KSE-3L-P2 (canal 9-11 m): Rp 76,495,000 self-managed (low), Rp 86,714,000 contractual (high). The Direktorat prices secondary-canal blocks at the high value in its 2026 designs (Pelalawan, Mei 2026). Applies to primary and secondary canals and to blocks of unknown class; no source prices a primary-canal block, so this is a lower bound there
+  sekat_tertiary_idr: [41844000, 44268000, 46692000]     # STANDARD. Wooden two-layer block with spillway KSE-2L-P-4 (canal 5-7 m). The Direktorat's 2026 designs use Rp 46,694,000 per tertiary block. Used for blocks on tertiary canals (runs that analyse them)
+  sekat_reinforced_idr: [27140000, 30835500, 34531000]   # STANDARD. Small concrete block with spillway KSE-PK-P-1L (canal <=3 m); larger types go to Rp 146 juta
+  canal_closure_idr_per_km: null  # NOT PRICED. P.16/2022 prices penimbunan per fill segment of 50-300 m (Rp 70.9 juta to Rp 918 juta), in protected and conservation areas; the stretches to be filled are not defined, so a per-km price would price every canal of the unit as one continuous fill. The quantity (km) is reported
+  revegetation_idr_per_ha: [8000000, 12100000, 15000000] # OUTSIDE THE STANDARD (not in P.16/2022). News and a village study: BRG 2016 Rp 8-10 juta/ha; ULM village study Rp 12,1 juta/ha; Sumsel 2017 Rp 15 juta/ha (first year, without labour)
+  well_idr: [3189000, 3566500, 3944000]                  # STANDARD. Simple well, PVC 1,5", 20 m, code SBO-20-1 (deeper or cased wells: up to Rp 11,1 juta, SBO-40-4)
   well_radius_m: 200              # LOW. re-peat docs/05-parameters.md (BRG module): one well serves about 12.6 ha
-  pump_idr: [15500000, 15500000, 15500000]               # LOW. 6-inch diesel irrigation pump, marketplace listing 2026
-  fuel_idr_per_l: [23554, 23554, 24886]                  # MED. Industrial diesel, MyPertamina reference 1-14 and 15-31 October 2026 (solardistro.com)
+  pump_idr: [15500000, 15500000, 15500000]               # OUTSIDE THE STANDARD. 6-inch diesel irrigation pump, marketplace listing 2026
+  fuel_idr_per_l: [23554, 23554, 24886]                  # OUTSIDE THE STANDARD. Industrial diesel, MyPertamina reference 1-14 and 15-31 October 2026 (solardistro.com)
   fuel_l_per_kwh: 0.3             # LOW. Engineering assumption for small diesel pump sets; no source retrieved
   pump_hours_per_day: 12          # POLICY. Operating hours per day in the dry season
 

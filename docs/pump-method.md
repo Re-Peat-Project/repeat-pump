@@ -146,7 +146,7 @@ Sources: `run_report.json`, `interventions.csv` and `budget.csv` of each run.
 - Specific yield 0.15, reach 600 m and drawdown 1.0 m set the volumes, not the order of the blocks.
 - The LiDAR vertical error (0.3 m) is suggested, not from the delivery.
 - The lateral spread of held water toward burnt land is the fixed 600 m band, not modelled; the groundwater model of stage 11 depends on peat properties nobody has measured here.
-- Budget prices come from news and journal search summaries; none is verified on its page, the KLH cost standard (Perdirjen PPKL P.4/2019) was not found online, and canal closure has no price.
+- Sekat and well prices follow the cost standard Perdirjen PPKL P.16/2022 (sekat on primary and secondary canals: KSE-3L-P2; tertiary: KSE-2L-P-4; wells: SBO-20-1); revegetation, pumps and fuel are outside the standard and come from news and listings that are not verified on their pages. The run report totals the two groups apart (`budget.by_basis`). Canal closure is reported as a quantity only: the standard prices fill segments, and the stretches to fill are not defined. Pump, gate (pintu air), canal normalisation and maintenance costs from the Direktorat's 2026 designs are not in the budget yet.
 - Pumping has not run on a real KHG.
 - Kampar-Gaung's sub-KHG carry the id `71`; check the KHG ids of that folder.
 

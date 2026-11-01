@@ -176,6 +176,7 @@ FIELDS: dict[str, Field_] = {f.key: f for f in [
     Field_("budget.enabled", "Estimate the budget", "bool", "", "Prices the quantities of the run: sekat, canal closure, revegetation, wells and pumps."),
     Field_("budget.price_year", "Price year", "int", "", "The year the prices are from. They are not adjusted for inflation."),
     Field_("budget.sekat_standard_idr", "Price per wooden sekat", "floatlist", "Rp", "Low, central and high, in rupiah (for example 12000000; 18000000; 18000000), or one value. Leave empty to report the quantity without a price."),
+    Field_("budget.sekat_tertiary_idr", "Price per wooden sekat on a tertiary canal", "floatlist", "Rp", "Low, central and high, in rupiah, or one value. Leave empty to use the price per wooden sekat."),
     Field_("budget.sekat_reinforced_idr", "Price per concrete sekat", "floatlist", "Rp", "Low, central and high, in rupiah (for example 12000000; 18000000; 18000000), or one value. Leave empty to report the quantity without a price."),
     Field_("budget.canal_closure_idr_per_km", "Price per km of canal closed or backfilled", "floatlist", "Rp/km", "Low, central and high, in rupiah (for example 12000000; 18000000; 18000000), or one value. Leave empty to report the quantity without a price."),
     Field_("budget.revegetation_idr_per_ha", "Revegetation price per hectare", "floatlist", "Rp/ha", "Low, central and high, in rupiah (for example 12000000; 18000000; 18000000), or one value. Leave empty to report the quantity without a price."),
