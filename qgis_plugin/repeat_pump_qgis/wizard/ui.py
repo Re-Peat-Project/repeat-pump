@@ -16,7 +16,7 @@ from qgis.PyQt.QtWidgets import (QCheckBox, QComboBox, QDockWidget, QFileDialog,
 
 import yaml
 
-from ..runconfig import attach_preset, build_run_config, form_inputs, read_setup, setup_changes, write_setup
+from ..runconfig import attach_preset, build_run_config, folder_run_name, form_inputs, name_follows_folder, new_run_name, read_setup, setup_changes, write_setup
 from ..runner import split_source
 from . import i18n, styling, theme
 from .i18n import tr
@@ -227,6 +227,7 @@ class WizardPanel(QWidget):
         self.segment_explainer.notice.connect(self._notice)
         self.controller.changed.connect(self.render)
         self.controller.notice.connect(self._notice)
+        self.controller.config_edited.connect(self._sync_run_name)     # a name changed in the YAML replaces the one filled in
         self.controller.stage_finished.connect(self._on_stage_finished)
         self.controller.log_line.connect(self._on_log_line)
         self.controller.progress_changed.connect(self._on_progress)
@@ -388,6 +389,12 @@ class WizardPanel(QWidget):
         self.priority = file_widget("open", "CSV (*.csv)")
         form.addWidget(label("Output GeoPackage (the run folder is its folder)", "paramLabel"))
         form.addWidget(self.out_file)
+        self.run_name = QLineEdit()
+        self._filled_name: Optional[str] = None     # the name the wizard put in the field; a name typed over it is the user's
+        self.out_file.fileChanged.connect(lambda _p: self._sync_run_name())
+        self._sync_run_name()
+        form.addWidget(label("Run name (names the map group, the reports and the output layers; filled in from the run folder)", "paramLabel"))
+        form.addWidget(self.run_name)
         self.advanced_btn = button("Advanced: starting config", "link", lambda: self.advanced_box.setVisible(not self.advanced_box.isVisible()))
         self.advanced_box = QWidget()
         adv = QVBoxLayout(self.advanced_box)
@@ -530,7 +537,8 @@ class WizardPanel(QWidget):
         cfg_path = Path(out).parent / "run_config.yaml"
         base = cfg_path if cfg_path.exists() else Path(tpl)
         data = build_run_config(base, output_gpkg=str(Path(out)), dtm=dtm, moisture=[moisture] + extra_moisture,
-                                priority=priority or None, vectors=vectors, drop=drop, params=params, columns=self.extras.columns())
+                                priority=priority or None, vectors=vectors, drop=drop, params=params, columns=self.extras.columns(),
+                                run_name=new_run_name(self.run_name.text(), out, cfg_path.exists()))
         if self.use_preset.isChecked():
             try:
                 attach_preset(data, cfg_path.parent, PRESET_RESOURCE)
@@ -605,7 +613,7 @@ class WizardPanel(QWidget):
     def _open_run(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, tr("Open a run config"), "", "YAML (*.yaml *.yml)")
         if path:
-            self._fill_setup(path)
+            self._fill_setup(path, keep_name=True)
             self._setup_open = False
             self._setup_touched = False
             self.selected = None
@@ -629,14 +637,28 @@ class WizardPanel(QWidget):
             write_setup(data, path)
             self.setup_msg.setText(tr("Setup saved: {path}").format(path=path))
 
-    def _fill_setup(self, path: str) -> None:
-        """Choose in the form every layer, file and setting a saved setup names; layers not yet on the map are added."""
+    def _sync_run_name(self) -> None:
+        """Fill the Run name field from the output folder (its run's name, or the folder's), unless the user typed a name."""
+        out = self.out_file.filePath().strip()
+        name = folder_run_name(out) if out else ""
+        self.run_name.setPlaceholderText(name)
+        if name_follows_folder(self.run_name.text(), self._filled_name):
+            self._set_run_name(name)
+
+    def _set_run_name(self, name: str) -> None:
+        self.run_name.setText(name)
+        self._filled_name = name
+
+    def _fill_setup(self, path: str, keep_name: bool = False) -> None:
+        """Choose in the form every layer, file and setting a saved setup names; layers not yet on the map are added.
+        ``keep_name``: the run itself is opened, so its name is shown; a setup loaded to repeat a run is named after its folder.
+        Either way the name follows a new output folder chosen afterwards unless the user types one."""
         try:
             data = read_setup(path)
         except Exception as e:
             self.setup_msg.setText(f"<span style='color:{theme.RED_TEXT}'>" + tr("Could not read the setup: {err}").format(err=e) + "</span>")
             return
-        self._fill_setup_data(data, tr("Setup loaded from {path}.").format(path=path), preset=bool(data.get("preset")))
+        self._fill_setup_data(data, tr("Setup loaded from {path}.").format(path=path), preset=bool(data.get("preset")), keep_name=keep_name)
 
     # ------------------------------------------------------------------ KHG work folders
     def _khg_root(self) -> str:
@@ -666,9 +688,9 @@ class WizardPanel(QWidget):
         msg = tr("Filled from the KHG folder {name}.").format(name=Path(folder).name)
         if missing:
             msg += " " + tr("Not found there, choose them yourself: {items}").format(items=", ".join(missing))
-        self._fill_setup_data(data, msg, preset=True)
+        self._fill_setup_data(data, msg, preset=True, keep_name=True)
 
-    def _fill_setup_data(self, data: dict, message: str, preset: bool) -> None:
+    def _fill_setup_data(self, data: dict, message: str, preset: bool, keep_name: bool = False) -> None:
         missing = []
         for key, refs in form_inputs(data).items():
             layers = [find_or_add_layer(p, name) for p, name in refs]
@@ -680,6 +702,9 @@ class WizardPanel(QWidget):
         run = data.get("run") or {}
         if run.get("output_gpkg"):
             self.out_file.setFilePath(run["output_gpkg"])
+        out = self.out_file.filePath().strip()
+        name = str(run.get("name") or "") if keep_name else ""
+        self._set_run_name(name or (folder_run_name(out) if out else ""))
         prio = (data.get("inputs") or {}).get("subkhg_priority") or {}
         self.priority.setFilePath(prio.get("path", ""))
         self.use_preset.blockSignals(True)
