@@ -2,11 +2,15 @@
 
     python scripts/khg_run_config.py ../_khg/16.02.01_sugihan_lumpur ../_khg/14.02-04-05.01_kampar_gaung
     python scripts/khg_run_config.py --all ../_khg            # every KHG folder that has the inputs
+    python scripts/khg_run_config.py <folder> --set interventions.held_target=0.6 --set budget.contingency=0.1
     repeat-pump run --config ../_khg/<folder>/05_pump/run_config.yaml --accept 2 --accept 6 --accept 9
 
 Each config goes to ``<folder>/05_pump/run_config.yaml`` with the proposed-defaults preset next to it (values marked as proposed in
 the report). Columns are guessed by name and canal class values by text or code, as in the wizard. Pumps are planned only when the
 river layer has a dry-season level or a perennial column. An existing run_config.yaml is kept unless --overwrite is given.
+--set KEY=VALUE sets any key of the run config (dotted path, value read as YAML) after everything else, so it wins over the
+template and the proposed defaults; the config is then checked against repeat_pump.core.config.Config. The full chain passes
+pipeline.yaml / overrides.yaml `pump.set` this way.
 """
 from __future__ import annotations
 
@@ -74,6 +78,34 @@ def run_config(folder: Path, tertiary: bool = False, dem: str | None = None, dtm
     return data, missing
 
 
+def apply_sets(data: dict, sets: list[str]) -> None:
+    """KEY=VALUE pairs into the nested run config; the result must still load as a Config (unknown keys fail here)."""
+    if not sets:
+        return
+    import yaml
+    for kv in sets:
+        if "=" not in kv:
+            raise SystemExit(f"--set {kv!r}: expected KEY=VALUE")
+        key, val = kv.split("=", 1)
+        node = data
+        parts = key.strip().split(".")
+        for k in parts[:-1]:
+            node = node.setdefault(k, {})
+            if not isinstance(node, dict):
+                raise SystemExit(f"--set {key}: {k} is not a section")
+        node[parts[-1]] = yaml.safe_load(val)
+    from repeat_pump.core.config import Config
+    from pydantic import ValidationError
+    try:
+        Config.model_validate({k: v for k, v in data.items() if k != "preset" and not str(k).startswith("_")})   # preset: read by load_config
+    except ValidationError as e:
+        bad = [".".join(str(x) for x in err["loc"]) + ": " + err["msg"] for err in e.errors()
+               if ".".join(str(x) for x in err["loc"]) in {s.split("=", 1)[0].strip() for s in sets}
+               or err["type"] == "extra_forbidden"]
+        if bad:
+            raise SystemExit("--set: " + "; ".join(bad))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("folders", nargs="*")
@@ -82,6 +114,8 @@ def main():
     ap.add_argument("--tertiary", action="store_true", help="include tertiary canals (off by default, as in the KLH guide)")
     ap.add_argument("--dem", help="DEM variant of the full chain (lidar, deltadtm, demnas): inputs from <step>/<dem>/, run in 05_pump/<dem>/")
     ap.add_argument("--dtm", help="with --dem: the DTM to use (default: the variant's clip or corrected surface)")
+    ap.add_argument("--set", action="append", default=[], metavar="KEY=VALUE",
+                    help="any run-config key, dotted (e.g. interventions.held_target=0.6); value read as YAML; repeatable")
     a = ap.parse_args()
     folders = [Path(f) for f in a.folders] + (khgsetup.khg_folders(a.all) if a.all else [])
     for f in folders:
@@ -95,6 +129,7 @@ def main():
             print(e)
             continue
         runconfig.attach_preset(data, out.parent, PRESET)
+        apply_sets(data, a.set)
         runconfig.write_run_config(data, out)
         print(f"{f.name}: wrote {out}" + (f" (not found: {', '.join(missing)})" if missing else ""))
 
