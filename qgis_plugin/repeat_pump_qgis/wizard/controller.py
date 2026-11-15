@@ -9,7 +9,7 @@ from typing import Any, Callable, Optional
 
 import yaml
 from qgis.core import QgsApplication, QgsTask
-from qgis.PyQt.QtCore import QObject, pyqtSignal
+from qgis.PyQt.QtCore import QFileSystemWatcher, QObject, pyqtSignal
 
 from .. import runner
 from ..runconfig import attach_preset, detach_preset, set_dotted, unset_dotted, write_run_config
@@ -76,6 +76,7 @@ class WizardController(QObject):
     changed = pyqtSignal()           # model or busy state changed: re-render
     log_line = pyqtSignal(str)       # thread-safe: may be emitted from a worker
     notice = pyqtSignal(str, str)    # level (info|success|warning|error), text
+    config_edited = pyqtSignal()     # run_config.yaml was edited outside the wizard and read again
     stage_finished = pyqtSignal(int, int)   # stage id, exit code
     progress_changed = pyqtSignal(int, float, str)   # stage id, 0..1, what it is doing (thread-safe: emitted from the worker)
 
@@ -91,6 +92,9 @@ class WizardController(QObject):
         self.log: list[str] = []
         self._tasks: list[QgsTask] = []
         self.log_line.connect(self._append_log)
+        self._seen_config: Optional[str] = None     # the run config text the last check read; an edit outside the wizard differs
+        self._watcher = QFileSystemWatcher(self)
+        self._watcher.fileChanged.connect(self._config_changed_on_disk)
 
     # ------------------------------------------------------------------ helpers
     def _submit(self, description: str, fn: Callable, on_done: Callable) -> None:
@@ -172,6 +176,26 @@ class WizardController(QObject):
     def open_run(self, config: str | Path) -> None:
         self.config_path = Path(config)
         self.log.clear()
+        if self._watcher.files():
+            self._watcher.removePaths(self._watcher.files())
+        self._watcher.addPath(str(self.config_path))
+        self.refresh_check()
+
+    def _config_changed_on_disk(self, path: str) -> None:
+        """run_config.yaml edited outside the wizard (a text editor): check it again so the run name, inputs and decisions shown are
+        the file's. The wizard's own writes re-check at once and are skipped here."""
+        if not self.config_path or Path(path) != self.config_path:
+            return
+        if path not in self._watcher.files() and self.config_path.exists():
+            self._watcher.addPath(path)                  # editors that save by replacing the file end the watch
+        try:
+            text = self.config_path.read_text(encoding="utf8")
+        except OSError:
+            return
+        if text == self._seen_config or self.running is not None:
+            return
+        self.notice.emit("info", tr("The run config was changed outside the wizard; it was read again."))
+        self.config_edited.emit()
         self.refresh_check()
 
     def refresh_check(self) -> None:
@@ -180,6 +204,10 @@ class WizardController(QObject):
             self._rebuild()
             return
         cfg, py = str(self.config_path), runner.get_python()
+        try:
+            self._seen_config = self.config_path.read_text(encoding="utf8")
+        except OSError:
+            self._seen_config = None
 
         def done(res, err):
             if err:

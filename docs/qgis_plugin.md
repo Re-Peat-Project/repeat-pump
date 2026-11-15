@@ -33,6 +33,9 @@ Click the water-drop button in the toolbar, or *Plugins > RE-PEAT Interventions 
    canal class column is guessed and each of its values is shown with its count and the class it is taken as (change any guess).
    *Plan pumps* is ticked only when a river layer has a dry-season level or a perennial flag. *Include tertiary canals* is off by
    default. With the sub-KHG indicator table chosen, stage 12 also proposes an intervention per sub-KHG (layer `interventions`). The starting config is under *Advanced*. *Create run* writes `run_config.yaml` in the output folder. *Open an existing run* resumes one.
+   *Run name* names the map group, the reports and the `run_name` column of the outputs. It is filled in with the output folder's
+   name and follows a new folder until you type a name of your own; *Open an existing run* shows the run's name. Left empty, a new
+   run takes its folder's name and an open run keeps its own. The wizard reads `run_config.yaml` again when it is edited outside the wizard.
    *Save setup as...* writes the form (layers, columns, selection, datum) to a JSON or YAML file; *Load setup...* fills the form from
    such a file or from any run's `run_config.yaml`, adding layers that are not on the map yet. Change the output GeoPackage and
    *Create run* to repeat a run. *Open an existing run* also refills the form.
