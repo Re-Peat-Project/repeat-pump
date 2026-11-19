@@ -150,7 +150,8 @@ def main():
     canals, net, ex, sk = reference_net(gpkgs[ref], base)
     dA, step = base.get("sekat", {}).get("dA_m", 0.4), base.get("profiles", {}).get("sample_step_m", 5)
     dA = dA or 0.4
-    ex_locs = [(c, ch) for c, ch in zip(ex["canal_id"], ex["chainage_m"])]
+    # a KHG without existing sekat has an empty layer without the snapped columns
+    ex_locs = [(c, ch) for c, ch in zip(ex["canal_id"], ex["chainage_m"])] if ex is not None and len(ex) and "canal_id" in ex else []
     fixed = {}
     for c, ch in ex_locs:
         n = net.node_at(c, ch)

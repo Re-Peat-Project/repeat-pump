@@ -291,7 +291,11 @@ class BudgetCfg(_M):
     sekat_standard_idr: Optional[list[float]] = None       # per wooden canal block (secondary canal class; also the price of blocks whose class is unknown)
     sekat_tertiary_idr: Optional[list[float]] = None       # per wooden block on a tertiary canal (null: the standard price)
     sekat_reinforced_idr: Optional[list[float]] = None     # per concrete block (leaky/reinforced type, steep canals)
-    canal_closure_idr_per_km: Optional[list[float]] = None # per km of canal closed or backfilled
+    primary_block: Optional[Literal["concrete", "wooden"]] = None   # block type priced on primary canals; null = wooden (the earlier pricing)
+    sekat_primary_idr: Optional[list[float]] = None        # per concrete block on a primary canal (used when primary_block is "concrete")
+    canal_closure_idr_per_km: Optional[list[float]] = None # per km of canal closed or backfilled (not used when infill segments are priced)
+    canal_closure_segment_idr: Optional[list[float]] = None  # per partial-infill segment (penimbunan package, e.g. 50 m)
+    canal_closure_spacing_m: Optional[float] = None        # one infill segment every this many metres of canal to close
     revegetation_idr_per_ha: Optional[list[float]] = None
     well_idr: Optional[list[float]] = None                 # per deep well (sumur bor)
     well_radius_m: Optional[float] = None                  # area one well covers, for the number of wells

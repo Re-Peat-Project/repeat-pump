@@ -67,3 +67,31 @@ def test_tertiary_blocks_have_their_own_price_and_fall_back_to_the_standard_one(
     assert own.loc[("A", "sekat_tertiary"), "cost_idr"] == 6e6
     fb = budget.price(budget.quantities(UNITS, kept, [], _cfg()), _cfg()).set_index(["subkhg_id", "item"])
     assert fb.loc[("A", "sekat_tertiary"), "cost_idr"] == 18e6                      # no tertiary price: the standard one
+
+
+def test_concrete_primary_blocks_and_the_switch_back_to_wooden():
+    kept = pd.DataFrame({"subkhg_id": ["A"] * 4, "sekat_type": ["standard"] * 3 + ["leaky/reinforced"], "canal_class": ["primer", "sekunder", "Kanal Primer", "primer"]})
+    con = _cfg(primary_block="concrete", sekat_primary_idr=[100e6, 130e6, 150e6])
+    b = budget.price(budget.quantities(UNITS, kept, [], con), con).set_index(["subkhg_id", "item"])
+    assert b.loc[("A", "sekat_primary"), "quantity"] == 2 and b.loc[("A", "sekat_primary"), "cost_idr"] == 260e6
+    assert b.loc[("A", "sekat_standard"), "quantity"] == 1 and b.loc[("A", "sekat_reinforced"), "quantity"] == 1
+    wood = _cfg(primary_block="wooden", sekat_primary_idr=[100e6, 130e6, 150e6])
+    q = budget.quantities(UNITS, kept, [], wood).set_index(["subkhg_id", "item"])["quantity"]
+    assert q[("A", "sekat_standard")] == 3 and ("A", "sekat_primary") not in q.index      # the 1 Nov 2026 pricing
+
+
+def test_ipg_estimate_is_split_by_primary_and_secondary_canal_length():
+    u = UNITS.copy()
+    u.loc[u.subkhg_id == "D", ["u_canal_primary", "u_canal_secondary"]] = [1.0, 3.0]
+    con = _cfg(primary_block="concrete", sekat_primary_idr=[100e6] * 3)
+    q = budget.quantities(u, None, [], con).set_index(["subkhg_id", "item"])["quantity"]
+    assert q[("D", "sekat_ipg_estimate_primary")] == 1.8 and q[("D", "sekat_ipg_estimate")] == 5.2      # 7 x 1/4 and 7 x 3/4 (rounded)
+
+
+def test_canal_closure_priced_by_infill_segments():
+    c = _cfg(canal_closure_segment_idr=[70e6, 80e6, 90e6], canal_closure_spacing_m=500, canal_closure_idr_per_km=[1e9] * 3)
+    b = budget.price(budget.quantities(UNITS, None, [], c), c).set_index(["subkhg_id", "item"])
+    km = (1.0 + 2.0) * 20 * 0.5
+    assert b.loc[("B", "canal_infill_segments"), "quantity"] == math.ceil(km * 1000 / 500)
+    assert b.loc[("B", "canal_infill_segments"), "cost_idr"] == math.ceil(km * 1000 / 500) * 80e6
+    assert pd.isna(b.loc[("B", "canal_closure_km"), "cost_idr"])          # not priced twice
