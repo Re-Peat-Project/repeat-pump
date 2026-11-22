@@ -49,3 +49,14 @@ def test_segments_split_and_flag(world):
     topology.run(ctx2); segments.run(ctx2)
     s2 = ctx2.read_layer("canal_segments")
     assert list(s2.status_mcda) == [1, 1, 0]      # 10 m sliver flagged, kept
+
+
+def test_no_canal_in_the_extent_stops_with_a_clear_message(world):
+    """An area without mapped canals (Rambai-Meliau): Stage 2 says so instead of failing on the empty layer's missing geometry."""
+    import pytest
+    from repeat_pump.core.config import InputError
+    cfg, _ = world
+    ctx = make_ctx(cfg)
+    ctx.write_layer("inputs_clipped_canals", gpd.GeoDataFrame({"canal_class": [], "depth_m": [], "width_m": []}, geometry=[], crs=CRS), "1")
+    with pytest.raises(InputError, match="no canal inside the analysis extent"):
+        topology.run(ctx)

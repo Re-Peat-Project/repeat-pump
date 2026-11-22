@@ -135,3 +135,16 @@ def test_dry_season_et_is_the_june_to_september_mean_of_the_neraca_mod16_dekads(
                                                "A,2020-05-21,2020-06-01,11,99,1,1\nA,2020-06-01,2020-06-11,10,40,1,1\n"
                                                "B,2021-09-21,2021-10-01,10,30,1,1\nB,2021-08-01,2021-08-11,10,,1,1\n", encoding="utf8")
     assert dry_season_et(tmp_path) == 3.5                      # (4.0 + 3.0) / 2; May and the empty value are left out
+
+
+@pytest.mark.parametrize("khg_yaml,units", [("peat_depth: {scale: 1.0}\n", "m"), ("peat_depth: {scale: 0.01}\n", "cm"), (None, "cm")])
+def test_the_local_peat_copy_takes_its_units_from_khg_yaml(tmp_path, khg_yaml, units):
+    """00_inputs/peat_depth.tif is a window of the source in the source's units: a raster in metres (scale 1) is not read as cm."""
+    root, data, hub = tmp_path / "_khg", tmp_path / "_data", tmp_path / "re-peat"
+    k = root / "14.08.04_mandiangin_siak"
+    local = _touch(k / "00_inputs" / "peat_depth.tif")
+    (hub / "sites" / k.name).mkdir(parents=True)
+    if khg_yaml:
+        (hub / "sites" / k.name / "khg.yaml").write_text(khg_yaml)
+    d, _ = khgsetup.setup_from_khg(k, hub=hub, data=data)
+    assert Path(d["inputs"]["peat_depth"]["path"]) == local and d["inputs"]["peat_depth"]["units"] == units

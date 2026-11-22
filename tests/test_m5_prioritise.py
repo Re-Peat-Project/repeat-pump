@@ -111,3 +111,18 @@ def test_segments_outside_selected_subkhg_are_not_scored(world):
     out = s[s.subkhg_id.isna()]
     assert len(out) >= 1 and out.need_score.isna().all() and not out.selected.any()
     assert s[s.subkhg_id.notna()].need_score.notna().all()
+
+
+def test_only_margin_canals_stop_stage6_with_a_clear_message(world):
+    """Canals only in the margin around the selected sub-KHGs (Nahaya-Landak): nothing to score, said plainly, not a numpy error."""
+    from repeat_pump.core.config import InputError
+    cfg, _ = world
+    ctx = make_ctx(cfg)
+    io.run_stage1(ctx)
+    margin = LineString([(X0 + 2050, Y0 + 300), (X0 + 2050, Y0 + 600)])    # in the 100 m margin, outside sub-KHG A
+    ctx.write_layer("inputs_clipped_canals", gpd.GeoDataFrame({"canal_class": ["primer"], "depth_m": 2.0, "width_m": 4.0},
+                                                              geometry=[margin], crs=CRS), "1")
+    for f in (topology.run, hydro.run, segments.run, profiles.run):
+        f(ctx)
+    with pytest.raises(InputError, match="no canal segment to score"):
+        prioritise.run(ctx)
