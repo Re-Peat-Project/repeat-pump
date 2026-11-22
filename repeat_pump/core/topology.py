@@ -78,7 +78,11 @@ def run(ctx) -> None:
     cfg = ctx.cfg
     require(cfg.topology, ["snap_tolerance_m"], "Stage 2", "topology")
     tol = cfg.topology.snap_tolerance_m
-    raw = explode_lines(ctx.read_layer("inputs_clipped_canals"))
+    clipped = ctx.read_layer("inputs_clipped_canals")
+    if not len(clipped):            # an empty layer reads back without a geometry column; say what is wrong instead
+        raise InputError("Stage 2: no canal inside the analysis extent (the selected sub-KHGs and their margin); "
+                         "there is nothing to block. Check inputs.canals, or that this area has mapped canals at all")
+    raw = explode_lines(clipped)
     if cfg.topology.canal_classes:
         raw = filter_canal_classes(raw, cfg.topology.canal_classes, ctx)
     attrs = [c for c in raw.columns if c != "geometry" and c not in ("run_name", "stage")]

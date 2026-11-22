@@ -92,11 +92,14 @@ def setup_from_khg(khg_dir: str | Path, hub: Optional[str | Path] = None, data: 
     else:
         inputs["moisture"] = {"paths": [str(ndmi)], "higher_is_wetter": True}
     peat = None
-    if (k / "00_inputs" / "peat_depth.tif").is_file():          # the KHG's own copy (re-peat local_inputs step), in cm like the source
-        peat = {"path": str(k / "00_inputs" / "peat_depth.tif"), "units": "cm"}
     khg_yaml = hub / "sites" / k.name / "khg.yaml"            # the full-chain settings of this KHG (re-peat tools/khg_pipeline.py init)
-    if peat is None and khg_yaml.is_file():
-        pd_ = (yaml.safe_load(khg_yaml.read_text(encoding="utf8")) or {}).get("peat_depth") or {}
+    pd_ = ((yaml.safe_load(khg_yaml.read_text(encoding="utf8")) or {}).get("peat_depth") or {}) if khg_yaml.is_file() else {}
+    if (k / "00_inputs" / "peat_depth.tif").is_file():          # the KHG's own copy (re-peat local_inputs step): a window of the source,
+        # in the source's units, which khg.yaml peat_depth.scale gives (0.01 cm, 1 m); cm when it says nothing, as re-peat's own sources.
+        # A peer's override of the scale is not in khg.yaml: the re-peat pump step passes --set inputs.peat_depth.units for that.
+        scale = pd_.get("scale", 0.01)
+        peat = {"path": str(k / "00_inputs" / "peat_depth.tif"), "units": "m" if scale in (1, 1.0) else "cm"}
+    if peat is None and pd_:
         raw = str(pd_.get("path") or "").replace("${REPEAT_DATA}", str(data)).replace("${REPEAT_KHG}", str(k.parent))
         if raw and Path(raw).is_file():
             peat = {"path": raw, "units": "cm" if pd_.get("scale") == 0.01 else "m"}

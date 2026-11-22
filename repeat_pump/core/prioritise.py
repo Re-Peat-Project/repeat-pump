@@ -30,7 +30,7 @@ from rasterio.features import geometry_mask
 from rasterio.windows import Window, from_bounds
 from scipy.stats import spearmanr
 
-from .config import ConfigError, MissingParameters, require
+from .config import ConfigError, InputError, MissingParameters, require
 
 RI = {1: 0.0, 2: 0.0, 3: 0.58, 4: 0.90, 5: 1.12, 6: 1.24, 7: 1.32, 8: 1.41, 9: 1.45, 10: 1.49}  # Saaty1980
 
@@ -310,6 +310,12 @@ def run(ctx) -> None:
 
     # ---- scoring on segments with status_mcda == 1
     ok = (segs["status_mcda"] == 1) & segs["subkhg_id"].notna()   # margin canals outside the sub-KHGs are not scored
+    if not ok.any():
+        inside = int(segs["subkhg_id"].notna().sum())
+        raise InputError(f"Stage 6: no canal segment to score: {len(segs)} segment(s), {inside} of them inside a selected sub-KHG"
+                         + (f" (all shorter than {cfg.segments.min_length_m} m)" if inside else
+                            " (the others lie in the margin around the sub-KHGs only)")
+                         + "; there is nothing to block in the selected sub-KHGs")
     norm = pd.DataFrame(index=segs.index[ok])
     if klh:
         parts = klh_scores(segs["burn_freq_n"].to_numpy(float), segs["peat_depth_min_m"].to_numpy(float), segs["moisture_ring_mean"].to_numpy(float),
